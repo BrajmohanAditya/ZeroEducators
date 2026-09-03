@@ -19,8 +19,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # --- IMPORTANT: Change this to the exact folder path of your project on the EC2 server ---
-            # Example: cd /home/ubuntu/tejasDefence or cd /var/www/tejasDefence
-            cd /home/ubuntu/tejasDefence
+            cd /home/ubuntu/ZeroEducators
             
             echo "Pulling latest code from GitHub..."
             git pull origin main
@@ -28,7 +27,7 @@ jobs:
             echo "--- Updating Backend ---"
             cd backend
             npm install
-            pm2 restart tejas-backend # Make sure this matches your pm2 process name
+            pm2 restart zeroeducators-backend
             cd ..
             
             echo "--- Updating Frontend ---"
