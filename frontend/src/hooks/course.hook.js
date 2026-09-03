@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+
 export const useCreateCourseHook = () => {
   const queryClient = useQueryClient();
   return useMutation({
