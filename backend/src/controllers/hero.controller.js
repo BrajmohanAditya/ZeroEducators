@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { Hero } from "../models/hero.schema.js";
 
 // @desc    Create a new Hero item (Exam or Banner)
@@ -13,25 +13,25 @@ export const createHeroItem = async (req, res) => {
     }
     
     if (!file) {
-        return res.status(400).json({ success: false, message: "Image/Icon file is required" });
+      return res.status(400).json({ success: false, message: "Image/Icon file is required" });
     }
 
     if (type === "upcoming_exam" && !title) {
-        return res.status(400).json({ success: false, message: "Exam name (title) is required" });
+      return res.status(400).json({ success: false, message: "Exam name (title) is required" });
     }
 
-    // Upload to cloudinary (similar to course.controller.js)
-    const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-    const uploadRes = await cloudinary.uploader.upload(base64, {
-      folder: "Akash_Academy_Hero",
-       timeout: 120000,
-    });
+    const uploadRes = await uploadToB2(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      "hero"
+    );
 
     const newHeroItem = new Hero({
       type,
       title: title || "", // title is optional for banners
-      imageUrl: uploadRes.secure_url,
-      imageId: uploadRes.public_id,
+      imageUrl: uploadRes.url,
+      imageId: uploadRes.fileKey,
     });
 
     await newHeroItem.save();
@@ -79,9 +79,9 @@ export const deleteHeroItem = async (req, res) => {
       return res.status(404).json({ success: false, message: "Hero item not found" });
     }
 
-    // Delete image from cloudinary
+    // Delete image from Backblaze B2
     if (item.imageId) {
-      await cloudinary.uploader.destroy(item.imageId);
+      await deleteFromB2(item.imageId);
     }
 
     await Hero.findByIdAndDelete(id);

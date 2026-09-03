@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { QualifiedMentor } from "../models/qualifiedMentors.js";
 
 // @desc    Create a Qualified Mentor
@@ -16,13 +16,14 @@ export const createQualifiedMentor = async (req, res, next) => {
     let imageId = "";
 
     if (file) {
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Tejas_Mentors",
-        timeout: 120000,
-      });
-      imageUrl = uploadRes.secure_url;
-      imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "mentors"
+      );
+      imageUrl = uploadRes.url;
+      imageId = uploadRes.fileKey;
     }
 
     const newMentor = new QualifiedMentor({
@@ -81,18 +82,19 @@ export const updateQualifiedMentor = async (req, res, next) => {
     if (file) {
       if (mentor.imageId) {
         try {
-            await cloudinary.uploader.destroy(mentor.imageId);
+          await deleteFromB2(mentor.imageId);
         } catch (e) {
-            console.error("Error deleting old image:", e);
+          console.error("Error deleting old image:", e);
         }
       }
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Tejas_Mentors",
-        timeout: 120000,
-      });
-      mentor.imageUrl = uploadRes.secure_url;
-      mentor.imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "mentors"
+      );
+      mentor.imageUrl = uploadRes.url;
+      mentor.imageId = uploadRes.fileKey;
     }
 
     await mentor.save();
@@ -119,11 +121,11 @@ export const deleteQualifiedMentor = async (req, res, next) => {
     }
 
     if (mentor.imageId) {
-        try {
-            await cloudinary.uploader.destroy(mentor.imageId);
-        } catch (e) {
-            console.error("Error deleting image:", e);
-        }
+      try {
+        await deleteFromB2(mentor.imageId);
+      } catch (e) {
+        console.error("Error deleting image:", e);
+      }
     }
 
     await QualifiedMentor.findByIdAndDelete(id);

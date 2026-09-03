@@ -28,7 +28,7 @@ export const usePaymentHook = () => {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourKeyHere",
           amount: data.order.amount,
           currency: data.order.currency,
-          name: "Tejas Defence",
+          name: "Zero Educators",
           description: "Course Purchase",
           order_id: data.order.id,
           handler: function (response) {

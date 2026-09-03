@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { ENV } from "../config/env.js";
 import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -19,14 +19,18 @@ export const createCourse = async (req, res) => {
       });
     }
     let imageUrl = "";
-    const base64 = `data:${req.file.mimetype};base64,${thumbnail.buffer.toString("base64")}`;
+    let imageId = "";
 
-    const uploadRes = await cloudinary.uploader.upload(base64, {
-      folder: "Akash Acadmy",
-    });
-    imageUrl = uploadRes.secure_url;
-
-    const imageId = uploadRes.public_id;
+    if (thumbnail) {
+      const uploadRes = await uploadToB2(
+        thumbnail.buffer,
+        thumbnail.originalname,
+        thumbnail.mimetype,
+        "courses"
+      );
+      imageUrl = uploadRes.url;
+      imageId = uploadRes.fileKey;
+    }
 
     const newCourse = await Course({
       userId: req.user._id,
@@ -188,16 +192,13 @@ export const deleteCourse = async (req, res, next) => {
     }
 
     if (course.thumbnail_id) {
-      await cloudinary.uploader.destroy(course.thumbnail_id);
+      await deleteFromB2(course.thumbnail_id);
     }
     const modules = await Modules.find({ courseId: courseId });
 
     for (let i = 0; i < modules.length; i++) {
       if (modules[i].Video_id) {
-        // Video udhane ke liye resource_type batana zaruri hai
-        await cloudinary.uploader.destroy(modules[i].Video_id, {
-          resource_type: "video",
-        });
+        await deleteFromB2(modules[i].Video_id);
       }
     }
 
@@ -235,14 +236,16 @@ export const editCourse = async (req, res, next) => {
     // Agar naya thumbnail upload kiya hai toh purana delete karke naya upload karo
     if (thumbnail) {
       if (course.thumbnail_id) {
-        await cloudinary.uploader.destroy(course.thumbnail_id);
+        await deleteFromB2(course.thumbnail_id);
       }
-      const base64 = `data:${thumbnail.mimetype};base64,${thumbnail.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash Acadmy",
-      });
-      course.thumbnail = uploadRes.secure_url;
-      course.thumbnail_id = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        thumbnail.buffer,
+        thumbnail.originalname,
+        thumbnail.mimetype,
+        "courses"
+      );
+      course.thumbnail = uploadRes.url;
+      course.thumbnail_id = uploadRes.fileKey;
     }
 
     if (title) course.title = title;

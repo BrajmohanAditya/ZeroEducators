@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
 
 export const createEbook = async (req, res, next) => {
@@ -20,24 +20,27 @@ export const createEbook = async (req, res, next) => {
     // Upload cover image (thumbnail)
     const thumbnailFile = req.files?.["thumbnail"]?.[0];
     if (thumbnailFile) {
-      const base64Img = `data:${thumbnailFile.mimetype};base64,${thumbnailFile.buffer.toString("base64")}`;
-      const uploadResImg = await cloudinary.uploader.upload(base64Img, {
-        folder: "TejasDefence/ebooks/thumbnails",
-      });
-      imageUrl = uploadResImg.secure_url;
-      imageId = uploadResImg.public_id;
+      const uploadResImg = await uploadToB2(
+        thumbnailFile.buffer,
+        thumbnailFile.originalname,
+        thumbnailFile.mimetype,
+        "ebooks/thumbnails"
+      );
+      imageUrl = uploadResImg.url;
+      imageId = uploadResImg.fileKey;
     }
 
     // Upload PDF
     const pdfFile = req.files?.["pdf"]?.[0];
     if (pdfFile) {
-      const base64Pdf = `data:${pdfFile.mimetype};base64,${pdfFile.buffer.toString("base64")}`;
-      const uploadResPdf = await cloudinary.uploader.upload(base64Pdf, {
-        folder: "TejasDefence/ebooks/pdfs",
-        resource_type: "raw", // PDFs are raw files
-      });
-      pdfUrl = uploadResPdf.secure_url;
-      pdfId = uploadResPdf.public_id;
+      const uploadResPdf = await uploadToB2(
+        pdfFile.buffer,
+        pdfFile.originalname,
+        pdfFile.mimetype,
+        "ebooks/pdfs"
+      );
+      pdfUrl = uploadResPdf.url;
+      pdfId = uploadResPdf.fileKey;
     }
 
     const newEbook = new Ebook({
@@ -113,16 +116,14 @@ export const deleteEbook = async (req, res, next) => {
       });
     }
 
-    // Delete thumbnail from Cloudinary
+    // Delete thumbnail from B2
     if (ebook.thumbnail_id) {
-      await cloudinary.uploader.destroy(ebook.thumbnail_id);
+      await deleteFromB2(ebook.thumbnail_id);
     }
 
-    // Delete PDF from Cloudinary
+    // Delete PDF from B2
     if (ebook.pdf_id) {
-      await cloudinary.uploader.destroy(ebook.pdf_id, {
-        resource_type: "raw", // Raw resource type is required for deleting non-image uploads
-      });
+      await deleteFromB2(ebook.pdf_id);
     }
 
     await Ebook.findByIdAndDelete(id);
@@ -154,31 +155,32 @@ export const editEbook = async (req, res, next) => {
     const thumbnailFile = req.files?.["thumbnail"]?.[0];
     if (thumbnailFile) {
       if (ebook.thumbnail_id) {
-        await cloudinary.uploader.destroy(ebook.thumbnail_id);
+        await deleteFromB2(ebook.thumbnail_id);
       }
-      const base64Img = `data:${thumbnailFile.mimetype};base64,${thumbnailFile.buffer.toString("base64")}`;
-      const uploadResImg = await cloudinary.uploader.upload(base64Img, {
-        folder: "TejasDefence/ebooks/thumbnails",
-      });
-      ebook.thumbnail = uploadResImg.secure_url;
-      ebook.thumbnail_id = uploadResImg.public_id;
+      const uploadResImg = await uploadToB2(
+        thumbnailFile.buffer,
+        thumbnailFile.originalname,
+        thumbnailFile.mimetype,
+        "ebooks/thumbnails"
+      );
+      ebook.thumbnail = uploadResImg.url;
+      ebook.thumbnail_id = uploadResImg.fileKey;
     }
 
     // Handle PDF update
     const pdfFile = req.files?.["pdf"]?.[0];
     if (pdfFile) {
       if (ebook.pdf_id) {
-        await cloudinary.uploader.destroy(ebook.pdf_id, {
-          resource_type: "raw",
-        });
+        await deleteFromB2(ebook.pdf_id);
       }
-      const base64Pdf = `data:${pdfFile.mimetype};base64,${pdfFile.buffer.toString("base64")}`;
-      const uploadResPdf = await cloudinary.uploader.upload(base64Pdf, {
-        folder: "TejasDefence/ebooks/pdfs",
-        resource_type: "raw",
-      });
-      ebook.pdfUrl = uploadResPdf.secure_url;
-      ebook.pdf_id = uploadResPdf.public_id;
+      const uploadResPdf = await uploadToB2(
+        pdfFile.buffer,
+        pdfFile.originalname,
+        pdfFile.mimetype,
+        "ebooks/pdfs"
+      );
+      ebook.pdfUrl = uploadResPdf.url;
+      ebook.pdf_id = uploadResPdf.fileKey;
     }
 
     if (title) ebook.title = title;

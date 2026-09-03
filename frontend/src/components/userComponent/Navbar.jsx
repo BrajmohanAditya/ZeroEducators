@@ -91,25 +91,23 @@ const Navbar = () => {
   return (
     <div className="sticky top-0 z-50 bg-white min-h-[12vh] w-full flex flex-wrap items-center justify-between px-4 md:px-6 py-3 md:py-0 shadow-md border-b-[3px] border-[#d4af37] gap-y-2">
       <div
-        className="flex items-center  order-1 cursor-pointer"
+        className="flex items-center gap-2.5 order-1 cursor-pointer group select-none"
         onClick={() => navigate("/")}
       >
         <img
           src="/logo3rd.png"
-          alt="Tejas Defence Logo"
-          className="h-20 w-auto object-contain drop-shadow-md"
+          alt="Zero Educators Logo"
+          className="h-11 md:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
         />
 
         <h1
-          className="text-2xl lg:text-3xl font-extrabold tracking-tight uppercase drop-shadow-sm"
+          className="text-2xl lg:text-[27px] font-black tracking-tight uppercase flex items-center leading-none"
           style={{
-            color: "#050e08",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
+            fontFamily: "'Outfit', 'Poppins', sans-serif",
           }}
         >
-          Tejas
-          <span style={{ color: "#d4af37" }} className="ml-1">
-            Defence
+          <span className="bg-gradient-to-r from-[#073b75] via-[#0b5cb8] to-[#1976d2] bg-clip-text text-transparent font-black drop-shadow-[0_1px_1px_rgba(7,59,117,0.2)]">
+            ZEROEDUCATORS
           </span>
         </h1>
       </div>

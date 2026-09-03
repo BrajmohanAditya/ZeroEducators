@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 
 const TrendingBar = () => {
   const trendingLinks = [
-    { text: "NDA foundation(9th, 10th, 11th, 12th)", url: "#" },
-    { text: "NDA target 2026", url: "#" },
-    { text: "CDS", url: "#" },
-    { text: "Air force / Navy", url: "#" },
-    { text: "Addmission open now For Dehradun centre", url: "#" },
+    { text: "SBI PO & Clerk Complete Foundation Batch 2026", url: "#" },
+    { text: "IBPS PO / Clerk Target Batch 2026", url: "#" },
+    { text: "RBI Grade B & Assistant Comprehensive Live Course", url: "#" },
+    { text: "RRB PO / Clerk (Pre + Mains) Special Batch", url: "#" },
+    { text: "Banking & Financial Awareness Special Masterclass", url: "#" },
+    { text: "Admissions Open for All Banking Foundation Courses", url: "#" },
   ];
 
   return (

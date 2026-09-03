@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { PremiumStudent } from "../models/premium.student.schema.js";
 
 // @desc    Create a Premium Student
@@ -16,13 +16,14 @@ export const createPremiumStudent = async (req, res, next) => {
     let imageId = "";
 
     if (file) {
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash_Academy_Premium_Students",
-        timeout: 120000,
-      });
-      imageUrl = uploadRes.secure_url;
-      imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "premiumStudents"
+      );
+      imageUrl = uploadRes.url;
+      imageId = uploadRes.fileKey;
     }
 
     const newStudent = new PremiumStudent({
@@ -85,18 +86,19 @@ export const updatePremiumStudent = async (req, res, next) => {
     if (file) {
       if (student.imageId) {
         try {
-            await cloudinary.uploader.destroy(student.imageId);
+          await deleteFromB2(student.imageId);
         } catch (e) {
-            console.error("Error deleting old image:", e);
+          console.error("Error deleting old image:", e);
         }
       }
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash_Academy_Premium_Students",
-        timeout: 120000,
-      });
-      student.imageUrl = uploadRes.secure_url;
-      student.imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "premiumStudents"
+      );
+      student.imageUrl = uploadRes.url;
+      student.imageId = uploadRes.fileKey;
     }
 
     await student.save();
@@ -123,11 +125,11 @@ export const deletePremiumStudent = async (req, res, next) => {
     }
 
     if (student.imageId) {
-        try {
-            await cloudinary.uploader.destroy(student.imageId);
-        } catch (e) {
-            console.error("Error deleting image:", e);
-        }
+      try {
+        await deleteFromB2(student.imageId);
+      } catch (e) {
+        console.error("Error deleting image:", e);
+      }
     }
 
     await PremiumStudent.findByIdAndDelete(id);

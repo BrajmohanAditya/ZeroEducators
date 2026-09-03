@@ -1,5 +1,7 @@
 import { Course } from "../models/course.model.js";
 import { Modules } from "../models/module.model.js";
+import { uploadToB2 } from "../config/b2.js";
+
 export const createModule = async (req, res) => {
   try {
     const { courseId, title } = req.body;
@@ -15,8 +17,12 @@ export const createModule = async (req, res) => {
       });
     }
 
-    const videoUrl = req.file.path;
-    const videoId = req.file.filename;
+    const { url: videoUrl, fileKey: videoId } = await uploadToB2(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      "courseModule"
+    );
 
     const module = await Modules.create({
       courseId,

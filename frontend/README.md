@@ -1,7 +1,7 @@
 //    Command to change .env of frontend and restart server 
 cd ~/Desktop
 ssh -i mern-key.pem ubuntu@13.60.23.20    
-pm2 restart tejas-backend
+pm2 restart zeroeducators-backend
 
 Press Ctrl + O
 Press Enter

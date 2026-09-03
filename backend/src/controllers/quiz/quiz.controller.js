@@ -1,5 +1,5 @@
 import { Quiz } from "../../models/quiz/quiz.model.js";
-import cloudinary from "../../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../../config/b2.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
 
 // Create a new quiz
@@ -36,23 +36,24 @@ export const createQuiz = async (req, res, next) => {
         .status(400)
         .json({ success: false, message: "Logo file is required" });
     }
-    // Upload to cloudinary (similar to course.controller.js)
-    const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-    const uploadRes = await cloudinary.uploader.upload(base64, {
-      folder: "Akash_Academy",
-      timeout: 120000,
-    });
+
+    const uploadRes = await uploadToB2(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      "quizzes"
+    );
 
     const newQuiz = new Quiz({
       nameOfExam,
       quizName,
       duration,
       negativeMark: negativeMark || 0,
-      section: JSON.parse(section),
+      section: typeof section === "string" ? JSON.parse(section) : section,
       totalNoOfQueation,
       totalMarks,
-      logoUrl: uploadRes.secure_url,
-      logoId: uploadRes.public_id,
+      logoUrl: uploadRes.url,
+      logoId: uploadRes.fileKey,
     });
 
     await newQuiz.save();
@@ -131,16 +132,25 @@ export const updateQuiz = async (req, res, next) => {
       }
     }
 
-    // If new logo is uploaded, upload it to Cloudinary
+    // If new logo is uploaded, upload it to Backblaze B2
     if (req.file) {
+      const existingQuiz = await Quiz.findById(quizId);
+      if (existingQuiz?.logoId) {
+        try {
+          await deleteFromB2(existingQuiz.logoId);
+        } catch (e) {
+          console.error("Error deleting old quiz logo:", e);
+        }
+      }
       const file = req.file;
-      const base64 = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash_Academy",
-        timeout: 120000,
-      });
-      updateData.logoUrl = uploadRes.secure_url;
-      updateData.logoId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "quizzes"
+      );
+      updateData.logoUrl = uploadRes.url;
+      updateData.logoId = uploadRes.fileKey;
     }
 
     const updatedQuiz = await Quiz.findByIdAndUpdate(
@@ -180,7 +190,11 @@ export const deleteQuiz = async (req, res, next) => {
       });
     }
     if (deletedQuiz.logoId) {
-      await cloudinary.uploader.destroy(deletedQuiz.logoId);
+      try {
+        await deleteFromB2(deletedQuiz.logoId);
+      } catch (e) {
+        console.error("Error deleting quiz logo:", e);
+      }
     }
     await QuizQuestion.deleteMany({ quizId: quizId });
     return res.status(200).json({
@@ -213,7 +227,6 @@ export const toggleQuizLock = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // Toggle Free/Paid quiz type
 export const toggleQuizType = async (req, res, next) => {

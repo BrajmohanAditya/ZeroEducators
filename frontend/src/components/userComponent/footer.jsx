@@ -275,7 +275,7 @@ const Footer = () => {
                     lineHeight: 1.1,
                   }}
                 >
-                  Tejas Defence
+                  Zero Educators
                 </div>
                 <div
                   style={{
@@ -285,7 +285,7 @@ const Footer = () => {
                     textTransform: "uppercase",
                   }}
                 >
-                  Academy
+                  Learning Platform
                 </div>
               </div>
             </div>
@@ -610,7 +610,7 @@ const Footer = () => {
                   <Mail size={14} style={{ color: "#d4af37" }} />
                 </div>
                 <a
-                  href="mailto:tejaseducationindia20@gmail.com"
+                  href="mailto:contact@zeroeducators.com"
                   style={{
                     fontSize: "13px",
                     color: "#7a9e82",
@@ -625,7 +625,7 @@ const Footer = () => {
                     (e.currentTarget.style.color = "#7a9e82")
                   }
                 >
-                  tejaseducationindia20@gmail.com
+                  contact@zeroeducators.com
                 </a>
               </li>
 
@@ -649,7 +649,7 @@ const Footer = () => {
                   <Globe size={14} style={{ color: "#d4af37" }} />
                 </div>
                 <a
-                  href="https://tejasdefence.com"
+                  href="https://zeroeducators.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -665,7 +665,7 @@ const Footer = () => {
                     (e.currentTarget.style.color = "#7a9e82")
                   }
                 >
-                  tejasdefence.com
+                  zeroeducators.com
                 </a>
               </li>
             </ul>
@@ -798,7 +798,7 @@ const Footer = () => {
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <p style={{ fontSize: "12px", color: "#3d5c43", margin: 0 }}>
-              &copy; {new Date().getFullYear()} Tejas Defence Academy. All
+              &copy; {new Date().getFullYear()} Zero Educators. All
               rights reserved.
             </p>
             <p style={{ fontSize: "11px", color: "#2a402e", margin: 0 }}>

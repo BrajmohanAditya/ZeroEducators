@@ -1,4 +1,4 @@
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2, deleteFromB2 } from "../config/b2.js";
 import { SuccessBoard } from "../models/success.board.model.js";
 
 // @desc    Create a Success Board Student
@@ -16,13 +16,14 @@ export const createSuccessBoard = async (req, res, next) => {
     let imageId = "";
 
     if (file) {
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash_Academy_Success_Board",
-        timeout: 120000,
-      });
-      imageUrl = uploadRes.secure_url;
-      imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "successBoard"
+      );
+      imageUrl = uploadRes.url;
+      imageId = uploadRes.fileKey;
     }
 
     const newStudent = new SuccessBoard({
@@ -83,18 +84,19 @@ export const updateSuccessBoard = async (req, res, next) => {
     if (file) {
       if (student.imageId) {
         try {
-            await cloudinary.uploader.destroy(student.imageId);
+          await deleteFromB2(student.imageId);
         } catch (e) {
-            console.error("Error deleting old image:", e);
+          console.error("Error deleting old image:", e);
         }
       }
-      const base64 = `data:${req.file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const uploadRes = await cloudinary.uploader.upload(base64, {
-        folder: "Akash_Academy_Success_Board",
-        timeout: 120000,
-      });
-      student.imageUrl = uploadRes.secure_url;
-      student.imageId = uploadRes.public_id;
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "successBoard"
+      );
+      student.imageUrl = uploadRes.url;
+      student.imageId = uploadRes.fileKey;
     }
 
     await student.save();
@@ -121,11 +123,11 @@ export const deleteSuccessBoard = async (req, res, next) => {
     }
 
     if (student.imageId) {
-        try {
-            await cloudinary.uploader.destroy(student.imageId);
-        } catch (e) {
-            console.error("Error deleting image:", e);
-        }
+      try {
+        await deleteFromB2(student.imageId);
+      } catch (e) {
+        console.error("Error deleting image:", e);
+      }
     }
 
     await SuccessBoard.findByIdAndDelete(id);

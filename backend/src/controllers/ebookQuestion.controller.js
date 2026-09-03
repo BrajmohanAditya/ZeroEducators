@@ -1,6 +1,6 @@
 import { EbookQuestion } from "../models/eBook/ebookQuestion.model.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
-import cloudinary from "../config/cloudinary.js";
+import { uploadToB2 } from "../config/b2.js";
 
 export const createEbookQuestion = async (req, res, next) => {
   try {
@@ -57,11 +57,13 @@ export const createEbookQuestion = async (req, res, next) => {
 
     let questionImageUrl = "";
     if (req.file) {
-      const base64Img = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
-      const uploadResImg = await cloudinary.uploader.upload(base64Img, {
-        folder: "TejasDefence/ebooks/questions",
-      });
-      questionImageUrl = uploadResImg.secure_url;
+      const uploadResImg = await uploadToB2(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        "ebooks/questions"
+      );
+      questionImageUrl = uploadResImg.url;
     }
 
     const newQuestion = new EbookQuestion({
@@ -170,11 +172,13 @@ export const updateEbookQuestion = async (req, res, next) => {
 
     let questionImageUrl = question.questionImage;
     if (req.file) {
-      const base64Img = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
-      const uploadResImg = await cloudinary.uploader.upload(base64Img, {
-        folder: "TejasDefence/ebooks/questions",
-      });
-      questionImageUrl = uploadResImg.secure_url;
+      const uploadResImg = await uploadToB2(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        "ebooks/questions"
+      );
+      questionImageUrl = uploadResImg.url;
     }
 
     question.chapterNumber = Number(chapterNumber || question.chapterNumber);

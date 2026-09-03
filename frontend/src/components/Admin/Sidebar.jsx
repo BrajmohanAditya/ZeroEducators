@@ -67,7 +67,7 @@ const DashboardSidebar = () => {
           <Menu className="w-6 h-6" />
         </button>
         <h1 className="text-xl font-black text-slate-900 tracking-tight">
-          Tejas Defence
+          Zero Educators
         </h1>
       </div>
 
@@ -85,17 +85,17 @@ const DashboardSidebar = () => {
       >
         <div className="p-4 lg:p-6 border-b border-slate-200 flex justify-between items-center">
           <div className="flex items-center gap-2 lg:gap-3 min-w-0">
-            {/* The Stylized 'K' Monogram */}
-            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-md bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-200/50 shrink-0">
+            {/* The Stylized 'Z' Monogram */}
+            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-md bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-200/50 shrink-0">
               <span className="text-white font-black text-lg lg:text-xl font-sans tracking-tighter">
-                T
+                Z
               </span>
             </div>
 
             {/* Title and Subtitle */}
             <div className="flex flex-col min-w-0">
               <h1 className="text-base lg:text-lg font-black text-slate-900 tracking-tight truncate lg:overflow-visible lg:whitespace-nowrap leading-none">
-                Tejas Defence
+                Zero Educators
               </h1>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
