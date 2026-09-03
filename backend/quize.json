@@ -1,0 +1,756 @@
+[
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p>Select the most appropriate option to fill in the blank.</p> <p>Yesterday, I ate only a _______ of apples for my dinner.</p>",
+    "options": [
+      {
+        "text": "pare",
+        "isCorrect": false
+      },
+      {
+        "text": "pair",
+        "isCorrect": true
+      },
+      {
+        "text": "pier",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"color: rgb(33, 37, 41);\">pear</span>",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is <span style=\"font-weight: 700;\">'2' </span><span style=\"font-weight: 700;\">i.e.</span><span style=\"font-weight: 700;\"> pair.</span></p> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle; font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></p> <ul style=\"\"> <li>The word &#39;pair&#39; is the most appropriate option because it correctly denotes two of something, in this case, apples. <ul> <li>The phrase &#39;a pair of apples&#39; indicates that you ate two apples for dinner.</li> </ul> </li> <li>The other options are incorrect: <ul> <li><strong>Option 1:</strong> &#39;pare&#39; means to trim off the outer skin of something and does not make sense in this context.</li> <li><strong>Option 3:</strong> &#39;pier&#39; refers to a structure projecting into the water, often where boats dock, and is unrelated to apples.</li> <li><strong>Option 4:</strong> &#39;pear&#39; is a type of fruit and is not the correct word for indicating two apples.</li> </ul> </li> </ul> <p> </p> <p style=\"\">Hence, the correct answer is <span style=\"font-weight: 700;\">option 2</span>.</p> <p style=\"\"><span style=\"font-weight: 700;\">Correct sentence:</span> <em>Yesterday, I ate only a pair of apples for my dinner.</em><br /> <br /> <span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle; font-size: 21px;\"><u>Additional Information</u></span></strong></span></span></span></span></span></p> <ul style=\"\"> <li>Choosing the correct homophone is important for clarity in writing. <ul> <li><strong>Example:</strong> <em>I bought a new pair of shoes.</em></li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Choose the incorrectly spelt word.",
+    "options": [
+      {
+        "text": "Positon",
+        "isCorrect": true
+      },
+      {
+        "text": "Source",
+        "isCorrect": false
+      },
+      {
+        "text": "Serious",
+        "isCorrect": false
+      },
+      {
+        "text": "Continue",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is \"<strong>Positon.</strong>\"</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>Among the given options,<strong> the word in option 1 is incorrectly spelled. </strong></li> <li><strong>The correct spelling of the word is \"position\".</strong></li> <li>The incorrect spelling \"positon\" is missing the letter \"i\".</li> <li>The word \"position\" refers to a particular place or location.(<span style=\"\">स्थिति)</span> <ul> <li><span style=\"\">​Example: </span>You are in a strong position to ask for a raise.</li> </ul> </li> </ul> <p>Hence, <strong>the correct answer is option 1</strong>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></p> <ul> <li>Option 2 (Source) is correctly spelled and means a place or thing from which something comes or is obtained.(<span style=\"\">स्रोत)</span></li> <li>Option 3 (Serious) is correctly spelled and means something that is important or significant.(<span style=\"\">गंभीर)</span></li> <li>Option 4 (Continue) is correctly spelled and means to keep doing something without stopping.(<span style=\"\">जारी रखना)</span></li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Directions</strong>: Each of the following items in this section consists of a sentence, parts of which have been jumbled. These parts have been labelled as P, Q, R and S. Given below each sentence are four sequences, namely (a), (b), (c) and (d). You are required to re-arrange the jumbled parts of the sentence and mark your response accordingly.</p> <p>(P) <span style=\"\">he doesn&#39;t see the harm</span> / (Q) he is dishonest, it&#39;s just that / (R) <span style=\"\">it&#39;s not that</span> / (S) in bending the truth</p>",
+    "options": [
+      {
+        "text": "PSRQ",
+        "isCorrect": false
+      },
+      {
+        "text": "QRPS",
+        "isCorrect": false
+      },
+      {
+        "text": "RQPS",
+        "isCorrect": true
+      },
+      {
+        "text": "SPQR",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is \"<span style=\"\"><strong>RQPS</strong>\"</span></p> <p><span style=\"\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></p> <ul> <li>The <strong>sentence</strong> is describing the speaker&#39;s perspective on another person&#39;s honesty.</li> <li>\"<strong>It&#39;s not that he is dishonest</strong>\" is an <strong>independent clause</strong> that functions as the <strong>subject</strong> of the <strong>sentence</strong>, and \"<strong>it&#39;s just that he doesn&#39;t see the harm in bending the truth</strong>\" is an <strong>independent clause</strong> that functions as the <strong>verb phrase</strong>.</li> <li>There are no <strong>modifying phrases</strong> in this <strong>sentence</strong>, so the order should be <strong>subject-verb</strong>.</li> </ul> <p>Thus, <em><strong>option 3</strong></em> is the correct answer.</p> <p><u><strong>Correct sentence</strong></u>: <em><strong>R</strong> it&#39;s not that <span style=\"font-weight: 700; \">Q</span><span style=\"\"> he is dishonest, it&#39;s just that </span><span style=\"font-weight: 700; \">P</span><span style=\"\"> he doesn&#39;t see the harm </span><strong>S</strong> in bending the truth</em></p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><span style=\"font-weight: bolder;\">Directions: In the following question, a sentence is given with four words marked as (A), (B), (C), and (D). These words may or may not be placed in the correct order. Four options with different arrangements of these words have been provided. Mark the option with the correct arrangement as the answer. If no rearrangement is required, mark option (5) as your answer.</span></p> <p><strong>Modern(A)</strong> brides have turned to <strong>artificial(B)</strong> flowers for their bouquets because they are much <strong>cheaper(C)</strong> and always <strong>available(D)</strong>.</p>",
+    "options": [
+      {
+        "text": "A-B",
+        "isCorrect": false
+      },
+      {
+        "text": "B-C",
+        "isCorrect": false
+      },
+      {
+        "text": "C-D",
+        "isCorrect": false
+      },
+      {
+        "text": "No change required",
+        "isCorrect": true
+      },
+      {
+        "text": "A-D",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"color: (33, 37, 41);\">The correct answer is <span style=\"font-weight: 700;\">&#39;</span><span style=\"font-weight: bolder;\">No change required</span>.<span style=\"font-weight: 700;\">&#39;</span></p> <p style=\"color: (33, 37, 41);\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></span></span></span></span></span></span></span></p> <ul style=\"color: (33, 37, 41);\"> <li>The given sentence talks about <strong>modern brides who have turned to artificial flowers for their bouquets because artificial flowers are much cheaper and always available</strong>.</li> <li>Let us explore the meaning of the highlighted words: <ul> <li><span style=\"font-weight: bolder;\">Modern</span><span style=\"font-weight: 700; font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\"> </span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\">- </span><strong>Relating to the present or recent times as opposed to the remote past</strong>. (वर्तमान या हाल का; आधुनिक)</li> <li><span style=\"font-weight: bolder;\">Artificial</span><span style=\"font-weight: 700; font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\"> </span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\">- </span><strong>Not genuine or natural but made by people</strong>. (मानव द्वारा बनाया गया, न कि प्राकृतिक; कृत्रिम, नक़ली; अप्राकृतिक)</li> <li><span style=\"font-weight: bolder;\">Cheaper</span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline;\"><span style=\"font-weight: 700;\"> </span></span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\">- </span><strong>Low in price, costing little money</strong>. (सस्&zwj;ता, कम क़ीमत का)</li> <li><span style=\"font-weight: bolder;\">Available</span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline;\"><span style=\"font-weight: 700;\"> </span></span><span style=\"font-variant-numeric: normal; font-variant-east-asian: normal; vertical-align: baseline; white-space-collapse: preserve;\">- </span><strong>Able to be used or obtained</strong>. (उपलब्&zwj;ध)</li> </ul> </li> <li>Thus, <span style=\"font-weight: bolder;\">no change is required </span>in the sentence.</li> </ul> <p style=\"color: (33, 37, 41);\">Hence, the correct answer is <span style=\"font-weight: 700;\">option 4</span>.</p> <p style=\"color: (33, 37, 41);\"><span style=\"font-weight: 700;\">Correct Sentence:</span> <em>Modern brides have turned to artificial flowers for their bouquets because they are much cheaper and always available</em>.</p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Choose the word which is nearest in meaning to the given word:-</strong></p> <p>Intransigent</p>",
+    "options": [
+      {
+        "text": "Authoritative",
+        "isCorrect": false
+      },
+      {
+        "text": "Impersonal",
+        "isCorrect": false
+      },
+      {
+        "text": "Strenuous",
+        "isCorrect": false
+      },
+      {
+        "text": "Unbending",
+        "isCorrect": true
+      }
+    ],
+    "solutionExplanation": "<div>The correct answer is <strong><u>unbending</u>.</strong></div> <div> </div> <div><strong><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></strong></div> <ul> <li><span style=\"font-weight: 700;\">Intransigent </span>refers to being <span style=\"font-size: 14px;\">unwilling or refusing to change one&#39;s views or to agree about something. (</span>अनिच्छुक होना या किसी के विचारों को बदलने से इनकार करना या किसी बात पर सहमत होना)</li> <li>It is also synonymous to unwillingness, stubborn etc.</li> </ul> <div><img height=\"55px\" src=\"//cdn.testbook.com/images/production/quesImages/quesImage13.png\" width=\"180px\" /> </div> <ul> <li>Let us take a look at what the options mean:​</li> </ul> <ol style=\"margin-left: 40px;\"> <li><span style=\"font-weight: 700;\">Authoritative: </span><span style=\"font-size: 14px;\">able to be trusted as being accurate or true. (</span>सटीक या सत्य होने पर भरोसा करने में सक्षम)</li> <li><span style=\"font-weight: 700;\">Impersonal</span>: <span style=\"font-size: 14px;\">not influenced by, showing, or involving personal feelings. (</span>व्यक्तिगत भावनाओं से प्रभावित, दिखाना या शामिल नहीं करना)</li> <li><span style=\"font-weight: 700;\">Strenuous: </span><span style=\"font-size: 14px;\">requiring or using great effort or exertion. (</span>बहुत प्रयास या परिश्रम की आवश्यकता या उपयोग करना)</li> <li><span style=\"font-weight: 700;\">Unbending: </span><span style=\"font-size: 14px;\">reserved, formal, or strict in one&#39;s behavior or attitudes and inflexible. (</span>आरक्षित, औपचारिक, या किसी के व्यवहार या व्यवहार में सख्त और अनम्य)</li> </ol> <ul> <li>From the above words, it is clear that <strong>&#39;unbending&#39; </strong>is similar to <strong>&#39;intransigent</strong>&#39;. These two words have a lot of common meanings and synonyms and can be used interchangeably. They are generally used in terms of one being unchanging, inflexible, or rigid.</li> <li>Therefore &#39;unbending&#39; is nearest to the word &#39;intransigent.&#39;</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<div><span style=\"font-weight: 700; \">The following questions consist of an incomplete sentence that is split into four parts. All four parts are jumbled up and named P, Q, R, and S. These four parts are not given in their proper order. Arrange the jumbled parts of the sentence and find out which of the four combinations from the given options will correctly complete the sentence.</span></div> <div> </div> <div>The First World War, known at the time________________military personnel and seven million civilians.</div> <div> </div> <div>P. series of calamities that broke the delicate arrangement of European powers, </div> <div>Q. it was an unforeseen war that resulted from a</div> <div>R. as &ldquo;The Great War&rdquo;, was a four-year conflict that spanned the globe involving thirty-two countries in total;</div> <div>S. and ended with the loss of over eleven million </div>",
+    "options": [
+      {
+        "text": "QSPR",
+        "isCorrect": false
+      },
+      {
+        "text": "QPRS",
+        "isCorrect": false
+      },
+      {
+        "text": "RQPS",
+        "isCorrect": true
+      },
+      {
+        "text": "RSQP",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>\"RQPS\"</strong></p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The first part of the sentence is given, and it refers to World War I.</li> <li><strong>Part R</strong> specifies the name of the first world war and the reason behind the name: <ul> <li>as \"The Great War\", was a four-year conflict that spanned the globe&ndash;&ndash;involving thirty-two countries in total;</li> </ul> </li> <li><strong>Part Q </strong>and Part P will follow Part R as they state how the war started: <ul> <li> it was an unforeseen war that resulted from a series of calamities that broke the delicate arrangement of European powers, </li> </ul> </li> <li><strong>Part S </strong>states how the war ended and tells us about the number of casualties. <ul> <li> and ended with the loss of over eleven million military personnel and seven million civilians.</li> </ul> </li> </ul> <div><strong>Hence, the correct passage:</strong> <em><strong>The First World War, known at the time R.</strong> as \"The Great War\", was a four-year conflict that spanned the globe involving thirty-two countries in total;<strong> Q.</strong> it was an unforeseen war that resulted from a <strong>P.</strong> series of calamities that broke the delicate arrangement of European powers,<strong> S. </strong>and ended with the loss of over eleven million <strong>military personnel and seven million civilians.</strong></em></div>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Direction: Read the sentence to find out whether there is any grammatical error in it. The error, if any, will be in one part of the sentence. Spot the error from the given options.</strong></p> <div>The ebb and flow (a) / of the tides are (b) / now understood. (c) / no error (d). </div>",
+    "options": [
+      {
+        "text": "(a)",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">(b)</span>",
+        "isCorrect": true
+      },
+      {
+        "text": "<span style=\"\">(c) </span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">(d) </span>",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is<span style=\"font-weight: 700;\"> &#39;(b)</span><span style=\"font-weight: 700;\">​.&#39;</span></p> <p style=\"\"><span style=\"font-weight: 700;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></span></span></span></span></span></span></span></span></span></p> <ul style=\"\"> <li><span style=\"font-weight: 700;\">​​</span>The error lies in part <span style=\"font-weight: 700;\">&#39;</span><span style=\"font-weight: 700;\">(b)​&#39;</span> of the sentence.</li> <li>A subject is made up of nouns joined by and takes a plural subject unless that subject's intended sense is singular.</li> <li>In this case, the subject <strong>\"The ebb and flow\" </strong>is referring to a single subject, so a singular verb will be used.</li> <li>Hence, <span style=\"font-weight: 700;\">\"are</span><span style=\"font-weight: 700;\">\"​ </span>should be replaced by <span style=\"font-weight: 700;\">\"is</span><span style=\"font-weight: 700;\">\"</span> to make the sentence grammatically correct.</li> <li><span style=\"font-weight: 700;\">Correct sentence</span><em><span style=\"font-weight: 700;\">: </span>The ebb and flow of the tides is now understood. </em></li> </ul> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span> </span></span> </span></span></span></span><span style=\"font-weight: 700;\"> </span></span></span><br /> <span style=\"font-weight: 700;\"> </span></span></span></span></span></p> <ul style=\"\"> <li>Subjects and verbs must AGREE with one another in number (singular or plural).</li> <li>Thus, if a subject is singular, its verb must also be singular. <ul> <li><span style=\"font-weight: 700;\">Example</span><span style=\"font-weight: 700;\">: </span><em>The dog chases the cat.</em></li> </ul> </li> <li>If a subject is plural, its verb must also be plural. <ul> <li><span style=\"font-weight: 700;\">Example</span>: <em>The dogs chase the cat.</em></li> </ul> </li> </ul> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/hinglish-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Hinglish</u></span></strong></span> </span></span></span></span></span></span></p> <ul style=\"\"> <li>​​त्रुटि वाक्य के भाग <span style=\"font-weight: 700;\">&#39;(b)</span><span style=\"font-weight: 700;\">​&#39;</span> <span style=\"font-weight: 700;\"> </span>में है।</li> <li>एक विषय संज्ञाओं से मिलकर बनता है और एक बहुवचन विषय लेता है जब तक कि उस विषय का इच्छित अर्थ एकवचन न हो।</li> <li>इस मामले में, विषय <span style=\"font-weight: 700; \">\"The ebb and flow\"</span> एक ही विषय का जिक्र कर रहा है, इसलिए एकवचन क्रिया का उपयोग किया जाएगा।</li> <li>इसलिए, वाक्य को व्याकरणिक रूप से सही बनाने के लिए <span style=\"font-weight: 700;\">\"are</span><span style=\"font-weight: 700;\">\"</span> को <span style=\"font-weight: 700;\">\"is</span><span style=\"font-weight: 700;\">\"​</span> द्वारा प्रतिस्थापित किया जाना चाहिए।</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p>Select the most appropriate meaning of the given idiom.</p> <p>Blow hot and cold</p>",
+    "options": [
+      {
+        "text": "This one time, for only one time",
+        "isCorrect": false
+      },
+      {
+        "text": "Having no stand, shows favour at one time and unfavoured at another",
+        "isCorrect": true
+      },
+      {
+        "text": "Natural and simple",
+        "isCorrect": false
+      },
+      {
+        "text": "A mental institutional facility",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is \"<strong>Having no stand, shows favour at one time and unfavored at another</strong><span style=\"font-weight: 700;\">.</span>\"</p> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></p> <ul style=\"\"> <li>Idiom means an expression that cannot be understood from the meanings of its separate words but must be learned as a whole. <ul> <li>Example: \"Hit the sack\" means to go to bed in order to sleep. <ul> <li> I've got a busy day tomorrow, so I think I'll hit the sack.</li> </ul> </li> </ul> </li> <li>The given idiom <span style=\"font-weight: 700;\">\"Blow hot and cold\" means </span> <ul> <li><strong>alternate inconsistently between two moods, attitudes, or courses of action.</strong></li> <li>Example: He&#39;s been blowing hot and cold about the trip to Goa.</li> </ul> </li> <li>From the above explanation, it is clear that option 2 describes the correct meaning of the given idiom.</li> </ul> <p style=\"\">Hence, <span style=\"font-weight: 700;\">the correct answer is option 2.</span></p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Choose the word which is nearly opposite in meaning to the given word:</strong></p> <p>Ameliorate</p>",
+    "options": [
+      {
+        "text": "Deteriorate",
+        "isCorrect": true
+      },
+      {
+        "text": "Procrastinate",
+        "isCorrect": false
+      },
+      {
+        "text": "Stagnate",
+        "isCorrect": false
+      },
+      {
+        "text": "Deviate",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>option 1)</strong> i.e. <strong>Deteriorate</strong>.</p> <p><img alt=\"\" height=\"44px\" src=\"//storage.googleapis.com/tb-img/production/21/09/5efdf1c81bbba50d17b52222_16325094508131.png\" width=\"164px\" /> </p> <ul> <li>The word &#39;<strong>Ameliorate</strong>&#39; means to <strong>make better or more tolerable; to grow better</strong>.</li> <li>The <strong>synonyms</strong> of the word are \"<strong>amend, better, enhance, enrich, help, improve, meliorate, perfect, refine, upgrade.\"</strong></li> <li>The<strong> antonym </strong>of the word is &#39;<strong>worsen.&#39;</strong></li> <li>Let&#39;s look at the <strong>meaning </strong>of the given options:- <ul> <li><strong>Deteriorate </strong>- become progressively worse.</li> <li><strong>Procrastinate </strong>- delay or postpone action; put off doing something.</li> <li><strong>Stagnate </strong>- cease developing; become inactive or dull.</li> <li><strong>Deviate </strong>- depart from an established course.</li> </ul> </li> <li>From the given options, the <strong>synonym of</strong> the word &#39;<strong>deteriorate</strong>&#39; is &#39;<strong>worsen</strong>&#39;.</li> <li><strong>Hence</strong>, we can say that &#39;<strong>deteriorate</strong>&#39; is nearly opposite in meaning to the given word.</li> <li><strong>Examples</strong> of &#39;Ameliorate&#39; in a Sentence: <ul> <li>\"<em>These treatments may <strong>ameliorate</strong> distress</em>.\"</li> <li>\"<em>To <strong>ameliorate</strong> this, direct integration of the integral representation of the function is crafted</em>.\"</li> </ul> </li> </ul> <p><img alt=\"\" height=\"55px\" src=\"//storage.googleapis.com/tb-img/production/21/09/5efdf1c81bbba50d17b52222_16325094508172.png\" width=\"180px\" /></p> <ul> <li>When is it better to use \"<strong>ameliorate</strong>\"? If a situation is bad, \"ameliorate\" indicates that the conditions have been made more tolerable.</li> <li><strong>Ameliorate</strong> traces back to \"melior,\" the Latin adjective meaning \"better,\" and is a synonym of the verbs \"better\" and \"improve.\"</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Direction: The given sentence is followed by four phrases/ idioms. Choose the one which can be filled in the blank to make the sentence most meaningful and correct.</strong></p> <div>The manager of the company always tries to ______ the employees who opposed him.</div>",
+    "options": [
+      {
+        "text": "<span style=\"\">Knit the brow</span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">Brow beat </span>",
+        "isCorrect": true
+      },
+      {
+        "text": "<span style=\"\">Curtain lecture </span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">Hang fire</span>",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is- <span style=\"font-weight: 700;\">&#39;Brow beat.&#39;</span></p> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"font-weight: 700;\"><span style=\"vertical-align: middle;\"><u><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></u></span></span></span></p> <ul style=\"\"> <li>Let us see the meanings of the given options: <ul> <li><strong>Knit the brow: </strong>to move the eyebrows together in a way that shows that one is thinking about something or is worried, angry, etc. (भौंहों को एक साथ इस तरह से हिलाना कि यह दर्शाता है कि कोई कुछ सोच रहा है या चिंतित, क्रोधित, आदि है)</li> <li><strong>Brow beat: </strong>to frighten or threaten somebody in order to make him/her do something. (धमकाकर कोई कार्य करवाना; धौंस जमाना)</li> <li><strong>Curtain lecture: </strong>a scolding or rebuke given in private, esp by a wife to her husband. (एक पत्नी द्वारा अपने पति को निजी तौर पर दी गई डांट या फटकार)</li> <li><strong>Hang fire: </strong>delay or be delayed in taking action or progressing. (कार्रवाई या प्रगति करने में देरी)</li> </ul> </li> <li>The option \"brow beat\" is correct in this context.</li> <li><strong>Correct sentence:</strong> <em>The manager of the company always tries to <strong>brow beat </strong>the employees who opposed him.</em></li> </ul> <p style=\"\"><span style=\"font-weight: 700;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span> </span> </span></span> </span></span> </span></span></span><br /> </span> </span></span> </span> </span> <br /> </span></span></p> <ul style=\"\"> <li><strong>Curtain lecture</strong> refers to a scolding or a rebuke given by a wife to her husband in private.</li> <li><strong>&#39;Curtain lecture&#39; </strong>was first used in 1864 as the title of a book written by Mrs. Caudle.</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Choose the most appropriate one-word substitution for the below word.</strong></p> <p>A state of disorder due to the absence or non-recognition of authority or other controlling systems</p>",
+    "options": [
+      {
+        "text": "Neocracy",
+        "isCorrect": false
+      },
+      {
+        "text": "Bureaucracy",
+        "isCorrect": false
+      },
+      {
+        "text": "Anarchy",
+        "isCorrect": true
+      },
+      {
+        "text": "Autocracy",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p dir=\"ltr\">The correct answer is<strong> &ldquo;Anarchy\".</strong></p> <p dir=\"ltr\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /> <strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul dir=\"ltr\"> <li>Anarchy is a state of society without government or law. It describes the absence or non-recognition of authority or other controlling systems.</li> <li>Neocracy refers to a government that is controlled by new or inexperienced people. Bureaucracy implies a system of government in which the most important decisions are made by state officials rather than by elected representatives.</li> <li>Autocracy denotes a system of government by one person with absolute power.</li> <li>Hence, none of the other options besides Anarchy correctly denote a state of disorder due to the absence or non-recognition of authority or other controlling systems.</li> </ul> <p dir=\"ltr\"><strong>Hence, the correct answer is &#39;Option 3&#39;.</strong></p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Directions: </strong>In the following items, a sentence is given with a blank space that is required to be filled with a phrasal verb. Select the most appropriate response from the options provided and mark your response on the Answer Sheet accordingly. </p> <p>The new policy will be ______ next month.</p>",
+    "options": [
+      {
+        "text": "carried on",
+        "isCorrect": false
+      },
+      {
+        "text": "carried out",
+        "isCorrect": true
+      },
+      {
+        "text": "carried over",
+        "isCorrect": false
+      },
+      {
+        "text": "carried in",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<div><span style=\"font-style: normal;\">The correct answer is <strong>Option 2</strong> i.e. <strong>carried out.</strong></span></div> <div><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></div> <ul> <li><span style=\"font-style: normal;\">The sentence indicates that the new policy will be implemented or executed next month.</span></li> <li><span style=\"font-style: normal;\">The phrasal verb <strong>\"carried out\"</strong> means to execute, implement, or put into effect, which fits the context of the policy being initiated next month.</span></li> <li><span style=\"font-style: normal;\">The phrasal verbs <strong>\"carried on,\" \"carried over,\"</strong> and <strong>\"carried in\"</strong> do not fit the context of implementing a policy, making them incorrect choices.</span></li> <li><span style=\"font-style: normal;\">Understanding the meaning of <strong>\"carried out\"</strong> in the context of the sentence helps to clarify that the new policy will be executed next month.</span></li> </ul> <div><span style=\"font-style: normal;\">Therefore, the<strong> correct answer</strong> is- <strong>carried out</strong>.</span></div> <div><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></div> <ul> <li><span style=\"font-style: normal;\"><strong>Carried on</strong> means to continue doing something.</span></li> <li><span style=\"font-style: normal;\"><strong>Carried over</strong> means to extend something to a later time or date.</span></li> <li><span style=\"font-style: normal;\"><strong>Carried in</strong> means to bring something into a place.</span></li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Read the sentence given below to find out if it contains an error. The error, if any, will be in one part of the sentence. If the sentence is error-free, select No error.</strong></p> <p>The deer who (A)/ was injured (B)/ has been sent to the rehabilitation centre. (C)/ No error (D)</p>",
+    "options": [
+      {
+        "text": "A",
+        "isCorrect": true
+      },
+      {
+        "text": "B",
+        "isCorrect": false
+      },
+      {
+        "text": "C",
+        "isCorrect": false
+      },
+      {
+        "text": "D",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is &#39;A&#39; i.e. <strong>this part of the sentence has an error.</strong></p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>When referring to <strong>animals</strong>, the pronoun &#39;that&#39; is more appropriate than &#39;who&#39;.</li> <li>Therefore, it should be &#39;The deer <strong>that</strong> was injured...&#39;</li> <li>Hence, the correct answer is <strong>option 1</strong>.</li> </ul> <p>Correct sentence: <em>The deer <strong>that</strong> was injured has been sent to the rehabilitation centre.</em></p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Directions: Choose the correct synonym (word with similar meaning) of the head word from the four options given and mark the right answer.\n\nVERACITY",
+    "options": [
+      {
+        "text": "correctness",
+        "isCorrect": true
+      },
+      {
+        "text": "contradictory",
+        "isCorrect": false
+      },
+      {
+        "text": "confidentiality",
+        "isCorrect": false
+      },
+      {
+        "text": "confirmatory",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is<span style=\"font-weight: 700;\"> &#39;</span><span style=\"font-weight: 700;\">correctness</span><span style=\"font-weight: 700;\">&#39;</span>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The word &#39;<span style=\"font-weight: 700;\">Veracity</span>&#39; means devotion to telling the truth.</li> <li>The<span style=\"font-weight: 700;\"> synonyms </span>of the word &#39;<span style=\"font-weight: 700;\">Veracity</span>&#39; are <span style=\"font-weight: 700;\">\"correctness, </span><strong>authenticity, genuineness</strong><span style=\"font-weight: 700;\">\".</span></li> <li><span style=\"font-weight: 700;\">From</span> the <span style=\"font-weight: 700;\">synonym</span> of the given word, we can say that the word &#39;<span style=\"font-weight: 700;\">correctness</span>&#39; has the <span style=\"font-weight: 700;\">same</span><span style=\"font-weight: 700;\"> </span><span style=\"font-weight: 700;\">meaning</span>.</li> <li>The word<span style=\"font-weight: 700;\"> &#39;correctness&#39; </span>means<span style=\"font-weight: 700;\"> </span>the quality of being right in an opinion or judgement.<br /> </li> </ul> <p>Hence, the correct answer is <span style=\"font-weight: 700;\">option 1</span>. Let&#39;s see the<span style=\"font-weight: 700;\"> meaning</span> of other given options:-</p> <table border=\"1\" cellpadding=\"1\" cellspacing=\"1\" style=\"background-color: rgb(255, 255, 255);\"> <tbody> <tr> <td style=\"text-align: center;\"><span style=\"font-weight: 700;\"> WORDS </span></td> <td style=\"text-align: center;\"><span style=\"font-weight: 700;\">MEANING</span></td> </tr> <tr> <td style=\"text-align: center;\"> contradictory </td> <td style=\"text-align: center;\"> mutually opposed or inconsistent </td> </tr> <tr> <td style=\"text-align: center;\"> confidentiality </td> <td style=\"text-align: center;\"> the state of keeping or being kept secret or private </td> </tr> <tr> <td style=\"text-align: center;\"> confirmatory </td> <td style=\"text-align: center;\"> serving to make any arrangement or agreement definite or valid </td> </tr> </tbody> </table> <p> </p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></p> <ul> <li>The <span style=\"font-weight: 700;\">antonyms</span> of the word &#39;<span style=\"font-weight: 700;\">Veracity</span>&#39; are <span style=\"font-weight: 700;\">\"</span><strong>deceit, dishonesty, untruthfulness</strong><span style=\"font-weight: 700;\">\".</span></li> <li><span style=\"font-weight: 700;\"><u>Example </u></span><u>of</u><span style=\"font-weight: 700;\"><u> &#39;Veracity</u><u>​&#39; </u></span><u>in a</u><span style=\"font-weight: 700;\"><u> sentence</u>:</span> <ul> <li><em>The chairman disallowed the <strong>veracity</strong> of his report</em>.</li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Select the option that can be used as a one-word substitute for the given group of words.<br /> A small group of people who spend their time together and do not welcome other people into that group",
+    "options": [
+      {
+        "text": "Squad",
+        "isCorrect": false
+      },
+      {
+        "text": "Clique",
+        "isCorrect": true
+      },
+      {
+        "text": "Employees",
+        "isCorrect": false
+      },
+      {
+        "text": "Lobby",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is: <b>Option 2</b>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The word <strong>\"clique\"</strong> means a small group of people who spend their time together and do not welcome other people into that group. (गुट) <ul> <li><strong>Example: </strong>The school was divided into several <strong>cliques,</strong> each with its own interests and activities.</li> </ul> </li> </ul> <p>Therefore, the correct answer is: <strong>Option 2</strong>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></p> <p>Here are the other options explained along with their Hindi meanings and example sentences:</p> <ul> <li><strong>Squad</strong> (दस्ता): A small group of people having a particular task. <ul> <li><strong>Example:</strong> The rescue squad arrived promptly at the scene of the accident.</li> </ul> </li> <li><strong>Employees</strong> (कर्मचारी): People who work for someone. <ul> <li><strong>Example:</strong> The company has over 200 employees working in various departments.</li> </ul> </li> <li><strong>Lobby</strong> (लॉबी): A group of people seeking to influence politicians or public officials on a particular issue. <ul> <li><strong>Example:</strong> The environmental lobby is pushing for new legislation to protect wildlife.</li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p>Sentences of a paragraph are given below in jumbled order. Arrange the sentences in the correct order to form a meaningful and coherent paragraph.</p> <p>A. It consists of a very strong vessel made of aluminium alloy, with a lid that fits tightly on the top.</p> <p>B. The lid can be sealed on to the vessel by means of a rubber ring.</p> <p>C. At the centre of the lid there is a vent, or hole through which steam can escape.</p> <p>D. A pressure cooker is a vessel in which food is cooked in steam under pressure. </p>",
+    "options": [
+      {
+        "text": "DABC",
+        "isCorrect": true
+      },
+      {
+        "text": "DBAC",
+        "isCorrect": false
+      },
+      {
+        "text": "BDAC",
+        "isCorrect": false
+      },
+      {
+        "text": "ABCD",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<div><span style=\"\">The correct answer is <strong>Option (1)</strong></span></div> <div><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></div> <ul> <li><span style=\"\">The paragraph begins with an introduction to the pressure cooker by defining what it is, which is indicated by <strong>sentence D</strong>.</span></li> <li><span style=\"\"><strong>Sentence A</strong> follows as it describes the composition and basic structure of the pressure cooker vessel.</span></li> <li><span style=\"\"><strong>Next, sentence B</strong> explains how the lid is sealed onto the vessel using a rubber ring, adding further detail to its construction.</span></li> <li><span style=\"\"><strong>Finally, sentence C</strong> describes the vent in the lid, which completes the detailed explanation of the pressure cooker&#39;s components.</span></li> </ul> <div><span style=\"\">Therefore, the correct answer is <strong>DABC</strong>.</span></div> <div><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></div> <ul> <li><span style=\"\"><strong>Option 2 (DBAC):</strong> This option disrupts the logical flow by explaining the lid and vent before describing the vessel structure.</span></li> <li><span style=\"\"><strong>Option 3 (BDAC):</strong> This option starts with an explanation of how the lid is sealed, which is not appropriate without first introducing the cooker and its basic structure.</span></li> <li><span style=\"\"><strong>Option 4 (ABCD):</strong> This option begins with a detailed structural description before introducing what a pressure cooker is, making it less coherent.</span></li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Select the most appropriate synonym of the given word.<br /> Sturdy",
+    "options": [
+      {
+        "text": "Fat",
+        "isCorrect": false
+      },
+      {
+        "text": "Weak",
+        "isCorrect": false
+      },
+      {
+        "text": "Solid",
+        "isCorrect": true
+      },
+      {
+        "text": "Vast",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is: <b>Option 3</b> i.e. <b>Solid</b>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The word <strong>\"Sturdy\"</strong> means strongly built or robust, capable of withstanding pressure or force. (मज़बूत) <ul> <li><strong>Example:</strong> The carpenter made a sturdy wooden chair that could easily support heavy weight.</li> </ul> </li> <li><strong>\"Solid\"</strong> refers to something firm, stable, or strong in structure. (ठोस) <ul> <li><strong>Example:</strong> The foundation of the building was solid, ensuring its durability.</li> </ul> </li> <li>Hence, we can infer that the synonym of \"sturdy\" is \"solid\".</li> </ul> <p>Therefore, the correct answer is: <strong>Option 3 - Solid</strong>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></p> <p>Here are the other options explained along with their Hindi meanings and example sentences:</p> <ul> <li><strong>Fat</strong> (मोटा): Having a large amount of excess flesh or body weight. <ul> <li><strong>Example:</strong> The cat grew fat after being fed too many treats.</li> </ul> </li> <li><strong>Weak</strong> (कमज़ोर): Lacking strength or energy; not strong or robust. <ul> <li><strong>Example:</strong> After recovering from illness, he still felt weak and needed rest.</li> </ul> </li> <li><strong>Vast</strong> (विशाल): Very large in size, extent, or amount. <ul> <li><strong>Example:</strong> The desert stretched out as a vast expanse of sand and sky.</li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Select the most appropriate meaning of the given phrase.<br /> Chip off the old block",
+    "options": [
+      {
+        "text": "Someone who is very independent and doesn&#39;t rely on their family for support",
+        "isCorrect": false
+      },
+      {
+        "text": "Someone who is very similar to one or both of their parents, usually in terms of personality or behaviour",
+        "isCorrect": true
+      },
+      {
+        "text": "Someone who is very talented or successful and is considered a rising star.",
+        "isCorrect": false
+      },
+      {
+        "text": "Someone who is very different from their parents and tries to distance themselves from them.",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is: <b>Option 2</b> i.e. Someone who is very similar to one or both of their parents, usually in terms of personality or behavior.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The phrase <strong>\"Chip off the old block\"</strong> refers to a person who closely resembles one or both of their parents, particularly in terms of personality, behavior, or characteristics. (पुराने पेड़ का टुकड़ा: किसी व्यक्ति का अपने माता-पिता के जैसा होना) <ul> <li><strong>Example:</strong> Just like his father, John is a chip off the old block when it comes to being hardworking and disciplined.</li> </ul> </li> <li>This idiom is often used to highlight similarities between a child and their parents, suggesting that the child has inherited certain traits or qualities. (यह वाक्यांश अक्सर बच्चों और उनके माता-पिता के बीच समानताओं को उजागर करता है।) <ul> <li><strong>Example:</strong> Sarah's artistic talents prove she's a chip off the old block; her mother is a renowned painter.</li> </ul> </li> </ul> <p>Therefore, the correct answer is: <strong>Option 2</strong>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></p> <p>Here are the other options explained along with their Hindi meanings and example sentences:</p> <ul> <li><strong>Option 1: Someone who is very independent and doesn't rely on their family for support</strong> (स्वतंत्र व्यक्ति जो अपने परिवार पर निर्भर नहीं करता)। <ul> <li><strong>Example:</strong> Mary has always been independent and doesn't need any help from her family.</li> </ul> </li> <li><strong>Option 3: Someone who is very talented or successful and is considered a rising star</strong> (प्रतिभाशाली व्यक्ति जो उभरता सितारा माना जाता है)। <ul> <li><strong>Example:</strong> Robert is quickly gaining fame in the music industry; he's a rising star.</li> </ul> </li> <li><strong>Option 4: Someone who is very different from their parents and tries to distance themselves from them</strong> (ऐसा व्यक्ति जो अपने माता-पिता से बहुत अलग है और उनसे दूरी बनाना चाहता है)। <ul> <li><strong>Example:</strong> James has always been different from his parents in terms of values and lifestyle.</li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p>The following sentence has been divided into four segments. Identify the segment that has a grammatical error.</p> <p>I am working with him since 2002, / but even today / I am unable / to understand his motives.</p>",
+    "options": [
+      {
+        "text": "I am unable",
+        "isCorrect": false
+      },
+      {
+        "text": "I am working with him since 2002,",
+        "isCorrect": true
+      },
+      {
+        "text": "to understand his motives.",
+        "isCorrect": false
+      },
+      {
+        "text": "but even today",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is<strong> Option 2)</strong></p> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></p> <ul style=\"\"> <li>In the second part of the given sentence, the <span style=\"font-weight: 700;\">present perfect continuous tense</span> should be used instead of the <span style=\"font-weight: 700;\">present continuous tense</span>.</li> <li>Since the action of working with him started in the past (in 2002) and continues to the present, the <span style=\"font-weight: 700;\">correct tense</span> is <strong>present perfect continuous</strong>.</li> <li>The correct form should be <strong>\"<em>I have been working with him since 2002</em>.\"</strong></li> </ul> <p style=\"\">Hence, the correct statement is<strong> \"<em>I<u> have been working with him since 2002</u>, but even today I am unable to understand his motives.\"</em></strong><br /> <br /> <span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></span></span></span></span></p> <ul style=\"\"> <li>The present perfect continuous tense is used to show that something started in the past and has continued up until now.</li> <li>It is formed with <strong>\"have/has been\" + present participle (verb + ing).</strong></li> <li><strong>Example:</strong> <strong><em>She has been reading for two hours.</em></strong></li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>In the following question, choose the word which is opposite in meaning to the given word. </strong></p> <p>Intrinsic</p>",
+    "options": [
+      {
+        "text": "Benefit",
+        "isCorrect": false
+      },
+      {
+        "text": "Acquired",
+        "isCorrect": true
+      },
+      {
+        "text": "Extravagant",
+        "isCorrect": false
+      },
+      {
+        "text": "Intensive",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>&#39;<span style=\"\">Acquired.&#39;</span></strong></p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span> </strong></span></p> <ul> <li><span style=\"\"><strong>Intrinsic </strong>means <strong>&#39;</strong></span>belonging to something as part of its nature; basic (<strong>किसी वस्&zwj;तु की प्रकृति का अंतरंग; मूलभूत</strong>)<strong>&#39;.</strong> <ul> <li><span style=\"\"><strong>​Example:</strong><em> </em></span><em>Maths is an <strong>intrinsic </strong>part of the school curriculum.</em></li> </ul> </li> <li><span style=\"\">Marked option </span><span style=\" font-weight: 700;\">&#39;Acquired&#39; </span><span style=\"\">means<strong> &#39;</strong></span>to gain something by your own efforts, ability or behaviour (<strong>अपने स्वयं के प्रयासों, क्षमता या व्यवहार से कुछ हासिल करना)&#39;.</strong><span style=\"\">​</span> <ul> <li>​<strong>Example: </strong><em>The company has recently <strong>acquired </strong>a new office building in central Boston.</em><span id=\"cke_bm_11382C\" style=\"display: none;\"> </span>​</li> </ul> </li> <li>It is clear that <span style=\"font-weight: 700;\">Intrinsic </span>and<span style=\"font-weight: 700;\"> &#39;Acquired&#39; </span>are <span style=\"font-weight: 700;\">opposite </span>in meaning. <br /> </li> </ul> <p style=\"\">Therefore, the <span style=\"font-weight: 700;\">correct answer</span> is <span style=\"font-weight: 700;\">option 2.</span></p> <p style=\"\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span> </strong></span></p> <ul> <li style=\"\"><span style=\"\"><strong>Benefit </strong>means </span>an advantage or useful effect that something has (<strong>लाभ, हित, फायदा</strong>).</li> <li style=\"\"><strong>Extravagant</strong> <span style=\"\">means </span>spending or costing too much money (<strong>फ़िजूलख़र्च या बेहद महँगा</strong>).</li> <li style=\"\"><span style=\"\"><strong>Intensive </strong>means </span>involving a lot of work or care in a short period of time (<strong>जिसमें सीमित समय में काफी अधिक कार्य या सावधानी की अपेक्षा हो; गहन, प्रबलित</strong>).</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><strong>Direction: Read the sentence to find out whether there is any grammatical error in it. The error, if any, will be in one part of the sentence. Spot the error from the given options.</strong></p> <p>While it is apparent (a) / that biotechnology offers (b) / significant benefits, adequate attention (c) / has not been focused to this vital area (d). </p>",
+    "options": [
+      {
+        "text": "<span style=\"\">(a)</span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">(b)</span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">(c)</span>",
+        "isCorrect": false
+      },
+      {
+        "text": "<span style=\"\">(d)</span>",
+        "isCorrect": true
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is<span style=\"font-weight: 700;\"> &#39;(d)</span><span style=\"font-weight: 700;\">​.&#39;</span></p> <p style=\"\"><span style=\"font-weight: 700;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></p> <ul style=\"\"> <li><span style=\"font-weight: 700;\">​​</span>The error lies in part <span style=\"font-weight: 700;\">&#39;</span><span style=\"font-weight: 700;\">(d)​&#39;</span> of the sentence.</li> <li>The meaning of the phrase<b> &#39;focus on&#39; </b>is centre on, concentrate on, revolve about, revolve around. <ul> <li><span style=\"\">Phrase</span><span style=\"font-weight: 700; \"> &#39;focus on&#39;</span> का अर्थ है केन्द्र पर, ध्यान केन्द्रित करना, चक्कर लगाना, चक्कर लगाना। <ul> <li><span style=\"font-weight: 700;\">Example:</span> <em>Her entire attention <strong>focused on</strong> her children.</em></li> </ul> </li> </ul> </li> <li>Hence, <span style=\"font-weight: 700;\">\"to</span><span style=\"font-weight: 700;\">\"​ </span>should be replaced by <span style=\"font-weight: 700;\">\"on</span><span style=\"font-weight: 700;\">\"</span> to make the sentence grammatically correct.</li> <li><span style=\"font-weight: 700;\">Correct sentence</span><em><span style=\"font-weight: 700;\">: </span>While it is apparent that biotechnology offers significant benefits, adequate attention has not been <strong>focused on</strong> this vital area.</em></li> </ul> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span> </span> </span> </span> </span></span></span></span><span style=\"font-weight: 700;\"> </span></span></span><br /> <span style=\"font-weight: 700;\"> </span></span></span></span></span></p> <ul style=\"\"> <li>Subjects and verbs must AGREE with one another in number (singular or plural).</li> <li>Thus, if a subject is singular, its verb must also be singular. <ul> <li><span style=\"font-weight: 700;\">Example</span><span style=\"font-weight: 700;\">: </span><em>The dog chases the cat.</em></li> </ul> </li> <li>If a subject is plural, its verb must also be plural. <ul> <li><span style=\"font-weight: 700;\">Example</span>: <em>The dogs chase the cat.</em></li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p style=\"\"><span style=\"font-weight: 700;\">Direction: In the following question, there is a related pair of words given. Complete the analogy:</span></p> <p style=\"\">Dissimilar : Contrary : : Outcome : </p>",
+    "options": [
+      {
+        "text": "Calmness",
+        "isCorrect": false
+      },
+      {
+        "text": "Consequence",
+        "isCorrect": true
+      },
+      {
+        "text": "Stormy",
+        "isCorrect": false
+      },
+      {
+        "text": "Conspicuous",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is<span style=\"font-weight: 700;\"> <strong>&#39;</strong></span><strong>Consequence</strong><span style=\"font-weight: 700;\"><span style=\"color: rgb(102, 102, 102);\"><strong>.&#39;</strong><br /> <br /> <span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></span></span></span></span></span></span></span></span></p> <ul style=\"\"> <li>Let us see the meanings of the words given in the question-<span style=\"font-weight: 700;\"> </span><strong>Dissimilar : Contrary​<span style=\"font-weight: 700;\">​​:</span></strong> <ul> <li><span style=\"font-weight: 700;\">Dissimilar: </span>not the same; different. (असदृश; विसदृश, भिन्&zwj;न)</li> <li><span style=\"font-weight: 700;\">Contrary: </span>completely different; opposite. (पूर्णतया भिन्&zwj;न; विपरीत)</li> </ul> </li> <li>In the given pair, the synonym of <span style=\"font-weight: 700;\">&#39;Dissimilar&#39;</span> is <span style=\"font-weight: 700;\">&#39;C</span><span style=\"font-weight: 700;\">ontrary&#39;</span>.</li> <li>The meaning of the word <strong>\"Outcome\" </strong>is <span style=\"\">the result or effect of an action or an event. (किसी क्रिया या घटना का परिणाम या प्रभाव)</span></li> <li>Now, let us explore the meanings of the words from the option: <ul> <li><span style=\"font-weight: 700;\">Calmness: </span>the quality of being peaceful, quiet, and without worry. (शांति)</li> <li><span style=\"font-weight: 700;\">Consequence: </span>something that happens or follows as a result of something else. (परिणाम, नतीजा, फल, प्रभाव)</li> <li><span style=\"font-weight: 700;\">Stormy: </span>involves a lot of angry arguments and strong feelings. (क्रोध और तीव्र भावनाओं से युक्त; संकटपूर्ण)</li> <li><span style=\"font-weight: 700;\">Conspicuous: </span>easily seen or noticed. (सुस्&zwj;पष्&zwj;ट, प्रकट, साफ़, प्रत्&zwj;यक्ष)</li> </ul> </li> <li>The synonym of <strong><span style=\"\">Outcome</span></strong> is <span style=\"font-weight: 700;\">Consequence</span>.</li> <li><u><span style=\"font-weight: 700;\">Complete analogy</span></u><span style=\"font-weight: 700;\"><span style=\"color: rgb(102, 102, 102);\">: </span>Dissimilar : Contrary​​​ : : Outcome : Consequence​</span></li> </ul> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex; gap: 6px; align-items: center;\"><img height=\"26px\" src=\"https://cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><span style=\"font-weight: 700;\"><span style=\"vertical-align: middle; \"><u>Additional Information</u></span></span></span> </span></span> </span></p> <ul style=\"\"> <li>Let us see the synonyms of the given words: <ul> <li><span style=\"font-weight: 700;\">Mundane: Ordinary</span></li> <li><span style=\"font-weight: 700;\">Serious: Significant</span></li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p style=\"\"><span style=\"font-weight: 700;\">The given idiom is followed by four meanings. Choose the one which best expresses the meaning of the given idiom.</span></p> <p>Haul over the coals</p>",
+    "options": [
+      {
+        "text": "To scold",
+        "isCorrect": true
+      },
+      {
+        "text": "To barter",
+        "isCorrect": false
+      },
+      {
+        "text": "To pretend",
+        "isCorrect": false
+      },
+      {
+        "text": "To prevail",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p style=\"\">The correct answer is <span style=\"font-weight: 700;\">&#39;To scold.&#39;</span></p> <p style=\"\"><span style=\"display: flex; gap: 6px; align-items: center;\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span> </span></p> <ul style=\"\"> <li><span style=\"font-weight: 700;\">Let&#39;s look at the meaning of the given word.</span> <ul> <li><span style=\"font-weight: 700;\">​Haul Over the Coals </span>means <span style=\"font-weight: 700;\">\"</span>to criticize sharply; censure ; scold (<strong>तीखी आलोचना करना; निंदा; भला-बुरा कहना</strong>)<strong>\".</strong> <ul> <li><span style=\"font-weight: 700;\">​Example: </span><em>Ritesh was <strong>hauled over the coals</strong> for coming in late for work.</em></li> </ul> </li> <li>​From the above lines, we can say that <span style=\"font-weight: 700;\">\"To scold\" </span>is the correct meaning of the given word.</li> </ul> </li> </ul> <p style=\"\">​​​​​​Hence, <span style=\"font-weight: 700;\">o</span><span style=\"font-weight: 700;\">ption 1 </span>is the correct answer.</p> <p style=\"\"><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span> </strong></span></p> <ul> <li style=\"\"><strong>Barter </strong>means to exchange goods, services, property, etc. for other goods, etc., without using money (<strong>रुपये आदि मुद्रा के बिना वस्&zwj;तुओं, सेवाओं आदि का लेन-देन करना</strong>).</li> <li style=\"\"><strong>Pretend </strong>means to behave in a particular way in order to make other people believe something that is not true (<strong>प्रदर्शन, ढोंग या दिखावा करना</strong>).</li> <li style=\"\"><strong>Prevail </strong>means to exist or be common in a particular place or at a particular time (<strong>स्&zwj;थान-विशेष या समय-विशेष में किसी बात का विद्यमान या प्रचलन में होना</strong>).</li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "<p><span style=\"font-weight: 700;\">Direction: Fill in the blank with the correct Preposition.</span></p> <div>The stories in Arabian Nights are really full ________ excitement.</div>",
+    "options": [
+      {
+        "text": "With",
+        "isCorrect": false
+      },
+      {
+        "text": "For",
+        "isCorrect": false
+      },
+      {
+        "text": "By",
+        "isCorrect": false
+      },
+      {
+        "text": "Of",
+        "isCorrect": true
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is- &#39;<strong>of</strong>.&#39;</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>The correct preposition to fill in the blank is &#39;<strong>of</strong>.&#39;</li> <li>The preposition &#39;<strong>of</strong>&#39; is used to <em>connect particular adjectives (<strong>full</strong></em><em>) and verbs with nouns (<strong>excitement</strong>).</em> <ul> <li><em><strong>Example:</strong> Sarita is fond <strong>of </strong>swimming.</em></li> </ul> </li> <li>Hence <em><strong>option 4 </strong></em>is the correct answer.</li> </ul> <p><strong>The correct sentence will be:</strong> <em>The stories in Arabian Nights are really full <strong>of </strong>excitement.</em></p> <p><em><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/additional-information-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Additional Information</u></span></strong></span></em></p> <ul> <li>Let&#39;s learn the use of other given options: <ul> <li><strong>With:</strong> used to say that people or things are in a place together or are doing something together; using something <ul> <li><strong>Example:</strong> <em>He lives <strong>with </strong>his grandmother.</em></li> </ul> </li> <li><strong>For:</strong> having the purpose of <ul> <li><span style=\"font-weight: 700;\">Example</span><strong>:</strong> <em>This pool is <strong>for </strong>the use of hotel guests only.</em></li> </ul> </li> <li><strong>By:</strong> used to show the person or thing that does something <ul> <li><span style=\"font-weight: 700;\">Example</span><strong>:</strong> <em>The motorcycle was driven <strong>by </strong>a tiny bald man.</em></li> </ul> </li> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Read the following passage carefully and answer the question given below it. Although interactions between humans and wild animals have been explored in the literature, the mechanism for how such experiences influence wellbeing is an area needing further examination. Despite idiographic differences between narratives, a common theme of Relationships and Connectedness between participants and nonhuman animals emerged. The expression of this indicates that human&ndash;dolphin experiences fulfill aspects of the human need for connection and relationships and that the experiences promote wellbeing and environmental behaviors. This is contextualized within an ongoing nature relationship and the importance of a lifelong connection with wildlife, to ensure that humans see themselves as part of the natural world. The narratives reported here describe strong emotional connections, transmitted through both tangible and perceived contact with dolphins, which translate into positive senses of emotion and well-being. The connections described are powerful: perceptions of communion and mutual exchange become articulated through the rhetoric of friendship and kinship. Importantly, it appears that dolphin encounters are signifiers of wider relationships, both with nature and people. In this case, participants are reinforcing established habits of nature connectedness, habits reflecting a lifelong involvement with nonhuman animals.\n\nWhich word, mentioned in the passage, can replace the description \"The art of speaking or writing effectively\"? (Choose the most appropriate answer from the given options)",
+    "options": [
+      {
+        "text": "Rhetoric",
+        "isCorrect": true
+      },
+      {
+        "text": "Reinforcing",
+        "isCorrect": false
+      },
+      {
+        "text": "Idiographic",
+        "isCorrect": false
+      },
+      {
+        "text": "Kinship",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>Rhetoric</strong>.</p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>Let&#39;s understand the meanings of the given words in the options: <ul> <li><strong><u>Rhetoric</u>: </strong><u>a way of speaking or writing that is intended to impress or influence people but is not always sincere (वाग्मिता, वाक्&zwnj;पटुता (प्रभावपूर्ण रीति से या लोगों को प्रभावित करने के लिए कुछ कहने या लिखने की कला, कभी-कभी केवल दिखावे के लिए)</u> <ul> <li>Example: <em>Before long, the same political <strong>rhetoric </strong>was repeated.</em></li> </ul> </li> <li><strong>Reinforcing (</strong>gerund or present participle form of<strong> reinforce): </strong>to make something stronger (अधिक मज़बूत करना, सुदृढ़ करना) <ul> <li>Example: <em>The builders used metal rods to <strong>reinforce </strong>the walls of the building.​​</em></li> </ul> </li> <li><strong>Idiographic: </strong>relating to or dealing with something concrete, individual, or unique (कुछ ठोस, व्यक्तिगत, या अद्वितीय से संबंधित या उससे निपटना) <ul> <li>Example:​ <em>Still, nothing about this idiographic method actually prevents the historian from comparing one event to another.</em></li> </ul> </li> <li><strong>Kinship: </strong>a feeling of being close to somebody because you have similar attitudes or characteristics (समान प्रवृति या व्&zwj;यवहार के कारण बँधुता) <ul> <li>Example:​ <em>They felt a <strong>kinship</strong> with the local peasants.</em></li> </ul> </li> </ul> </li> <li>From the above-given descriptions, it can be inferred that <strong><u>Rhetoric</u> </strong>is the correct word that can replace the given description in the question. </li> </ul> <p><br /> The correct choice is<strong> option 1</strong>.</p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Read the following passage carefully and answer the question given below it. Sphinx, a mythological creature with a lion's body and a human head, is an important image in Egyptian and Greek art and legend. The earliest and most famous example in art is the colossal recumbent Great Sphinx at Giza, Egypt, dating from the reign of King Khafre (4th king of the 4th dynasty). This is known to be a portrait statue of the king, and the sphinx continued as a royal portrait type through most of Egyptian history. Arabs, however, know the Great Sphinx of Giza by the name of Abu al-Hawl, or &ldquo;Father of Terror.&rdquo; Through Egyptian influence, the sphinx became known in Asia, but its meaning there is uncertain. The sphinx did not occur in Mesopotamia until about 1500 BCE when it was clearly imported from the Levant. In appearance, the Asian sphinx differed from its Egyptian model most noticeably in the addition of wings to the leonine body, a feature that continued through its subsequent history in Asia and the Greek world.\n\nWhich of the following is known as the \"Father of Terror\"?",
+    "options": [
+      {
+        "text": "Arabs",
+        "isCorrect": false
+      },
+      {
+        "text": "Egyptian",
+        "isCorrect": false
+      },
+      {
+        "text": "The Great Sphinx",
+        "isCorrect": true
+      },
+      {
+        "text": "The Greek",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>\"The Great Sphinx\".</strong></p> <p><strong><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></strong></p> <ul> <li> When you read the 3rd line of the passage you can see the following sentence: <ul> <li><strong>​</strong><span style=\"\">Arabs, however, know <strong>the Great Sphinx of Giza</strong> by the name of Abu al-Hawl, or <strong>&ldquo;Father of Terror.&rdquo;</strong></span></li> <li><span style=\"\">This sentence shows that the<strong> Great Sphinx of Giza, Abu al-Hawl and Father of Terror </strong>are the same.</span></li> </ul> </li> </ul> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/hinglish-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Hinglish</u></span></strong></span></p> <ul> <li> जब आप passage के तीसरे लाइन को पढ़ेंगे तो आपको यह sentence मिलेगा- <ul> <li><span style=\"font-weight: 700;\">​</span>Arabs, however, know <span style=\"font-weight: 700;\">the Great Sphinx of Giza</span> by the name of Abu al-Hawl, or <span style=\"font-weight: 700;\">&ldquo;Father of Terror.&rdquo;</span></li> <li>यह सेंटेंस बताता है की <span style=\"font-weight: 700; \">Great Sphinx of Giza, Abu al-Hawl </span><span style=\"\">और </span><span style=\"font-weight: 700; \"> Father of Terror </span>सभी एक ही है।</li> </ul> </li> </ul> <p> </p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Read the following passage carefully and answer the question given below it. Sphinx, a mythological creature with a lion's body and a human head, is an important image in Egyptian and Greek art and legend. The earliest and most famous example in art is the colossal recumbent Great Sphinx at Giza, Egypt, dating from the reign of King Khafre (4th king of the 4th dynasty). This is known to be a portrait statue of the king, and the sphinx continued as a royal portrait type through most of Egyptian history. Arabs, however, know the Great Sphinx of Giza by the name of Abu al-Hawl, or &ldquo;Father of Terror.&rdquo; Through Egyptian influence, the sphinx became known in Asia, but its meaning there is uncertain. The sphinx did not occur in Mesopotamia until about 1500 BCE when it was clearly imported from the Levant. In appearance, the Asian sphinx differed from its Egyptian model most noticeably in the addition of wings to the leonine body, a feature that continued through its subsequent history in Asia and the Greek world.\n\nIt can be inferred from the passage that <span style=\"\">the Asian sphinx __________________. </span>(Choose the most appropriate answer from the given options)",
+    "options": [
+      {
+        "text": "has wings as comparison to the original Egyptian sphinx",
+        "isCorrect": true
+      },
+      {
+        "text": "has no similarity",
+        "isCorrect": false
+      },
+      {
+        "text": "doesn&#39;t have subsequent history in the Greek world.",
+        "isCorrect": false
+      },
+      {
+        "text": "has the figure of a tormented woman",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>\"<span style=\"\">has wings as comparison to the original Egyptian sphinx</span>\".</strong></p> <p><strong><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></strong></p> <ul> <li>Look at the <strong>last sentence</strong> of the passage in t<strong>he second last </strong>line: <ul> <li><span style=\"\">In appearance, the Asian sphinx differed from its Egyptian model most noticeably <strong>in the addition of wings</strong> to the leonine body, <strong>a feature that continued through its subsequent history</strong> in Asia and the Greek world.</span></li> <li>This sentence tells about the <strong>addition of wings i</strong>n the <strong>Egyptian model</strong>.</li> <li>Hence, we can conclude that the<span style=\"font-weight: 700; \">\"has wings as comparison to the original Egyptian sphinx\"</span> is the correct option.</li> </ul> </li> </ul> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/hinglish-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Hinglish</u></span></strong></span></p> <ul> <li> पैसेज के नीचे तरफ से दूसरी लाइन का लास्ट सेंटेंस को देखें- <ul> <li>In appearance, the Asian sphinx differed from its Egyptian model most noticeably <span style=\"font-weight: 700;\">in the addition of wings</span> to the leonine body, <span style=\"font-weight: 700;\">a feature that continued through its subsequent history</span> in Asia and the Greek world.</li> <li>यह सेंटेंस हमें <span style=\"font-weight: 700; \">Egyptian model</span><span style=\"\">.</span>में <span style=\"font-weight: 700; \">addition of wings</span> के बारे में बताता है।</li> <li>इसलिए सही उत्तर है <span style=\"font-weight: 700; \">\"has wings as comparison to the original Egyptian sphinx\".</span></li> </ul> </li> </ul> <p> </p>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Read the following passage carefully and answer the question given below it. Sphinx, a mythological creature with a lion's body and a human head, is an important image in Egyptian and Greek art and legend. The earliest and most famous example in art is the colossal recumbent Great Sphinx at Giza, Egypt, dating from the reign of King Khafre (4th king of the 4th dynasty). This is known to be a portrait statue of the king, and the sphinx continued as a royal portrait type through most of Egyptian history. Arabs, however, know the Great Sphinx of Giza by the name of Abu al-Hawl, or &ldquo;Father of Terror.&rdquo; Through Egyptian influence, the sphinx became known in Asia, but its meaning there is uncertain. The sphinx did not occur in Mesopotamia until about 1500 BCE when it was clearly imported from the Levant. In appearance, the Asian sphinx differed from its Egyptian model most noticeably in the addition of wings to the leonine body, a feature that continued through its subsequent history in Asia and the Greek world.\n\n<span style=\"\">the sphinx became known in Asia_____________. </span>(Choose the most appropriate answer from the given options)",
+    "options": [
+      {
+        "text": "and has no resemblance with the original sphinx.",
+        "isCorrect": false
+      },
+      {
+        "text": "because of the Arabs.",
+        "isCorrect": false
+      },
+      {
+        "text": "with the help of Egyptian influence.",
+        "isCorrect": true
+      },
+      {
+        "text": "as a &ldquo;Father of Terror.&rdquo;",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is <strong>\"with the help of Egyptian influence\".</strong></p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li> When you read the <strong>3rd</strong> line in the passage, you will see the following sentence: <ul> <li><span style=\"\"><strong>Through Egyptian influence</strong>, the sphinx became known in Asia.</span></li> </ul> </li> <li><span style=\"\">Hence, <strong>\"with the help of Egyptian influence\"</strong> is the correct answer</span>.</li> </ul> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/hinglish-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Hinglish</u></span></strong></span></p> <ul> <li> <span style=\"\">जब आप passage के <strong>तीसरे</strong> लाइन को पढ़ेंगे तो आपको यह sentence मिलेगा-</span> <ul> <li><span style=\"\">​</span><span style=\"font-weight: 700;\">Through Egyptian influence</span>, the sphinx became known in Asia.</li> </ul> </li> <li>इसलिए <span style=\"font-weight: 700; \">\"with the help of Egyptian influence\" </span>सही उतर है <span style=\"\">​ <span style=\"\"> </span></span> <ul> </ul> </li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Directions: Read the passage given below and answer the questions that follow by choosing the correct/most appropriate options: Large-scale forest degradation and improper carbon sequestration are one of the causes of the recent flooding witnessed in most parts of Karnataka and Kerala over the last two years. Carbon sequestration is a natural/artificial process by which carbon dioxide is removed from the atmosphere and held in solid or liquid form. Researchers at the Indian Institute of Science (IISc), in their latest study report, have found large-scale land cover shaved off, leading to deforestation with degradation, causing 20&ndash;25% of anthropogenic (human-related) carbon emissions, resulting in a regional impact on climate patterns. The loss of forest cover has also modified the local rainfall pattern. The study, 'Carbon Sequestration Potential of the Forest Ecosystems in the Western Ghats: a Global Biodiversity Hotspot', by researchers from the Centre for Ecological Sciences, IISc, on the fragile Western Ghats, investigated landscape dynamics with climate trends and carbon sequestration potential. The analysis indicated that the regions in the southern parts of Western Ghats (WG) in Kerala and part of Karnataka have witnessed large-scale climate changes. The central Western Ghats area (Karnataka) shows a very meager change in temperature (0.05 degrees Celsius increase), while the rainfall shows increasing trends close to 100 mm and increase in rainy days up to two days. The northern portion of the Western Ghats latitudes shows an increasing temperature of 0.5 degrees Celsius, four days increase in the number of rainy days, and an increase in rainfall by between 100 mm and just over 250 mm. These analyses demonstrate that land use has played a major role in moderating micro-climatic conditions in the Western Ghats over a temporal scale. The reduction in rainfall and an increase in temperature can affect carbon stock in the region.\n\nAccording to the passage, what is the meaning of \"Carbon Sequestration\"?",
+    "options": [
+      {
+        "text": "A process in which carbon dioxide is kept in only solid form.",
+        "isCorrect": false
+      },
+      {
+        "text": "A process of removing carbon dioxide from the atmosphere and holding it in solid or liquid form.",
+        "isCorrect": true
+      },
+      {
+        "text": "A process of adding carbon-di-oxide to the atmosphere by taking it out from solid or liquid form.",
+        "isCorrect": false
+      },
+      {
+        "text": "A process of removing moisture from carbon dioxide and keeping it in only liquid form.",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is:<strong> A process of removing carbon dioxide from the atmosphere and holding it in solid or liquid form.</strong></p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul> <li>According to the passage, <strong>If we read the second line carefully</strong><span style=\"font-weight: 700;\"><strong> </strong><em>&#39;</em></span><em><span style=\"\">Carbon sequestration is a natural/artificial process by which carbon dioxide is removed from the atmosphere and held in solid or liquid form.&#39; </span></em><span style=\"\">It clearly state that about Carbon Sequestration.</span></li> <li><strong>From the above line,</strong> one can get the idea<span style=\"\"> <strong>about Carbon Sequestration.</strong></span></li> <li>Expect option 2), all the other options do not substantiate the given passage as it is contradicting the given information.</li> <li>Hence, the most logical and rational inference that can be made is that <span style=\"font-weight: 700;\">option 2</span></li> </ul>",
+    "marks": 1
+  },
+  {
+    "quizId": "6a76d0d2ded233bc810dc0ee",
+    "sectionName": "English",
+    "questionText": "Directions: Read the passage given below and answer the questions that follow by choosing the correct/most appropriate options: Large-scale forest degradation and improper carbon sequestration are one of the causes of the recent flooding witnessed in most parts of Karnataka and Kerala over the last two years. Carbon sequestration is a natural/artificial process by which carbon dioxide is removed from the atmosphere and held in solid or liquid form. Researchers at the Indian Institute of Science (IISc), in their latest study report, have found large-scale land cover shaved off, leading to deforestation with degradation, causing 20&ndash;25% of anthropogenic (human-related) carbon emissions, resulting in a regional impact on climate patterns. The loss of forest cover has also modified the local rainfall pattern. The study, 'Carbon Sequestration Potential of the Forest Ecosystems in the Western Ghats: a Global Biodiversity Hotspot', by researchers from the Centre for Ecological Sciences, IISc, on the fragile Western Ghats, investigated landscape dynamics with climate trends and carbon sequestration potential. The analysis indicated that the regions in the southern parts of Western Ghats (WG) in Kerala and part of Karnataka have witnessed large-scale climate changes. The central Western Ghats area (Karnataka) shows a very meager change in temperature (0.05 degrees Celsius increase), while the rainfall shows increasing trends close to 100 mm and increase in rainy days up to two days. The northern portion of the Western Ghats latitudes shows an increasing temperature of 0.5 degrees Celsius, four days increase in the number of rainy days, and an increase in rainfall by between 100 mm and just over 250 mm. These analyses demonstrate that land use has played a major role in moderating micro-climatic conditions in the Western Ghats over a temporal scale. The reduction in rainfall and an increase in temperature can affect carbon stock in the region.\n\nWhat will be the effect of the reduction in rainfall in the region?",
+    "options": [
+      {
+        "text": "Carbon Stocking",
+        "isCorrect": true
+      },
+      {
+        "text": "Increase in Temperature",
+        "isCorrect": false
+      },
+      {
+        "text": "Carbon Emission",
+        "isCorrect": false
+      },
+      {
+        "text": "Loss of forest",
+        "isCorrect": false
+      }
+    ],
+    "solutionExplanation": "<p>The correct answer is </p> <p><span style=\"display: flex;gap: 6px;align-items: center;\"><img height=\"26px\" src=\"//cdn.testbook.com/resources/lms_creative_elements/key-point-image.png\" width=\"26px\" /><strong><span style=\"vertical-align: middle;font-size: 21px;\"><u>Key Points</u></span></strong></span></p> <ul style=\"\"> <li>According to the passage, <span style=\"font-weight: 700;\">If we read the last line carefully<em> &#39;</em></span><em><span style=\"\">The reduction in rainfall and an increase in temperature can affect carbon stock in the region.&#39;</span></em><strong><span style=\"\"> It clearly states that less rainfall and high temperature can impact the carbon stocking in the region.</span></strong></li> <li><span style=\"font-weight: 700;\">From the above line,</span> one can get the idea about <span style=\"font-weight: 700;\">Carbon Stocking,</span></li> <li>The other given options do not substantiate the given passage as it is contradicts the given information.</li> <li><span style=\"font-weight: 700;\">Thus, It is clearly indicated </span>that <em>&#39;<span style=\"\">less rainfall and high temperature can impact the carbon stocking in the region.&#39;</span></em></li> <li>Hence, the most logical and rational inference that can be made is that <span style=\"font-weight: 700;\">option 1.</span></li> </ul>",
+    "marks": 1
+  }
+]

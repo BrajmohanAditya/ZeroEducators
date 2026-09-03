@@ -1,0 +1,25 @@
+  {
+    "ebookId": "6a6d8945497590ecd56774d8",
+    "chapterNumber": 9,
+    "chapterName": "Matrix and Determinant",
+    "questionText": "If the matrix $$\\begin{pmatrix} cos \\theta & sin \\theta & 0 \\\\ sin \\theta & cos \\theta & 0 \\\\ 0 & 0 & 1 \\end{pmatrix}$$ is singular, then what is one of the values of $\\theta$ ?",
+    "optionsInstruction": "",
+    "options": [
+      {
+        "text": "$\\pi$ /4",
+        "isCorrect": false
+      },
+      {
+        "text": "$\\pi$ /2",
+        "isCorrect": false
+      },
+      {
+        "text": "$\\pi$",
+        "isCorrect": false
+      },
+      {
+        "text": "0",
+        "isCorrect": false
+      }
+    ]
+  } 

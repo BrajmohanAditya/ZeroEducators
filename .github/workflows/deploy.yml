@@ -1,0 +1,43 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main # Change this if your main branch is named 'master'
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy using SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # --- IMPORTANT: Change this to the exact folder path of your project on the EC2 server ---
+            # Example: cd /home/ubuntu/tejasDefence or cd /var/www/tejasDefence
+            cd /home/ubuntu/tejasDefence
+            
+            echo "Pulling latest code from GitHub..."
+            git pull origin main
+            
+            echo "--- Updating Backend ---"
+            cd backend
+            npm install
+            pm2 restart tejas-backend # Make sure this matches your pm2 process name
+            cd ..
+            
+            echo "--- Updating Frontend ---"
+            cd frontend
+            npm install
+            npm run build
+            
+            echo "Copying new build to Nginx folder..."
+            sudo rm -rf /var/www/html/*
+            sudo cp -r dist/* /var/www/html/
+            
+            echo "Deployment Completed Successfully!"
