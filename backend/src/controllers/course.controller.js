@@ -1,4 +1,4 @@
-import { uploadToB2, deleteFromB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 import { ENV } from "../config/env.js";
 import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";

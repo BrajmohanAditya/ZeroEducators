@@ -1,6 +1,6 @@
 import { Course } from "../models/course.model.js";
 import { Modules } from "../models/module.model.js";
-import { uploadToB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2 } from "../config/zata.js";
 
 export const createModule = async (req, res) => {
   try {

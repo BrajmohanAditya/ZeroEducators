@@ -1,5 +1,5 @@
 import { Quiz } from "../../models/quiz/quiz.model.js";
-import { uploadToB2, deleteFromB2 } from "../../config/b2.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../../config/zata.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
 
 // Create a new quiz

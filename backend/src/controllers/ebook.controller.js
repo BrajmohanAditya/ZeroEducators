@@ -1,4 +1,4 @@
-import { uploadToB2, deleteFromB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
 
 export const createEbook = async (req, res, next) => {

@@ -1,4 +1,4 @@
-import { uploadToB2, deleteFromB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 import { PremiumStudent } from "../models/premium.student.schema.js";
 
 // @desc    Create a Premium Student

@@ -1,6 +1,6 @@
 import { EbookQuestion } from "../models/eBook/ebookQuestion.model.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
-import { uploadToB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2 } from "../config/zata.js";
 
 export const createEbookQuestion = async (req, res, next) => {
   try {

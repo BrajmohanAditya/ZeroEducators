@@ -1,4 +1,4 @@
-import { uploadToB2, deleteFromB2 } from "../config/b2.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 import { Hero } from "../models/hero.schema.js";
 
 // @desc    Create a new Hero item (Exam or Banner)
