@@ -581,7 +581,7 @@ const Footer = () => {
                   <Phone size={14} style={{ color: "#60a5fa" }} />
                 </div>
                 <a
-                  href="tel:+919310036365"
+                  href="tel:+919119202035"
                   style={{
                     fontSize: "13px",
                     color: "#94a3b8",
@@ -595,7 +595,7 @@ const Footer = () => {
                     (e.currentTarget.style.color = "#94a3b8")
                   }
                 >
-                  +91 93100 36365
+                  +91 91192 02035
                 </a>
               </li>
 
@@ -814,12 +814,12 @@ const Footer = () => {
               Designed & Developed by{" "}
               <strong style={{ color: "#94a3b8" }}>IITNS</strong> | Contact:{" "}
               <a
-                href="https://wa.me/919310036365"
+                href="https://wa.me/919119202035"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "#94a3b8", textDecoration: "none" }}
               >
-                WhatsApp (+91 93100 36365)
+                WhatsApp (+91 91192 02035)
               </a>
             </p>
           </div>
