@@ -2,15 +2,17 @@ import mongoose from "mongoose";
 
 const quizSchema = new mongoose.Schema(
   {
+    examId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+    },
     nameOfExam: {
-      // Banking, SSC , Railway
+      // Banking, SSC , Railway (kept for backward compatibility or populated from Exam)
       type: String,
-      required: true,
       trim: true,
     },
     logoUrl: {
       type: String,
-      required: true,
     },
     logoId: {
       type: String,
@@ -53,7 +55,7 @@ const quizSchema = new mongoose.Schema(
     },
     isLocked: {
       type: Boolean,
-      default: true, // Default 'true' rakhein taaki test bante hi galti se live na ho jaye
+      default: true,
     },
     quizType: {
       type: String,

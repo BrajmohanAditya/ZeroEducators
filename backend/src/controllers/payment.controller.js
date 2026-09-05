@@ -23,6 +23,37 @@ export const createCheckOutSession = async (req, res, next) => {
       });
     }
 
+    // If course is Free, enroll user directly without Razorpay gateway!
+    if (Number(course.amount) === 0 || course.isFree) {
+      const user = await User.findById(req.user._id);
+      const alreadyEnrolled = user?.purchasedCourse?.some(
+        (id) => id.toString() === courseId.toString()
+      );
+
+      if (!alreadyEnrolled) {
+        await User.findByIdAndUpdate(req.user._id, {
+          $addToSet: { purchasedCourse: courseId },
+        });
+
+        const freeOrder = new Order({
+          user: req.user._id,
+          course: courseId,
+          totalAmount: 0,
+          razorpayPaymentId: `FREE_${Date.now()}`,
+        });
+        await freeOrder.save();
+      }
+
+      return res.status(200).json({
+        success: true,
+        isFree: true,
+        courseId,
+        message: alreadyEnrolled
+          ? "You are already enrolled in this course!"
+          : "Enrolled in free course successfully!",
+      });
+    }
+
     // 1. Order Options banayein
     const options = {
       amount: Math.round(course.amount * 100), // Amount ko paise mein convert karna zaroori hai

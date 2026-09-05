@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 
 export const isLoggedIn = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
+    const token = req.cookies?.token || req.query?.token;
 
     if (!token) {
       return res

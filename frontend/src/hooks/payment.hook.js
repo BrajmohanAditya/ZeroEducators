@@ -23,6 +23,12 @@ export const usePaymentHook = () => {
   return useMutation({
     mutationFn: purchaseCourseApi,
     onSuccess: (data) => {
+      if (data.isFree) {
+        toast.success(data.message || "Enrolled in course successfully!");
+        window.location.href = `/SinglePurchasedCourse/${data.courseId}`;
+        return;
+      }
+
       if (data.order) {
         const options = {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourKeyHere",

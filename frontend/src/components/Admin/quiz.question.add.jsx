@@ -150,7 +150,7 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
   const optionLabels = ["A", "B", "C", "D"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10 shrink-0">

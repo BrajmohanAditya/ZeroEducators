@@ -26,10 +26,10 @@ export const useCreateQuizHook = () => {
   });
 };
 
-export const useGetQuizzesHook = (quizType) => {
+export const useGetQuizzesHook = (params) => {
   return useQuery({
-    queryFn: () => getQuizzesApi(quizType),
-    queryKey: ["getQuizzes", quizType], // Include quizType in queryKey for proper caching
+    queryFn: () => getQuizzesApi(params),
+    queryKey: ["getQuizzes", params],
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

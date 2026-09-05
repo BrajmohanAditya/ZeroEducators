@@ -84,16 +84,7 @@ const courseSection = () => {
                   </div>
 
                   {/* Highlights Badges */}
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/80 border border-blue-100 rounded-lg text-xs font-semibold text-blue-800 shadow-sm w-fit">
-                      <Zap className="w-3.5 h-3.5 text-blue-600 fill-blue-100 animate-pulse" />
-                      <span>20 Online & 20 Offline Mocks + Daily Live Test</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50/80 border border-purple-100 rounded-lg text-xs font-semibold text-purple-800 shadow-sm w-fit">
-                      <MessageSquare className="w-3.5 h-3.5 text-purple-600 fill-purple-100" />
-                      <span>30 Min Spoken English Session</span>
-                    </div>
-                  </div>
+
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-slate-200">

@@ -53,16 +53,41 @@ const SingleCourse = () => {
 
           {/* Price + CTA */}
           <div className="pt-4 border-t border-slate-100">
-            <div className="mb-4">
-              <span className="text-3xl font-black text-slate-900">₹{course?.amount}</span>
-              <span className="ml-3 text-slate-400 line-through">₹{Math.round(course?.amount * 1.3)}</span>
+            <div className="mb-4 flex items-baseline">
+              {course?.isFree || Number(course?.amount) === 0 ? (
+                <>
+                  <span className="text-3xl font-black text-emerald-600">FREE</span>
+                  <span className="ml-2.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                    100% OFF
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-3xl font-black text-slate-900">₹{course?.amount}</span>
+                  <span className="ml-3 text-slate-400 line-through">₹{Math.round(course?.amount * 1.3)}</span>
+                </>
+              )}
             </div>
             <button
               disabled={isPending}
               onClick={purchaseHandler}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/25 active:scale-[0.98] disabled:opacity-60"
+              className={`w-full flex items-center justify-center gap-2 py-3.5 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
+                course?.isFree || Number(course?.amount) === 0
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
+                  : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/25"
+              }`}
             >
-              {isPending ? <Loader2 className="animate-spin w-5 h-5" /> : <><ShieldCheck className="w-5 h-5" /> Enroll Now</>}
+              {isPending ? (
+                <Loader2 className="animate-spin w-5 h-5" />
+              ) : course?.isFree || Number(course?.amount) === 0 ? (
+                <>
+                  <ShieldCheck className="w-5 h-5" /> Enroll for Free
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-5 h-5" /> Enroll Now
+                </>
+              )}
             </button>
           </div>
         </div>

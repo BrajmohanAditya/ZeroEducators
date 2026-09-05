@@ -29,7 +29,34 @@ const StudyMaterial = () => {
   const { data: paidData, isLoading: isPaidLoading } =
     useGetQuizzesHook("Paid");
   const paidQuizzes = paidData?.quizzes || [];
-  // ... rest of your code
+
+  // Group Free Quizzes by Exam so only Exam name appears (e.g. "SBI PO")
+  const freeExamsMap = new Map();
+  freeQuizzes.forEach((quiz) => {
+    const examKey = quiz.examId?._id || quiz.nameOfExam;
+    if (examKey && !freeExamsMap.has(examKey)) {
+      freeExamsMap.set(examKey, {
+        id: quiz.examId?._id || quiz.examId,
+        name: quiz.examId?.title || quiz.nameOfExam || "Exam",
+        logoUrl: quiz.examId?.logoUrl || quiz.logoUrl,
+      });
+    }
+  });
+  const freeExams = Array.from(freeExamsMap.values());
+
+  // Group Paid Quizzes by Exam so only Exam name appears (e.g. "SBI PO")
+  const paidExamsMap = new Map();
+  paidQuizzes.forEach((quiz) => {
+    const examKey = quiz.examId?._id || quiz.nameOfExam;
+    if (examKey && !paidExamsMap.has(examKey)) {
+      paidExamsMap.set(examKey, {
+        id: quiz.examId?._id || quiz.examId,
+        name: quiz.examId?.title || quiz.nameOfExam || "Exam",
+        logoUrl: quiz.examId?.logoUrl || quiz.logoUrl,
+      });
+    }
+  });
+  const paidExams = Array.from(paidExamsMap.values());
 
   const cards = [
     {
@@ -42,34 +69,26 @@ const StudyMaterial = () => {
           <div className="relative w-6 h-6 bg-red-500 rounded-full shadow-lg border-2 border-white"></div>
         </div>
       ),
-      items: [...freeQuizzes]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 4)
-        .map((quiz, index) => {
-          // Keep rotating background colors for a nice UI
-          const bgStyles = [
-            "bg-purple-100",
-            "bg-orange-100",
-            "bg-amber-100",
-          "bg-teal-100",
-        ];
-
-        const bg = bgStyles[index % bgStyles.length];
-
+      items: freeExams.slice(0, 4).map((exam) => {
         return {
-          name: quiz.nameOfExam || "Unknown Exam",
-          action: () => navigate("/quizeDetail?type=Free"),
-          icon: quiz.logoUrl ? (
+          name: exam.name,
+          action: () => {
+            navigate(
+              exam.id
+                ? `/quizeDetail?type=Free&examId=${exam.id}`
+                : "/quizeDetail?type=Free"
+            );
+          },
+          icon: exam.logoUrl ? (
             <img
-              src={quiz.logoUrl}
-              alt={quiz.nameOfExam || "Exam logo"}
+              src={exam.logoUrl}
+              alt={exam.name}
               className="w-14 h-14 object-contain hover:scale-110 transition-transform rounded-lg mix-blend-multiply"
             />
           ) : (
-            // Fallback icon just in case a quiz doesn't have a logo
             <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200" />
           ),
-          iconBg: "", // Empty to prevent the colored background circle
+          iconBg: "",
         };
       }),
     },
@@ -84,20 +103,26 @@ const StudyMaterial = () => {
           strokeWidth={1}
         />
       ),
-      items: paidQuizzes.slice(0, 4).map((quiz, index) => {
+      items: paidExams.slice(0, 4).map((exam) => {
         return {
-          name: quiz.nameOfExam || "Unknown Exam",
-          action: () => navigate("/quizeDetail?type=Paid"),
-          icon: quiz.logoUrl ? (
+          name: exam.name,
+          action: () => {
+            navigate(
+              exam.id
+                ? `/quizeDetail?type=Paid&examId=${exam.id}`
+                : "/quizeDetail?type=Paid"
+            );
+          },
+          icon: exam.logoUrl ? (
             <img
-              src={quiz.logoUrl}
-              alt={quiz.nameOfExam || "Exam logo"}
+              src={exam.logoUrl}
+              alt={exam.name}
               className="w-14 h-14 object-contain hover:scale-110 transition-transform rounded-lg mix-blend-multiply"
             />
           ) : (
             <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200" />
           ),
-          iconBg: "", // Empty to prevent the colored background circle
+          iconBg: "",
         };
       }),
     },

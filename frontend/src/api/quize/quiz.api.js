@@ -14,11 +14,20 @@ export const createQuizApi = async (payload) => {
     return res.data;
 };
 
-export const getQuizzesApi = async (quizType) => {
-    // Construct the URL with query parameters if quizType is provided
+export const getQuizzesApi = async (params) => {
     let url = `${baseUrl}/quiz/getQuizzes`;
-    if (quizType) {
-        url += `?quizType=${quizType}`;
+    const queryParts = [];
+
+    // Support both getQuizzesApi("Free") and getQuizzesApi({ quizType: "Free", examId: "..." })
+    if (typeof params === "string") {
+        queryParts.push(`quizType=${encodeURIComponent(params)}`);
+    } else if (params && typeof params === "object") {
+        if (params.quizType) queryParts.push(`quizType=${encodeURIComponent(params.quizType)}`);
+        if (params.examId) queryParts.push(`examId=${encodeURIComponent(params.examId)}`);
+    }
+
+    if (queryParts.length > 0) {
+        url += `?${queryParts.join("&")}`;
     }
 
     const res = await axios.get(url, {

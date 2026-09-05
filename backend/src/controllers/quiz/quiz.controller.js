@@ -1,4 +1,5 @@
 import { Quiz } from "../../models/quiz/quiz.model.js";
+import { Exam } from "../../models/quiz/exam.model.js";
 import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../../config/zata.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
 
@@ -6,6 +7,7 @@ import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
 export const createQuiz = async (req, res, next) => {
   try {
     const {
+      examId,
       nameOfExam,
       quizName,
       duration,
@@ -13,12 +15,31 @@ export const createQuiz = async (req, res, next) => {
       section,
       totalNoOfQueation,
       totalMarks,
+      quizType,
     } = req.body;
 
     const file = req.file;
 
+    let finalExamName = nameOfExam;
+    let finalLogoUrl = "";
+    let finalLogoId = "";
+
+    // If examId is provided, retrieve exam details
+    if (examId) {
+      const exam = await Exam.findById(examId);
+      if (!exam) {
+        return res.status(404).json({
+          success: false,
+          message: "Selected exam not found",
+        });
+      }
+      finalExamName = finalExamName || exam.title;
+      finalLogoUrl = exam.logoUrl;
+      finalLogoId = exam.logoId;
+    }
+
     if (
-      !nameOfExam ||
+      !finalExamName ||
       !quizName ||
       !duration ||
       !section ||
@@ -31,29 +52,34 @@ export const createQuiz = async (req, res, next) => {
       });
     }
 
-    if (!req.file) {
+    // If a specific logo file is uploaded, upload to B2
+    if (file) {
+      const uploadRes = await uploadToB2(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        "quizzes"
+      );
+      finalLogoUrl = uploadRes.url;
+      finalLogoId = uploadRes.fileKey;
+    } else if (!finalLogoUrl) {
       return res
         .status(400)
-        .json({ success: false, message: "Logo file is required" });
+        .json({ success: false, message: "Logo is required" });
     }
 
-    const uploadRes = await uploadToB2(
-      file.buffer,
-      file.originalname,
-      file.mimetype,
-      "quizzes"
-    );
-
     const newQuiz = new Quiz({
-      nameOfExam,
+      examId: examId || undefined,
+      nameOfExam: finalExamName,
       quizName,
-      duration,
-      negativeMark: negativeMark || 0,
+      duration: Number(duration),
+      negativeMark: Number(negativeMark) || 0,
       section: typeof section === "string" ? JSON.parse(section) : section,
-      totalNoOfQueation,
-      totalMarks,
-      logoUrl: uploadRes.url,
-      logoId: uploadRes.fileKey,
+      totalNoOfQueation: Number(totalNoOfQueation),
+      totalMarks: Number(totalMarks),
+      quizType: quizType || "Free",
+      logoUrl: finalLogoUrl,
+      logoId: finalLogoId,
     });
 
     await newQuiz.save();
@@ -71,7 +97,7 @@ export const createQuiz = async (req, res, next) => {
 // Get all quizzes
 export const getQuizzes = async (req, res, next) => {
   try {
-    const { quizType } = req.query;
+    const { quizType, examId } = req.query;
     
     // Create a filter object. Default is empty (fetch all).
     const filter = {};
@@ -79,7 +105,19 @@ export const getQuizzes = async (req, res, next) => {
       filter.quizType = quizType; // 'Free' or 'Paid'
     }
 
-    const quizzes = await Quiz.find(filter).sort({ createdAt: 1 });
+    if (examId) {
+      // Find the exam to support legacy quizzes that only had nameOfExam
+      const exam = await Exam.findById(examId);
+      if (exam) {
+        filter.$or = [{ examId }, { nameOfExam: exam.title }];
+      } else {
+        filter.examId = examId;
+      }
+    }
+
+    const quizzes = await Quiz.find(filter)
+      .populate("examId", "title logoUrl category")
+      .sort({ createdAt: 1 });
 
     return res.status(200).json({
       success: true,

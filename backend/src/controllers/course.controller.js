@@ -8,14 +8,18 @@ import { Modules } from "../models/module.model.js";
 const genAi = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
 const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-export const createCourse = async (req, res) => {
+export const createCourse = async (req, res, next) => {
   try {
-    const { title, description, amount, duration } = req.body;
+    const { title, description, amount, duration, isFree } = req.body;
     const thumbnail = req.file;
-    if (!title || !description || !amount) {
+
+    const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
+    const finalAmount = freeCourse ? 0 : Number(amount);
+
+    if (!title || !description || (amount === undefined && !freeCourse)) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "Title, description, and price are required",
       });
     }
     let imageUrl = "";
@@ -32,12 +36,13 @@ export const createCourse = async (req, res) => {
       imageId = uploadRes.fileKey;
     }
 
-    const newCourse = await Course({
+    const newCourse = new Course({
       userId: req.user._id,
       title,
       description,
-      amount,
-      duration,
+      amount: finalAmount,
+      isFree: freeCourse,
+      duration: duration || "",
       thumbnail: imageUrl,
       thumbnail_id: imageId,
     });
@@ -46,9 +51,14 @@ export const createCourse = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Course created successfully",
+      course: newCourse,
     });
   } catch (error) {
-    console.log(`error from create course.${error}`);
+    console.log(`error from create course: ${error}`);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create course",
+    });
   }
 };
 
@@ -223,7 +233,7 @@ export const deleteCourse = async (req, res, next) => {
 export const editCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id;
-    const { title, description, amount, duration } = req.body;
+    const { title, description, amount, duration, isFree } = req.body;
     const thumbnail = req.file;
 
     const course = await Course.findById(courseId);
@@ -248,15 +258,20 @@ export const editCourse = async (req, res, next) => {
       course.thumbnail_id = uploadRes.fileKey;
     }
 
+    const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
+
     if (title) course.title = title;
     if (description) course.description = description;
-    if (amount) course.amount = amount;
+    if (isFree !== undefined || amount !== undefined) {
+      course.isFree = freeCourse;
+      course.amount = freeCourse ? 0 : Number(amount);
+    }
     if (duration !== undefined) course.duration = duration;
 
     await course.save();
     return res
       .status(200)
-      .json({ success: true, message: "Course updated successfully" });
+      .json({ success: true, message: "Course updated successfully", course });
   } catch (error) {
     return next(error);
   }

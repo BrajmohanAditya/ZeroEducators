@@ -8,6 +8,7 @@ import courseRoute from "./src/routes/course.route.js";
 import moduleRoute from "./src/routes/module.route.js";
 import paymentRoute from "./src/routes/payment.route.js";
 import heroRoutes from "./src/routes/hero.route.js";
+import examRoute from "./src/routes/quiz/exam.route.js";
 import quizRoute from "./src/routes/quiz/quiz.route.js";
 import quizQuestionRoute from "./src/routes/quiz/quiz.question.route.js";
 import quizResultRoute from "./src/routes/quiz/quizResult.route.js";
@@ -34,6 +35,7 @@ app.use("/api/course", courseRoute);
 app.use("/api/module", moduleRoute);
 app.use("/api/payment", paymentRoute);
 app.use("/api/hero", heroRoutes);
+app.use("/api/exam", examRoute);
 app.use("/api/quiz", quizRoute);
 app.use("/api/quizQuestion", quizQuestionRoute);
 app.use("/api/quizResult", quizResultRoute);
@@ -60,7 +62,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(ENV.PORT || 10000, "0.0.0.0", () => {
+const server = app.listen(ENV.PORT || 10000, "0.0.0.0", () => {
   console.log(`Server running on port ${ENV.PORT || 10000}`);
   connectDB();
 });
+
+// Configure 1-hour timeout for 2GB+ video uploads
+server.timeout = 60 * 60 * 1000;
+server.keepAliveTimeout = 60 * 60 * 1000;
+server.headersTimeout = 65 * 60 * 1000;
+server.requestTimeout = 60 * 60 * 1000;

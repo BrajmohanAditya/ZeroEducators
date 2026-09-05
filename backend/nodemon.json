@@ -1,0 +1,4 @@
+{
+  "watch": ["src", "index.js"],
+  "ignore": ["temp_uploads/*", "temp_uploads/**", "*.mp4", "*.tmp", "node_modules", "logs"]
+}
