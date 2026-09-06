@@ -183,7 +183,7 @@ const StudyMaterial = () => {
           name: "Instagram",
           icon: <InstagramIcon className="w-5 h-5 text-pink-600" />,
           iconBg: "bg-pink-100",
-          action: () => window.open("https://instagram.com/", "_blank"),
+          action: () => window.open("https://www.instagram.com/mszero2infinity?stkn=MXZvdnZmZnE5dXhxNg==", "_blank"),
         },
         {
           name: "Channel",
