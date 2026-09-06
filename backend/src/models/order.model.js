@@ -17,6 +17,12 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    planDuration: {
+      type: String,
+    },
+    pricingPlanId: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
     orderId: {
       type: String,
       unique: true,

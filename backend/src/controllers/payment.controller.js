@@ -60,6 +60,27 @@ export const createCheckOutSession = async (req, res, next) => {
       });
     }
 
+    // Determine price based on selected pricing plan if available
+    const planId = req.body.planId || products.planId;
+    const planDuration = req.body.planDuration || products.planDuration;
+    let orderAmount = Number(course.amount);
+    let chosenPlan = null;
+
+    if (course.pricingPlans && course.pricingPlans.length > 0) {
+      if (planId) {
+        chosenPlan = course.pricingPlans.find(
+          (p) => p._id.toString() === planId.toString()
+        );
+      }
+      if (!chosenPlan && planDuration) {
+        chosenPlan = course.pricingPlans.find((p) => p.duration === planDuration);
+      }
+      if (!chosenPlan) {
+        chosenPlan = course.pricingPlans[0];
+      }
+      orderAmount = Number(chosenPlan.price);
+    }
+
     // Fetch user details for Cashfree customer_details
     const user = await User.findById(req.user._id);
     const orderId = `order_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
@@ -73,9 +94,11 @@ export const createCheckOutSession = async (req, res, next) => {
       phone = "9999999999";
     }
 
+    const durationLabel = chosenPlan?.duration || course.duration || "Standard";
+
     const order = await createCashfreeOrder({
       orderId,
-      orderAmount: Number(course.amount),
+      orderAmount: orderAmount,
       currency: "INR",
       customerDetails: {
         customerId: req.user._id.toString(),
@@ -86,7 +109,7 @@ export const createCheckOutSession = async (req, res, next) => {
       orderMeta: {
         return_url: `${ENV.CLIENT_URL}/SinglePurchasedCourse/${courseId}`,
       },
-      orderNote: `Course purchase: ${course.title} (ID: ${courseId})`,
+      orderNote: `Course purchase: ${course.title} [${durationLabel}] (ID: ${courseId})`,
     });
 
     return res.status(201).json({
@@ -97,6 +120,7 @@ export const createCheckOutSession = async (req, res, next) => {
         orderAmount: order.order_amount,
         orderCurrency: order.order_currency,
         courseId: courseId,
+        planDuration: durationLabel,
       },
     });
   } catch (error) {
@@ -162,10 +186,19 @@ export const checkoutSuccess = async (req, res, next) => {
       console.warn("Could not fetch individual payment details:", paymentFetchError);
     }
 
+    let planDuration = req.body.planDuration;
+    if (!planDuration && cfOrder.order_note) {
+      const planMatch = cfOrder.order_note.match(/\[(.*?)\]/);
+      if (planMatch) {
+        planDuration = planMatch[1];
+      }
+    }
+
     const newOrder = new Order({
       user: userId,
       course: courseId,
       totalAmount: cfOrder.order_amount,
+      planDuration: planDuration || "",
       orderId: orderId,
       paymentId: paymentId,
       paymentGateway: "cashfree",

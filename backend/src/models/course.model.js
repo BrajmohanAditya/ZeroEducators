@@ -33,6 +33,23 @@ const courseSchema = new mongoose.Schema({
     type: String,
   },
 
+  pricingPlans: [
+    {
+      duration: {
+        type: String,
+        required: true,
+      },
+      price: {
+        type: Number,
+        required: true,
+      },
+      label: {
+        type: String,
+        default: "",
+      },
+    },
+  ],
+
   courseType: {
     type: String,
     enum: ["video", "pdf"],

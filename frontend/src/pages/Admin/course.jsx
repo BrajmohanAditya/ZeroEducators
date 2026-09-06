@@ -86,6 +86,13 @@ const DashboardProducts = () => {
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           FREE
                         </span>
+                      ) : item.pricingPlans && item.pricingPlans.length > 1 ? (
+                        <div>
+                          <span className="font-bold text-slate-900">₹{item.pricingPlans[0].price}</span>
+                          <span className="text-[11px] text-blue-600 block font-semibold">
+                            {item.pricingPlans.length} Plans
+                          </span>
+                        </div>
                       ) : (
                         `₹${item.amount}`
                       )}

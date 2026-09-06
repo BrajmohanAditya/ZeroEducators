@@ -91,17 +91,25 @@ const courseSection = () => {
                   {/* Price Section */}
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Starting at</p>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {item.isFree || Number(item.amount) === 0 ? "Course Fee" : "Starting at"}
+                      </p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-bold text-slate-900">
-                          ₹{item.amount !== undefined ? item.amount : "20,000"}
-                        </span>
-                        <span className="text-sm text-slate-400 line-through">
-                          ₹
-                          {item.amount !== undefined
-                            ? Math.round(item.amount * 1.25)
-                            : 25000}
-                        </span>
+                        {item.isFree || Number(item.amount) === 0 ? (
+                          <span className="text-xl font-bold text-emerald-600">FREE</span>
+                        ) : (
+                          <>
+                            <span className="text-xl font-bold text-slate-900">
+                              ₹{item.amount !== undefined ? item.amount : "20,000"}
+                            </span>
+                            <span className="text-sm text-slate-400 line-through">
+                              ₹
+                              {item.amount !== undefined
+                                ? Math.round(item.amount * 1.25)
+                                : 25000}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

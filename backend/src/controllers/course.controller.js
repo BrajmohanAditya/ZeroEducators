@@ -10,16 +10,38 @@ const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export const createCourse = async (req, res, next) => {
   try {
-    const { title, description, amount, duration, isFree, courseType } = req.body;
+    const { title, description, amount, duration, isFree, courseType, pricingPlans } = req.body;
     const thumbnail = req.file;
 
-    const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
-    const finalAmount = freeCourse ? 0 : Number(amount);
+    let parsedPricingPlans = [];
+    if (pricingPlans) {
+      try {
+        parsedPricingPlans = typeof pricingPlans === "string" ? JSON.parse(pricingPlans) : pricingPlans;
+        if (Array.isArray(parsedPricingPlans)) {
+          parsedPricingPlans = parsedPricingPlans
+            .filter((p) => p && p.duration && p.price !== undefined && p.price !== "")
+            .map((p) => ({
+              duration: String(p.duration).trim(),
+              price: Number(p.price),
+              label: p.label ? String(p.label).trim() : "",
+            }));
+        }
+      } catch (err) {
+        console.warn("Failed to parse pricingPlans:", err);
+      }
+    }
 
-    if (!title || !description || (amount === undefined && !freeCourse)) {
+    const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
+    let finalAmount = freeCourse ? 0 : Number(amount);
+
+    if (parsedPricingPlans.length > 0 && !freeCourse) {
+      finalAmount = parsedPricingPlans[0].price;
+    }
+
+    if (!title || !description || (finalAmount === undefined && !freeCourse && parsedPricingPlans.length === 0)) {
       return res.status(400).json({
         success: false,
-        message: "Title, description, and price are required",
+        message: "Title, description, and price or pricing plans are required",
       });
     }
     let imageUrl = "";
@@ -36,13 +58,20 @@ export const createCourse = async (req, res, next) => {
       imageId = uploadRes.fileKey;
     }
 
+    const finalDuration =
+      duration ||
+      (parsedPricingPlans.length > 0
+        ? parsedPricingPlans.map((p) => p.duration).join(" / ")
+        : "");
+
     const newCourse = new Course({
       userId: req.user._id,
       title,
       description,
       amount: finalAmount,
       isFree: freeCourse,
-      duration: duration || "",
+      duration: finalDuration,
+      pricingPlans: freeCourse ? [] : parsedPricingPlans,
       courseType: courseType === "pdf" ? "pdf" : "video",
       thumbnail: imageUrl,
       thumbnail_id: imageId,
@@ -247,7 +276,7 @@ export const deleteCourse = async (req, res, next) => {
 export const editCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id;
-    const { title, description, amount, duration, isFree, courseType } = req.body;
+    const { title, description, amount, duration, isFree, courseType, pricingPlans } = req.body;
     const thumbnail = req.file;
 
     const course = await Course.findById(courseId);
@@ -272,15 +301,50 @@ export const editCourse = async (req, res, next) => {
       course.thumbnail_id = uploadRes.fileKey;
     }
 
+    let parsedPricingPlans = undefined;
+    if (pricingPlans !== undefined) {
+      try {
+        parsedPricingPlans = typeof pricingPlans === "string" ? JSON.parse(pricingPlans) : pricingPlans;
+        if (Array.isArray(parsedPricingPlans)) {
+          parsedPricingPlans = parsedPricingPlans
+            .filter((p) => p && p.duration && p.price !== undefined && p.price !== "")
+            .map((p) => ({
+              duration: String(p.duration).trim(),
+              price: Number(p.price),
+              label: p.label ? String(p.label).trim() : "",
+            }));
+        }
+      } catch (err) {
+        console.warn("Failed to parse pricingPlans in editCourse:", err);
+      }
+    }
+
     const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
 
     if (title) course.title = title;
     if (description) course.description = description;
-    if (isFree !== undefined || amount !== undefined) {
-      course.isFree = freeCourse;
-      course.amount = freeCourse ? 0 : Number(amount);
+
+    if (freeCourse) {
+      course.isFree = true;
+      course.amount = 0;
+      course.pricingPlans = [];
+    } else {
+      if (parsedPricingPlans !== undefined) {
+        course.pricingPlans = parsedPricingPlans;
+        if (parsedPricingPlans.length > 0) {
+          course.amount = parsedPricingPlans[0].price;
+          course.duration = parsedPricingPlans.map((p) => p.duration).join(" / ");
+        }
+      } else if (amount !== undefined) {
+        course.amount = Number(amount);
+      }
+      if (isFree !== undefined) course.isFree = false;
     }
-    if (duration !== undefined) course.duration = duration;
+
+    if (duration !== undefined && (!parsedPricingPlans || parsedPricingPlans.length === 0)) {
+      course.duration = duration;
+    }
+
     if (courseType && ["video", "pdf"].includes(courseType)) {
       course.courseType = courseType;
     }

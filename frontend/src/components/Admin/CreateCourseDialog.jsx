@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useCreateCourseHook, useEditCourseHook } from "../../hooks/course.hook";
-import { Loader2, UploadCloud, Gift, CreditCard, Sparkles, Video, FileText } from "lucide-react";
+import { Loader2, UploadCloud, Gift, CreditCard, Sparkles, Video, FileText, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 
@@ -16,6 +16,9 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFreeMode, setIsFreeMode] = useState(false);
   const [courseType, setCourseType] = useState("video");
+  const [pricingPlans, setPricingPlans] = useState([
+    { duration: "6 Months", price: "999", label: "" },
+  ]);
 
   const { register, handleSubmit, reset: resetForm, watch, setValue } = useForm({
     defaultValues: {
@@ -38,6 +41,27 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
       const isFree = editingCourse.isFree || Number(editingCourse.amount) === 0;
       setIsFreeMode(isFree);
       setCourseType(editingCourse.courseType || "video");
+
+      if (editingCourse.pricingPlans && editingCourse.pricingPlans.length > 0) {
+        setPricingPlans(
+          editingCourse.pricingPlans.map((p) => ({
+            duration: p.duration,
+            price: String(p.price),
+            label: p.label || "",
+          }))
+        );
+      } else if (!isFree && editingCourse.amount) {
+        setPricingPlans([
+          {
+            duration: editingCourse.duration || "6 Months",
+            price: String(editingCourse.amount),
+            label: "",
+          },
+        ]);
+      } else {
+        setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
+      }
+
       resetForm({
         title: editingCourse.title || "",
         description: editingCourse.description || "",
@@ -47,6 +71,7 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     } else {
       setIsFreeMode(false);
       setCourseType("video");
+      setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
     }
   }, [editingCourse, resetForm]);
 
@@ -55,29 +80,71 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     if (!open) {
       resetForm({});
       setIsFreeMode(false);
+      setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
       if (onCloseEdit) onCloseEdit();
     }
   };
 
   const handleToggleFreeMode = (free) => {
     setIsFreeMode(free);
-    if (free) {
-      setValue("amount", 0);
-    } else {
-      setValue("amount", "");
-    }
+  };
+
+  const addPricingPlan = () => {
+    setPricingPlans((prev) => [...prev, { duration: "", price: "", label: "" }]);
+  };
+
+  const removePricingPlan = (index) => {
+    if (pricingPlans.length <= 1) return;
+    setPricingPlans((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updatePricingPlan = (index, field, value) => {
+    setPricingPlans((prev) => {
+      const copy = [...prev];
+      copy[index][field] = value;
+      return copy;
+    });
   };
 
   const createCourseHandler = (data) => {
-    const finalAmount = isFreeMode ? 0 : Number(data.amount);
+    const validPlans = pricingPlans
+      .filter((p) => p.duration && p.price !== "" && p.price !== undefined)
+      .map((p) => ({
+        duration: p.duration.trim(),
+        price: Number(p.price),
+        label: p.label ? p.label.trim() : "",
+      }));
+
+    if (!isFreeMode && validPlans.length === 0) {
+      toast.error("Please add at least one valid pricing plan with duration and price");
+      return;
+    }
+
+    const finalAmount = isFreeMode
+      ? 0
+      : validPlans.length > 0
+      ? validPlans[0].price
+      : Number(data.amount || 0);
+
+    const finalDuration = isFreeMode
+      ? "Lifetime"
+      : validPlans.length > 0
+      ? validPlans.map((p) => p.duration).join(" / ")
+      : data.duration || "";
 
     const formData = new FormData();
     formData.append("title", data.title);
     formData.append("description", data.description);
     formData.append("amount", finalAmount);
     formData.append("isFree", isFreeMode ? "true" : "false");
-    formData.append("duration", data.duration || "");
+    formData.append("duration", finalDuration);
     formData.append("courseType", courseType);
+
+    if (!isFreeMode && validPlans.length > 0) {
+      formData.append("pricingPlans", JSON.stringify(validPlans));
+    } else if (isFreeMode) {
+      formData.append("pricingPlans", JSON.stringify([]));
+    }
 
     if (data.thumbnail && data.thumbnail[0]) {
       formData.append("thumbnail", data.thumbnail[0]);
@@ -223,39 +290,102 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
             </div>
           </div>
 
-          {/* Price & Duration Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Price (₹) <span className="text-red-500">*</span>
-              </label>
-              {isFreeMode ? (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm rounded-lg flex items-center justify-between">
-                  <span>FREE</span>
-                  <span className="text-xs bg-emerald-100 px-2 py-0.5 rounded-full font-bold">₹0</span>
+          {/* Pricing & Validity Section */}
+          {isFreeMode ? (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-emerald-800">FREE COURSE</p>
+                <p className="text-[11px] text-emerald-600">Students can enroll directly at no cost.</p>
+              </div>
+              <span className="text-xs bg-emerald-200 text-emerald-900 font-black px-2.5 py-1 rounded-full">
+                ₹0 / Free
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Pricing & Validity Plans <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Add multiple options (e.g. 6 Months ₹999, 12 Months ₹10,000)
+                  </p>
                 </div>
-              ) : (
-                <input
-                  type="number"
-                  min="1"
-                  {...register("amount", { required: !isFreeMode, min: 1 })}
-                  placeholder="e.g. 999"
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={addPricingPlan}
+                  className="px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Plan</span>
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Duration <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register("duration", { required: true })}
-                placeholder="e.g. 6 Months, Lifetime"
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="space-y-2 pt-1">
+                {pricingPlans.map((plan, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-black">
+                          {idx + 1}
+                        </span>
+                        <span>Plan Option {idx + 1}</span>
+                      </span>
+                      {pricingPlans.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePricingPlan(idx)}
+                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition cursor-pointer"
+                          title="Delete Plan"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                          Validity / Duration *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={plan.duration}
+                          onChange={(e) =>
+                            updatePricingPlan(idx, "duration", e.target.value)
+                          }
+                          placeholder="e.g. 6 Months, 1 Year"
+                          className="w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                          Price (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={plan.price}
+                          onChange={(e) =>
+                            updatePricingPlan(idx, "price", e.target.value)
+                          }
+                          placeholder="e.g. 999"
+                          className="w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Modern Image Upload */}
           <div>
