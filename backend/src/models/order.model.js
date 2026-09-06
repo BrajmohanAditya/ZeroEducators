@@ -33,7 +33,6 @@ const orderSchema = new mongoose.Schema(
     },
     razorpayPaymentId: {
       type: String,
-      sparse: true,
     },
   },
   { timestamps: true },
