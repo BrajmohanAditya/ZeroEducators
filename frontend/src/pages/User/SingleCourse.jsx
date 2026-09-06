@@ -1,6 +1,7 @@
 import { Loader2, ShieldCheck, BookOpen, Clock, FileText } from "lucide-react";
 import React from "react";
 import { useParams } from "react-router-dom";
+import { useGetSingleCourseHook } from "@/hooks/course.hook";
 import { usePaymentHook } from "@/hooks/payment.hook";
 
 const SingleCourse = () => {
