@@ -17,9 +17,23 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    razorpayPaymentId: {
+    orderId: {
       type: String,
       unique: true,
+      sparse: true,
+    },
+    paymentId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    paymentGateway: {
+      type: String,
+      default: "cashfree",
+    },
+    razorpayPaymentId: {
+      type: String,
+      sparse: true,
     },
   },
   { timestamps: true },

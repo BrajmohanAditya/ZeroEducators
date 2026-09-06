@@ -1,70 +1,87 @@
 import { purchaseCourseApi, checkOutSuccessApi } from "@/api/purchase.api";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useUserStore } from "../store/user.store.jsx";
+import { useNavigate } from "react-router-dom";
 
 export const useCheckoutSuccessHook = () => {
+  const navigate = useNavigate();
+
   return useMutation({
     mutationFn: (paymentData) => checkOutSuccessApi(paymentData),
     onSuccess: (data) => {
-      toast.success(data.message);
+      toast.success(data.message || "Payment successful!");
+      if (data.courseId) {
+        navigate(`/SinglePurchasedCourse/${data.courseId}`);
+      }
     },
     onError: (err) => {
-      console.log(err);
+      console.error(err);
       toast.error(err.response?.data?.message || "Payment verification failed");
     },
   });
 };
 
 export const usePaymentHook = () => {
-  const { user } = useUserStore();
   const checkoutSuccessMutation = useCheckoutSuccessHook();
 
   return useMutation({
     mutationFn: purchaseCourseApi,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.isFree) {
         toast.success(data.message || "Enrolled in course successfully!");
         window.location.href = `/SinglePurchasedCourse/${data.courseId}`;
         return;
       }
 
-      if (data.order) {
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourKeyHere",
-          amount: data.order.amount,
-          currency: data.order.currency,
-          name: "Zero Educators",
-          description: "Course Purchase",
-          order_id: data.order.id,
-          handler: function (response) {
-            const paymentData = {
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature,
-            };
+      if (data.order && data.order.paymentSessionId) {
+        if (!window.Cashfree) {
+          toast.error("Payment gateway failed to load. Please refresh the page.");
+          return;
+        }
 
-            checkoutSuccessMutation.mutate(paymentData);
-          },
-          prefill: {
-            name: user?.name,
-            email: user?.email,
-            contact: user?.mobileNo,
-          },
-          theme: {
-            color: "#059669",
-          },
+        const mode = (import.meta.env.VITE_CASHFREE_MODE || "production").toLowerCase();
+        const cashfree = window.Cashfree({
+          mode: mode === "production" ? "production" : "sandbox",
+        });
+
+        const checkoutOptions = {
+          paymentSessionId: data.order.paymentSessionId,
+          redirectTarget: "_modal",
         };
 
-        const razorpay = new window.Razorpay(options);
-        razorpay.open();
+        cashfree
+          .checkout(checkoutOptions)
+          .then((result) => {
+            if (result?.error) {
+              console.error("Cashfree checkout error:", result.error);
+              toast.error(result.error.message || "Payment cancelled or failed");
+              return;
+            }
+
+            if (result?.redirect) {
+              // Cashfree handles redirect if required by payment method
+              return;
+            }
+
+            if (result?.paymentDetails) {
+              // Payment completed in modal, verify and finalize order on backend
+              checkoutSuccessMutation.mutate({
+                orderId: data.order.orderId,
+                courseId: data.order.courseId,
+              });
+            }
+          })
+          .catch((err) => {
+            console.error("Cashfree checkout error:", err);
+            toast.error("Error opening payment modal. Please try again.");
+          });
       } else {
         toast.success(data.message || "Request processed");
       }
     },
     onError: (err) => {
-      console.log(err);
-      toast.error(err.response?.data?.message || "Something went wrong");
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to initiate payment");
     },
   });
 };
