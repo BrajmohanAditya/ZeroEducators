@@ -177,7 +177,7 @@ const StudyMaterial = () => {
           name: "WhatsApp",
           icon: <MessageCircle className="w-5 h-5 text-green-500" />,
           iconBg: "bg-green-100",
-          action: () => window.open("https://chat.whatsapp.com/D0zaMV3rs8V02UWbB8cmz4", "_blank"),
+          action: () => window.open("https://whatsapp.com/channel/0029ValsT7m8qIzlvpGfRA1j", "_blank"),
         },
         {
           name: "Instagram",
