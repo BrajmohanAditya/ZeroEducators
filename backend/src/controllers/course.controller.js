@@ -10,7 +10,7 @@ const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export const createCourse = async (req, res, next) => {
   try {
-    const { title, description, amount, duration, isFree } = req.body;
+    const { title, description, amount, duration, isFree, courseType } = req.body;
     const thumbnail = req.file;
 
     const freeCourse = isFree === true || isFree === "true" || Number(amount) === 0;
@@ -43,6 +43,7 @@ export const createCourse = async (req, res, next) => {
       amount: finalAmount,
       isFree: freeCourse,
       duration: duration || "",
+      courseType: courseType === "pdf" ? "pdf" : "video",
       thumbnail: imageUrl,
       thumbnail_id: imageId,
     });
@@ -212,6 +213,19 @@ export const deleteCourse = async (req, res, next) => {
       }
     }
 
+    // Delete topic PDFs from S3 if course has topics
+    if (course.topics && course.topics.length > 0) {
+      for (const topic of course.topics) {
+        if (topic.pdfs && topic.pdfs.length > 0) {
+          for (const pdf of topic.pdfs) {
+            if (pdf.pdf_id) {
+              await deleteFromB2(pdf.pdf_id);
+            }
+          }
+        }
+      }
+    }
+
     await Modules.deleteMany({ courseId: courseId });
     const deletedCourse = await Course.findByIdAndDelete(courseId);
 
@@ -223,7 +237,7 @@ export const deleteCourse = async (req, res, next) => {
     }
     return res.status(200).json({
       success: true,
-      message: "Course and all its modules deleted completely!",
+      message: "Course and all its content deleted completely!",
     });
   } catch (error) {
     next(error);
@@ -233,7 +247,7 @@ export const deleteCourse = async (req, res, next) => {
 export const editCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id;
-    const { title, description, amount, duration, isFree } = req.body;
+    const { title, description, amount, duration, isFree, courseType } = req.body;
     const thumbnail = req.file;
 
     const course = await Course.findById(courseId);
@@ -267,6 +281,9 @@ export const editCourse = async (req, res, next) => {
       course.amount = freeCourse ? 0 : Number(amount);
     }
     if (duration !== undefined) course.duration = duration;
+    if (courseType && ["video", "pdf"].includes(courseType)) {
+      course.courseType = courseType;
+    }
 
     await course.save();
     return res
@@ -274,5 +291,153 @@ export const editCourse = async (req, res, next) => {
       .json({ success: true, message: "Course updated successfully", course });
   } catch (error) {
     return next(error);
+  }
+};
+
+// Add Topic to a course
+export const addTopic = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const { topicName } = req.body;
+
+    if (!topicName || topicName.trim() === "") {
+      return res.status(400).json({ success: false, message: "Topic name is required" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    course.topics.push({
+      topicName: topicName.trim(),
+      pdfs: [],
+    });
+
+    await course.save();
+    return res.status(201).json({
+      success: true,
+      message: "Topic added successfully",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete Topic and its associated PDFs
+export const deleteTopic = async (req, res, next) => {
+  try {
+    const { courseId, topicId } = req.params;
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topic = course.topics.id(topicId);
+    if (!topic) {
+      return res.status(404).json({ success: false, message: "Topic not found" });
+    }
+
+    // Delete all PDFs inside this topic from S3
+    if (topic.pdfs && topic.pdfs.length > 0) {
+      for (const pdf of topic.pdfs) {
+        if (pdf.pdf_id) {
+          await deleteFromB2(pdf.pdf_id);
+        }
+      }
+    }
+
+    course.topics.pull(topicId);
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Topic and associated PDFs deleted successfully",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Add PDF to a Topic
+export const addPdfToTopic = async (req, res, next) => {
+  try {
+    const { courseId, topicId } = req.params;
+    const { title } = req.body;
+    const pdfFile = req.file;
+
+    if (!title || title.trim() === "") {
+      return res.status(400).json({ success: false, message: "PDF title is required" });
+    }
+    if (!pdfFile) {
+      return res.status(400).json({ success: false, message: "Please select a PDF file" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topic = course.topics.id(topicId);
+    if (!topic) {
+      return res.status(404).json({ success: false, message: "Topic not found" });
+    }
+
+    const uploadRes = await uploadToB2(
+      pdfFile.buffer,
+      pdfFile.originalname,
+      pdfFile.mimetype || "application/pdf",
+      "courses/pdfs"
+    );
+
+    topic.pdfs.push({
+      title: title.trim(),
+      pdfUrl: uploadRes.url,
+      pdf_id: uploadRes.fileKey,
+    });
+
+    await course.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "PDF uploaded successfully to topic",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete PDF from a Topic
+export const deletePdfFromTopic = async (req, res, next) => {
+  try {
+    const { courseId, topicId, pdfId } = req.params;
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topic = course.topics.id(topicId);
+    if (!topic) {
+      return res.status(404).json({ success: false, message: "Topic not found" });
+    }
+
+    const pdf = topic.pdfs.id(pdfId);
+    if (pdf && pdf.pdf_id) {
+      await deleteFromB2(pdf.pdf_id);
+    }
+
+    topic.pdfs.pull(pdfId);
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "PDF deleted successfully from topic",
+      course,
+    });
+  } catch (error) {
+    next(error);
   }
 };

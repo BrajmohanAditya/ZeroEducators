@@ -8,6 +8,7 @@ import DashboardProducts from "../pages/Admin/course";
 import Dashboard from "../pages/Admin/dashboard";
 import UserLayout from "../layout/userLayout";
 import ModulePage from "../pages/Admin/module";
+import TopicPdfManager from "../pages/Admin/TopicPdfManager";
 import SingleCourse from "@/pages/User/SingleCourse";
 import PaymenSuccess from "@/pages/User/PaymenSuccess";
 import YourAllPurchasedCourse from "@/pages/User/yourAllPurchasedCourse";
@@ -137,6 +138,14 @@ const MainRoutes = () => {
           element={
             <ProtectedRoutes>
               <ModulePage />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="course-topics/:id"
+          element={
+            <ProtectedRoutes>
+              <TopicPdfManager />
             </ProtectedRoutes>
           }
         />

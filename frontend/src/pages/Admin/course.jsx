@@ -1,15 +1,19 @@
 import CreateCourseDialog from "../../components/Admin/CreateCourseDialog";
 import { useGetCourseHook, useDeleteCourseHook, useEditCourseHook } from "../../hooks/course.hook";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, BookOpen, Video } from "lucide-react";
+import { Edit, Trash2, BookOpen, Video, FileText } from "lucide-react";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import { useState } from "react";
 
 const DashboardProducts = () => {
   const { data } = useGetCourseHook();
   const navigate = useNavigate();
-  const getCourseId = (id) => {
-    navigate(`/admindashboard/module/${id}`);
+  const getCourseId = (course) => {
+    if (course.courseType === "pdf") {
+      navigate(`/admindashboard/course-topics/${course._id}`);
+    } else {
+      navigate(`/admindashboard/module/${course._id}`);
+    }
   };
   const { mutate: deleteCourse, isPending } = useDeleteCourseHook();
 
@@ -97,13 +101,23 @@ const DashboardProducts = () => {
 
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => getCourseId(item._id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-transparent"
-                          title="Add Video Modules"
-                        >
-                          <Video className="w-4 h-4" /> Add Video
-                        </button>
+                        {item.courseType === "pdf" ? (
+                          <button
+                            onClick={() => getCourseId(item)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-transparent cursor-pointer"
+                            title="Manage Topics & PDFs"
+                          >
+                            <FileText className="w-4 h-4" /> Topics & PDFs
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => getCourseId(item)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-transparent cursor-pointer"
+                            title="Add Video Modules"
+                          >
+                            <Video className="w-4 h-4" /> Add Video
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -203,12 +217,21 @@ const DashboardProducts = () => {
 
               {/* Card Actions */}
               <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => getCourseId(item._id)}
-                  className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-200"
-                >
-                  <Video className="w-4 h-4" /> Video
-                </button>
+                {item.courseType === "pdf" ? (
+                  <button
+                    onClick={() => getCourseId(item)}
+                    className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" /> PDFs
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => getCourseId(item)}
+                    className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-200 cursor-pointer"
+                  >
+                    <Video className="w-4 h-4" /> Video
+                  </button>
+                )}
                  <button
                   onClick={(e) => {
                     e.stopPropagation();

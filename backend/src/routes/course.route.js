@@ -8,7 +8,11 @@ import {
   getCourse,
   getSingleCourse,
   getSinglePurchasedCourse,
-  editCourse
+  editCourse,
+  addTopic,
+  deleteTopic,
+  addPdfToTopic,
+  deletePdfFromTopic,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -29,5 +33,17 @@ courseRoute.get(
 );
 courseRoute.delete("/deleteCourse/:id", isLoggedIn, isAdmin, deleteCourse);
 courseRoute.put("/editCourse/:id", isLoggedIn, isAdmin, upload.single("thumbnail"), editCourse);
+
+// Topic & PDF Management Routes
+courseRoute.post("/:courseId/topic", isLoggedIn, isAdmin, addTopic);
+courseRoute.delete("/:courseId/topic/:topicId", isLoggedIn, isAdmin, deleteTopic);
+courseRoute.post(
+  "/:courseId/topic/:topicId/pdf",
+  isLoggedIn,
+  isAdmin,
+  upload.single("pdf"),
+  addPdfToTopic
+);
+courseRoute.delete("/:courseId/topic/:topicId/pdf/:pdfId", isLoggedIn, isAdmin, deletePdfFromTopic);
 
 export default courseRoute;

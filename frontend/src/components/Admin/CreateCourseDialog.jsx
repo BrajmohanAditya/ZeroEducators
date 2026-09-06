@@ -8,13 +8,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useCreateCourseHook, useEditCourseHook } from "../../hooks/course.hook";
-import { Loader2, UploadCloud, Gift, CreditCard, Sparkles } from "lucide-react";
+import { Loader2, UploadCloud, Gift, CreditCard, Sparkles, Video, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 
 const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFreeMode, setIsFreeMode] = useState(false);
+  const [courseType, setCourseType] = useState("video");
 
   const { register, handleSubmit, reset: resetForm, watch, setValue } = useForm({
     defaultValues: {
@@ -36,6 +37,7 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
       setIsOpen(true);
       const isFree = editingCourse.isFree || Number(editingCourse.amount) === 0;
       setIsFreeMode(isFree);
+      setCourseType(editingCourse.courseType || "video");
       resetForm({
         title: editingCourse.title || "",
         description: editingCourse.description || "",
@@ -44,6 +46,7 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
       });
     } else {
       setIsFreeMode(false);
+      setCourseType("video");
     }
   }, [editingCourse, resetForm]);
 
@@ -74,6 +77,7 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     formData.append("amount", finalAmount);
     formData.append("isFree", isFreeMode ? "true" : "false");
     formData.append("duration", data.duration || "");
+    formData.append("courseType", courseType);
 
     if (data.thumbnail && data.thumbnail[0]) {
       formData.append("thumbnail", data.thumbnail[0]);
@@ -149,6 +153,40 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
               rows={3}
               className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
+          </div>
+
+          {/* Course Content Type: Video vs PDF */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Course Content Type <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setCourseType("video")}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 font-bold text-xs transition cursor-pointer ${
+                  courseType === "video"
+                    ? "border-blue-600 bg-blue-50/70 text-blue-700 shadow-xs"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <Video className="w-4 h-4" />
+                <span>Video Course</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCourseType("pdf")}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 font-bold text-xs transition cursor-pointer ${
+                  courseType === "pdf"
+                    ? "border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>PDF Course (Notes)</span>
+              </button>
+            </div>
           </div>
 
           {/* Free vs Paid Toggle Mode */}

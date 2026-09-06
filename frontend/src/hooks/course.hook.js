@@ -6,6 +6,10 @@ import {
   getSingleCourseApi,
   deleteCourseApi,
   editCourseApi,
+  addTopicApi,
+  deleteTopicApi,
+  addPdfToTopicApi,
+  deletePdfFromTopicApi,
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -86,3 +90,64 @@ export const useEditCourseHook = () => {
     },
   });
 };
+
+export const useAddTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "Topic added successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to add topic");
+    },
+  });
+};
+
+export const useDeleteTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "Topic deleted successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to delete topic");
+    },
+  });
+};
+
+export const useAddPdfToTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addPdfToTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "PDF uploaded successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to upload PDF");
+    },
+  });
+};
+
+export const useDeletePdfFromTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePdfFromTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "PDF deleted successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to delete PDF");
+    },
+  });
+};
+

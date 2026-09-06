@@ -1,5 +1,4 @@
-import { useGetSingleCourseHook } from "@/hooks/course.hook";
-import { Loader2, ShieldCheck, BookOpen, Clock } from "lucide-react";
+import { Loader2, ShieldCheck, BookOpen, Clock, FileText } from "lucide-react";
 import React from "react";
 import { useParams } from "react-router-dom";
 import { usePaymentHook } from "@/hooks/payment.hook";
@@ -9,6 +8,10 @@ const SingleCourse = () => {
   const { data, isLoading } = useGetSingleCourseHook(id);
   const { mutate, isPending } = usePaymentHook();
   const course = data?.course;
+
+  const totalPdfs = React.useMemo(() => {
+    return course?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
+  }, [course?.topics]);
 
   const purchaseHandler = () => {
     mutate({ products: { _id: course._id, name: course.title, price: course.amount, image: course.thumbnail } });
@@ -37,10 +40,21 @@ const SingleCourse = () => {
 
           {/* Meta */}
           <div className="flex items-center gap-5 text-sm text-slate-600">
-            <div className="flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-blue-500" />
-              {course?.modules?.length || 0} {course?.modules?.length === 1 ? "Video" : "Videos"}
-            </div>
+            {course?.courseType === "pdf" ? (
+              <div className="flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-purple-600" />
+                <span>
+                  {course.topics?.length || 0} {course.topics?.length === 1 ? "Topic" : "Topics"} • {totalPdfs} {totalPdfs === 1 ? "PDF" : "PDFs"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-blue-500" />
+                <span>
+                  {course?.modules?.length || 0} {course?.modules?.length === 1 ? "Video" : "Videos"}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-emerald-500" />
               {course?.duration ? course.duration : "Lifetime Access"}

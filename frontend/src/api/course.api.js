@@ -85,5 +85,48 @@ export const editCourseApi = async ({ courseId, formData }) => {
     return res.data
 }
 
+export const addTopicApi = async ({ courseId, topicName }) => {
+    const res = await axios.post(
+        `${baseUrl}/course/${courseId}/topic`,
+        { topicName },
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};
 
+export const deleteTopicApi = async ({ courseId, topicId }) => {
+    const res = await axios.delete(
+        `${baseUrl}/course/${courseId}/topic/${topicId}`,
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};
 
+export const addPdfToTopicApi = async ({ courseId, topicId, formData }) => {
+    const res = await axios.post(
+        `${baseUrl}/course/${courseId}/topic/${topicId}/pdf`,
+        formData,
+        {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};
+
+export const deletePdfFromTopicApi = async ({ courseId, topicId, pdfId }) => {
+    const res = await axios.delete(
+        `${baseUrl}/course/${courseId}/topic/${topicId}/pdf/${pdfId}`,
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};

@@ -33,6 +33,12 @@ const courseSchema = new mongoose.Schema({
     type: String,
   },
 
+  courseType: {
+    type: String,
+    enum: ["video", "pdf"],
+    default: "video",
+  },
+
   modules:[
     {
         type:mongoose.Schema.Types.ObjectId,
@@ -40,6 +46,38 @@ const courseSchema = new mongoose.Schema({
     },
   ],
 
+  topics: [
+    {
+      topicName: {
+        type: String,
+        required: true,
+      },
+      pdfs: [
+        {
+          title: {
+            type: String,
+            required: true,
+          },
+          pdfUrl: {
+            type: String,
+            required: true,
+          },
+          pdf_id: {
+            type: String,
+            required: true,
+          },
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 }, {timestamps: true});
 
 
