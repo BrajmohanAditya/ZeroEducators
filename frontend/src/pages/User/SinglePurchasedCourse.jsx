@@ -12,6 +12,12 @@ const SinglePurchasedCourse = () => {
 
   const [module, setModule] = useState(null);
 
+  useEffect(() => {
+    if (!module && data?.modules && data.modules.length > 0) {
+      setModule(data.modules[0]);
+    }
+  }, [data?.modules, module]);
+
   // Keyboard shortcut protection (disable Ctrl+S, Ctrl+U, etc.)
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -99,42 +105,53 @@ const SinglePurchasedCourse = () => {
       {/* Right - Modules List */}
       <div className="w-full lg:w-1/3 bg-white overflow-y-auto border-l border-slate-100 shadow-xl z-20 custom-scrollbar">
         <div className="p-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">
-            Course Content
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-slate-900">
+              Course Content
+            </h2>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
+              {data?.modules?.length || 0} {data?.modules?.length === 1 ? "Video" : "Videos"}
+            </span>
+          </div>
 
           <div className="space-y-3">
-            {data?.modules?.map((item, index) => (
-              <button
-                key={item._id || index}
-                onClick={() => videoHandler(item)}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl border transition-all text-left
-                  ${
-                    module?._id === item._id
-                      ? "border-emerald-500 bg-emerald-50"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors
-                  ${module?._id === item._id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
+            {data?.modules && data.modules.length > 0 ? (
+              data.modules.map((item, index) => (
+                <button
+                  key={item._id || index}
+                  onClick={() => videoHandler(item)}
+                  className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl border transition-all text-left
+                    ${
+                      module?._id === item._id
+                        ? "border-emerald-500 bg-emerald-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
                 >
-                  {index + 1}
-                </div>
-                <div className="flex flex-col">
-                  <span
-                    className={`font-semibold line-clamp-2 ${module?._id === item._id ? "text-emerald-800" : "text-slate-900"}`}
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors
+                    ${module?._id === item._id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
                   >
-                    {item.title}
-                  </span>
-                  {module?._id === item._id && (
-                    <span className="text-xs text-emerald-600 font-medium mt-1">
-                      Now Playing
+                    {index + 1}
+                  </div>
+                  <div className="flex flex-col">
+                    <span
+                      className={`font-semibold line-clamp-2 ${module?._id === item._id ? "text-emerald-800" : "text-slate-900"}`}
+                    >
+                      {item.title}
                     </span>
-                  )}
-                </div>
-              </button>
-            ))}
+                    {module?._id === item._id && (
+                      <span className="text-xs text-emerald-600 font-medium mt-1">
+                        Now Playing
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="text-center py-10 text-slate-400">
+                <p className="text-sm">No videos uploaded for this course yet.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
