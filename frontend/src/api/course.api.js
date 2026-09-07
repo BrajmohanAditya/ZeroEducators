@@ -146,3 +146,167 @@ export const deleteVideoFromTopicApi = async ({
   );
   return res.data;
 };
+
+// ==========================================
+// SUBJECT & CHAPTER APIS
+// ==========================================
+
+export const addSubjectApi = async ({ courseId, subjectName }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/${courseId}/subject`,
+    { subjectName },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const deleteSubjectApi = async ({ courseId, subjectId }) => {
+  const res = await axios.delete(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}`,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const addChapterApi = async ({ courseId, subjectId, chapterName }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter`,
+    { chapterName },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const deleteChapterApi = async ({ courseId, subjectId, chapterId }) => {
+  const res = await axios.delete(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}`,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const addPdfToChapterApi = async ({
+  courseId,
+  subjectId,
+  chapterId,
+  formData,
+}) => {
+  const res = await axios.post(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/pdf`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const deletePdfFromChapterApi = async ({
+  courseId,
+  subjectId,
+  chapterId,
+  pdfId,
+}) => {
+  const res = await axios.delete(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/pdf/${pdfId}`,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const addVideoToChapterApi = async ({
+  courseId,
+  subjectId,
+  chapterId,
+  formData,
+  onUploadProgress,
+}) => {
+  const res = await axios.post(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/video`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      withCredentials: true,
+      onUploadProgress,
+    }
+  );
+  return res.data;
+};
+
+export const deleteVideoFromChapterApi = async ({
+  courseId,
+  subjectId,
+  chapterId,
+  videoId,
+}) => {
+  const res = await axios.delete(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/video/${videoId}`,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+// ==========================================
+// ADMIN COURSE GRANT & ENROLLMENT APIS
+// ==========================================
+
+export const searchUsersForEnrollmentApi = async ({ query, courseId }) => {
+  const res = await axios.get(
+    `${baseUrl}/course/admin/users/search?query=${encodeURIComponent(query || "")}&courseId=${courseId || ""}`,
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const grantCourseAccessApi = async (payload) => {
+  const res = await axios.post(
+    `${baseUrl}/course/admin/grant-access`,
+    payload,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const revokeCourseAccessApi = async ({ courseId, userId }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/admin/revoke-access`,
+    { courseId, userId },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const getCourseEnrolledStudentsApi = async (courseId) => {
+  const res = await axios.get(
+    `${baseUrl}/course/admin/${courseId}/enrolled-students`,
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+

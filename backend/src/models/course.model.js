@@ -119,6 +119,75 @@ const courseSchema = new mongoose.Schema({
       },
     },
   ],
+
+  subjects: [
+    {
+      subjectName: {
+        type: String,
+        required: true,
+      },
+      chapters: [
+        {
+          chapterName: {
+            type: String,
+            required: true,
+          },
+          videos: [
+            {
+              title: {
+                type: String,
+                required: true,
+              },
+              Video: {
+                type: String,
+                required: true,
+              },
+              Video_id: {
+                type: String,
+                required: true,
+              },
+              moduleId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Modules",
+              },
+              createdAt: {
+                type: Date,
+                default: Date.now,
+              },
+            },
+          ],
+          pdfs: [
+            {
+              title: {
+                type: String,
+                required: true,
+              },
+              pdfUrl: {
+                type: String,
+                required: true,
+              },
+              pdf_id: {
+                type: String,
+                required: true,
+              },
+              createdAt: {
+                type: Date,
+                default: Date.now,
+              },
+            },
+          ],
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 }, {timestamps: true});
 
 

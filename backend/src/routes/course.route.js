@@ -16,6 +16,18 @@ import {
   deletePdfFromTopic,
   addVideoToTopic,
   deleteVideoFromTopic,
+  addSubject,
+  deleteSubject,
+  addChapter,
+  deleteChapter,
+  addPdfToChapter,
+  deletePdfFromChapter,
+  addVideoToChapter,
+  deleteVideoFromChapter,
+  searchUsersForEnrollment,
+  grantCourseAccess,
+  revokeCourseAccess,
+  getCourseEnrolledStudents,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -37,7 +49,13 @@ courseRoute.get(
 courseRoute.delete("/deleteCourse/:id", isLoggedIn, isAdmin, deleteCourse);
 courseRoute.put("/editCourse/:id", isLoggedIn, isAdmin, upload.single("thumbnail"), editCourse);
 
-// Topic Management Routes
+// Admin Course Grant & Enrollment Routes
+courseRoute.get("/admin/users/search", isLoggedIn, isAdmin, searchUsersForEnrollment);
+courseRoute.post("/admin/grant-access", isLoggedIn, isAdmin, grantCourseAccess);
+courseRoute.post("/admin/revoke-access", isLoggedIn, isAdmin, revokeCourseAccess);
+courseRoute.get("/admin/:courseId/enrolled-students", isLoggedIn, isAdmin, getCourseEnrolledStudents);
+
+// Topic Management Routes (Legacy Compatibility)
 courseRoute.post("/:courseId/topic", isLoggedIn, isAdmin, addTopic);
 courseRoute.delete("/:courseId/topic/:topicId", isLoggedIn, isAdmin, deleteTopic);
 
@@ -71,4 +89,57 @@ courseRoute.post(
 );
 courseRoute.delete("/:courseId/topic/:topicId/video/:videoId", isLoggedIn, isAdmin, deleteVideoFromTopic);
 
+// ==============================================
+// Subject & Chapter Architecture Routes
+// ==============================================
+
+// Subject Routes
+courseRoute.post("/:courseId/subject", isLoggedIn, isAdmin, addSubject);
+courseRoute.delete("/:courseId/subject/:subjectId", isLoggedIn, isAdmin, deleteSubject);
+
+// Chapter Routes
+courseRoute.post("/:courseId/subject/:subjectId/chapter", isLoggedIn, isAdmin, addChapter);
+courseRoute.delete("/:courseId/subject/:subjectId/chapter/:chapterId", isLoggedIn, isAdmin, deleteChapter);
+
+// Chapter PDF Routes
+courseRoute.post(
+  "/:courseId/subject/:subjectId/chapter/:chapterId/pdf",
+  isLoggedIn,
+  isAdmin,
+  upload.single("pdf"),
+  addPdfToChapter
+);
+courseRoute.delete(
+  "/:courseId/subject/:subjectId/chapter/:chapterId/pdf/:pdfId",
+  isLoggedIn,
+  isAdmin,
+  deletePdfFromChapter
+);
+
+// Chapter Video Routes
+courseRoute.post(
+  "/:courseId/subject/:subjectId/chapter/:chapterId/video",
+  isLoggedIn,
+  isAdmin,
+  (req, res, next) => {
+    videoUpload.single("video")(req, res, (err) => {
+      if (err) {
+        console.error("Multer video upload error:", err);
+        return res.status(400).json({
+          message: err.message || "Video upload failed. Please check the file format and size.",
+        });
+      }
+      next();
+    });
+  },
+  addVideoToChapter
+);
+courseRoute.delete(
+  "/:courseId/subject/:subjectId/chapter/:chapterId/video/:videoId",
+  isLoggedIn,
+  isAdmin,
+  deleteVideoFromChapter
+);
+
 export default courseRoute;
+

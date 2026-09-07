@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   useGetSingleCourseHook,
-  useAddTopicHook,
+  useAddSubjectHook,
+  useDeleteSubjectHook,
+  useAddChapterHook,
+  useDeleteChapterHook,
+  useAddPdfToChapterHook,
+  useDeletePdfFromChapterHook,
+  useAddVideoToChapterHook,
+  useDeleteVideoFromChapterHook,
   useDeleteTopicHook,
-  useAddPdfToTopicHook,
-  useDeletePdfFromTopicHook,
-  useAddVideoToTopicHook,
-  useDeleteVideoFromTopicHook,
 } from "../../hooks/course.hook";
 import {
   ArrowLeft,
@@ -19,11 +22,15 @@ import {
   ExternalLink,
   Loader2,
   FolderPlus,
+  BookOpen,
   UploadCloud,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
   Film,
+  Layers,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,6 +40,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
+import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
 import { getModuleUploadProgressApi } from "@/api/module.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -47,28 +55,43 @@ const TopicPdfManager = () => {
   const course = data?.course;
   const isVideoCourse = course?.courseType !== "pdf";
 
-  // Mutation hooks
-  const { mutate: addTopic, isPending: isAddingTopic } = useAddTopicHook(courseId);
+  // Subject mutations
+  const { mutate: addSubject, isPending: isAddingSubject } = useAddSubjectHook(courseId);
+  const { mutate: deleteSubject, isPending: isDeletingSubject } = useDeleteSubjectHook(courseId);
+
+  // Chapter mutations
+  const { mutate: addChapter, isPending: isAddingChapter } = useAddChapterHook(courseId);
+  const { mutate: deleteChapter, isPending: isDeletingChapter } = useDeleteChapterHook(courseId);
+
+  // PDF inside Chapter mutations
+  const { mutate: addPdfToChapter, isPending: isAddingPdf } = useAddPdfToChapterHook(courseId);
+  const { mutate: deletePdfFromChapter, isPending: isDeletingPdf } = useDeletePdfFromChapterHook(courseId);
+
+  // Video inside Chapter mutations
+  const { mutate: addVideoToChapter, isPending: isAddingVideo } = useAddVideoToChapterHook(courseId);
+  const { mutate: deleteVideoFromChapter, isPending: isDeletingVideo } = useDeleteVideoFromChapterHook(courseId);
+
+  // Legacy Topic delete mutation
   const { mutate: deleteTopic, isPending: isDeletingTopic } = useDeleteTopicHook(courseId);
-  const { mutate: addPdfToTopic, isPending: isAddingPdf } = useAddPdfToTopicHook(courseId);
-  const { mutate: deletePdfFromTopic, isPending: isDeletingPdf } = useDeletePdfFromTopicHook(courseId);
-  const { mutate: addVideoToTopic, isPending: isAddingVideo } = useAddVideoToTopicHook(courseId);
-  const { mutate: deleteVideoFromTopic, isPending: isDeletingVideo } = useDeleteVideoFromTopicHook(courseId);
 
   // Custom Delete Alert Box State
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Topic Modal State
-  const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
-  const [topicName, setTopicName] = useState("");
+  // Subject Modal State
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [subjectName, setSubjectName] = useState("");
+
+  // Chapter Modal State
+  const [activeSubjectForChapter, setActiveSubjectForChapter] = useState(null);
+  const [chapterName, setChapterName] = useState("");
 
   // PDF Upload Modal State
-  const [activeTopicForPdfUpload, setActiveTopicForPdfUpload] = useState(null);
+  const [activeChapterForPdfUpload, setActiveChapterForPdfUpload] = useState(null);
   const [pdfTitle, setPdfTitle] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
 
   // Video Upload Modal State
-  const [activeTopicForVideoUpload, setActiveTopicForVideoUpload] = useState(null);
+  const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'local' | 'cloud' | 'done'
@@ -83,13 +106,25 @@ const TopicPdfManager = () => {
   // Video Preview Dialog State
   const [previewVideo, setPreviewVideo] = useState(null);
 
-  // Accordion toggle state: topicId -> boolean
-  const [expandedTopics, setExpandedTopics] = useState({});
+  // Grant Access Dialog State
+  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
 
-  const toggleTopicExpand = (topicId) => {
-    setExpandedTopics((prev) => ({
+  // Accordion toggle states
+  const [expandedSubjects, setExpandedSubjects] = useState({});
+  const [expandedChapters, setExpandedChapters] = useState({});
+  const [expandedLegacyTopics, setExpandedLegacyTopics] = useState(false);
+
+  const toggleSubjectExpand = (subjectId) => {
+    setExpandedSubjects((prev) => ({
       ...prev,
-      [topicId]: prev[topicId] === undefined ? false : !prev[topicId],
+      [subjectId]: prev[subjectId] === undefined ? false : !prev[subjectId],
+    }));
+  };
+
+  const toggleChapterExpand = (chapterId) => {
+    setExpandedChapters((prev) => ({
+      ...prev,
+      [chapterId]: prev[chapterId] === undefined ? false : !prev[chapterId],
     }));
   };
 
@@ -112,26 +147,50 @@ const TopicPdfManager = () => {
     return () => cleanupPolling();
   }, []);
 
-  // Handle Add Topic
-  const handleAddTopicSubmit = (e) => {
+  // Handle Add Subject
+  const handleAddSubjectSubmit = (e) => {
     e.preventDefault();
-    if (!topicName.trim()) {
-      toast.error("Please enter a chapter / topic name");
+    if (!subjectName.trim()) {
+      toast.error("Please enter a subject name");
       return;
     }
 
-    addTopic(
-      { courseId, topicName: topicName.trim() },
+    addSubject(
+      { courseId, subjectName: subjectName.trim() },
       {
         onSuccess: () => {
-          setTopicName("");
-          setIsTopicModalOpen(false);
+          setSubjectName("");
+          setIsSubjectModalOpen(false);
         },
       }
     );
   };
 
-  // Handle Upload PDF to Topic
+  // Handle Add Chapter
+  const handleAddChapterSubmit = (e) => {
+    e.preventDefault();
+    if (!chapterName.trim()) {
+      toast.error("Please enter a chapter name");
+      return;
+    }
+    if (!activeSubjectForChapter) return;
+
+    addChapter(
+      {
+        courseId,
+        subjectId: activeSubjectForChapter._id,
+        chapterName: chapterName.trim(),
+      },
+      {
+        onSuccess: () => {
+          setChapterName("");
+          setActiveSubjectForChapter(null);
+        },
+      }
+    );
+  };
+
+  // Handle Upload PDF to Chapter
   const handleUploadPdfSubmit = (e) => {
     e.preventDefault();
     if (!pdfTitle.trim()) {
@@ -142,24 +201,30 @@ const TopicPdfManager = () => {
       toast.error("Please choose a PDF file to upload");
       return;
     }
+    if (!activeChapterForPdfUpload) return;
 
     const formData = new FormData();
     formData.append("title", pdfTitle.trim());
     formData.append("pdf", pdfFile);
 
-    addPdfToTopic(
-      { courseId, topicId: activeTopicForPdfUpload._id, formData },
+    addPdfToChapter(
+      {
+        courseId,
+        subjectId: activeChapterForPdfUpload.subjectId,
+        chapterId: activeChapterForPdfUpload.chapterId,
+        formData,
+      },
       {
         onSuccess: () => {
           setPdfTitle("");
           setPdfFile(null);
-          setActiveTopicForPdfUpload(null);
+          setActiveChapterForPdfUpload(null);
         },
       }
     );
   };
 
-  // Handle Upload Video to Topic
+  // Handle Upload Video to Chapter
   const handleUploadVideoSubmit = (e) => {
     e.preventDefault();
     if (!videoTitle.trim()) {
@@ -170,8 +235,9 @@ const TopicPdfManager = () => {
       toast.error("Please choose a video file to upload");
       return;
     }
+    if (!activeChapterForVideoUpload) return;
 
-    const uploadId = "up_topic_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
+    const uploadId = "up_chap_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
     const formData = new FormData();
     formData.append("title", videoTitle.trim());
     formData.append("video", videoFile);
@@ -211,7 +277,7 @@ const TopicPdfManager = () => {
               queryClient.invalidateQueries(["getCourse"]);
               toast.success("Video uploaded to chapter successfully!");
               setTimeout(() => {
-                setActiveTopicForVideoUpload(null);
+                setActiveChapterForVideoUpload(null);
                 setVideoTitle("");
                 setVideoFile(null);
                 setUploadPhase("idle");
@@ -224,10 +290,11 @@ const TopicPdfManager = () => {
       }, 1000);
     };
 
-    addVideoToTopic(
+    addVideoToChapter(
       {
         courseId,
-        topicId: activeTopicForVideoUpload._id,
+        subjectId: activeChapterForVideoUpload.subjectId,
+        chapterId: activeChapterForVideoUpload.chapterId,
         formData,
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
@@ -253,7 +320,7 @@ const TopicPdfManager = () => {
           queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
           queryClient.invalidateQueries(["getCourse"]);
           setTimeout(() => {
-            setActiveTopicForVideoUpload(null);
+            setActiveChapterForVideoUpload(null);
             setVideoTitle("");
             setVideoFile(null);
             setUploadPhase("idle");
@@ -267,48 +334,105 @@ const TopicPdfManager = () => {
     );
   };
 
-  // Custom Delete Confirm Execution
+  // Handle Confirm Delete
   const handleConfirmDelete = () => {
     if (!deleteConfirm) return;
 
-    if (deleteConfirm.type === "topic") {
-      deleteTopic(
-        { courseId, topicId: deleteConfirm.id },
+    if (deleteConfirm.type === "subject") {
+      deleteSubject(
+        { courseId, subjectId: deleteConfirm.id },
+        { onSuccess: () => setDeleteConfirm(null) }
+      );
+    } else if (deleteConfirm.type === "chapter") {
+      deleteChapter(
         {
-          onSuccess: () => setDeleteConfirm(null),
-        }
+          courseId,
+          subjectId: deleteConfirm.subjectId,
+          chapterId: deleteConfirm.id,
+        },
+        { onSuccess: () => setDeleteConfirm(null) }
       );
     } else if (deleteConfirm.type === "video") {
-      deleteVideoFromTopic(
-        { courseId, topicId: deleteConfirm.topicId, videoId: deleteConfirm.id },
+      deleteVideoFromChapter(
         {
-          onSuccess: () => setDeleteConfirm(null),
-        }
+          courseId,
+          subjectId: deleteConfirm.subjectId,
+          chapterId: deleteConfirm.chapterId,
+          videoId: deleteConfirm.id,
+        },
+        { onSuccess: () => setDeleteConfirm(null) }
       );
     } else if (deleteConfirm.type === "pdf") {
-      deletePdfFromTopic(
-        { courseId, topicId: deleteConfirm.topicId, pdfId: deleteConfirm.id },
+      deletePdfFromChapter(
         {
-          onSuccess: () => setDeleteConfirm(null),
-        }
+          courseId,
+          subjectId: deleteConfirm.subjectId,
+          chapterId: deleteConfirm.chapterId,
+          pdfId: deleteConfirm.id,
+        },
+        { onSuccess: () => setDeleteConfirm(null) }
+      );
+    } else if (deleteConfirm.type === "legacyTopic") {
+      deleteTopic(
+        { courseId, topicId: deleteConfirm.id },
+        { onSuccess: () => setDeleteConfirm(null) }
       );
     }
   };
 
-  const isDeletingAny = isDeletingTopic || isDeletingVideo || isDeletingPdf;
+  const isDeletingAny =
+    isDeletingSubject ||
+    isDeletingChapter ||
+    isDeletingVideo ||
+    isDeletingPdf ||
+    isDeletingTopic;
 
-  // Counts
-  const totalVideos =
-    course?.topics?.reduce(
-      (acc, topic) => acc + (topic.videos?.length || 0),
+  // Counts across subjects & chapters
+  const totalSubjects = course?.subjects?.length || 0;
+
+  const totalChapters =
+    course?.subjects?.reduce(
+      (acc, s) => acc + (s.chapters?.length || 0),
       0
     ) || 0;
 
-  const totalPdfs =
-    course?.topics?.reduce(
-      (acc, topic) => acc + (topic.pdfs?.length || 0),
+  const totalSubjectVideos =
+    course?.subjects?.reduce(
+      (acc, s) =>
+        acc +
+        (s.chapters?.reduce(
+          (cAcc, c) => cAcc + (c.videos?.length || 0),
+          0
+        ) || 0),
       0
     ) || 0;
+
+  const totalSubjectPdfs =
+    course?.subjects?.reduce(
+      (acc, s) =>
+        acc +
+        (s.chapters?.reduce(
+          (cAcc, c) => cAcc + (c.pdfs?.length || 0),
+          0
+        ) || 0),
+      0
+    ) || 0;
+
+  // Legacy counts
+  const legacyTopicsCount = course?.topics?.length || 0;
+  const legacyVideosCount =
+    course?.topics?.reduce(
+      (acc, t) => acc + (t.videos?.length || 0),
+      0
+    ) || 0;
+  const legacyPdfsCount =
+    course?.topics?.reduce(
+      (acc, t) => acc + (t.pdfs?.length || 0),
+      0
+    ) || 0;
+
+  const totalVideos = totalSubjectVideos + legacyVideosCount;
+  const totalPdfs = totalSubjectPdfs + legacyPdfsCount;
 
   if (isLoading) {
     return (
@@ -319,7 +443,7 @@ const TopicPdfManager = () => {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 p-4 sm:p-6 lg:p-8 pb-32">
+    <div className="min-h-full bg-slate-50/50 p-4 sm:p-6 lg:p-8 pb-32">
       {/* Top Header */}
       <div className="max-w-5xl mx-auto mb-8">
         <button
@@ -345,101 +469,177 @@ const TopicPdfManager = () => {
                 {isVideoCourse ? "Video Course" : "PDF Course"}
               </span>
             </div>
-            <p className="text-sm text-slate-500 mt-1">
-              {course?.topics?.length || 0} Chapters / Topics • {totalVideos} Videos • {totalPdfs} PDF Documents
+            <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-700">
+                {totalSubjects} {totalSubjects === 1 ? "Subject" : "Subjects"}
+              </span>
+              <span>•</span>
+              <span className="font-semibold text-slate-700">
+                {totalChapters} {totalChapters === 1 ? "Chapter" : "Chapters"}
+              </span>
+              <span>•</span>
+              <span>{totalVideos} Videos</span>
+              <span>•</span>
+              <span>{totalPdfs} PDF Documents</span>
             </p>
           </div>
 
-          <button
-            onClick={() => setIsTopicModalOpen(true)}
-            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer flex items-center gap-2 text-sm shrink-0"
-          >
-            <FolderPlus className="w-4 h-4" /> Add Chapter / Topic
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => setIsAccessDialogOpen(true)}
+              className="px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold hover:bg-emerald-100 transition cursor-pointer flex items-center gap-2 text-sm shadow-xs"
+              title="Manage Enrolled Students and Grant Course Access"
+            >
+              <UserPlus className="w-4 h-4 text-emerald-600" /> Students & Access
+            </button>
+            <button
+              onClick={() => setIsSubjectModalOpen(true)}
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer flex items-center gap-2 text-sm"
+            >
+              <FolderPlus className="w-4 h-4" /> Add Subject
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Topics List Container */}
+      {/* Legacy Topics Warning & Section (if old topics exist) */}
+      {legacyTopicsCount > 0 && (
+        <div className="max-w-5xl mx-auto mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Layers className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-amber-900">
+                  Legacy Topics ({legacyTopicsCount})
+                </p>
+                <p className="text-xs text-amber-700">
+                  These topics were created in the previous format. You can delete them or create new Subjects above.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setExpandedLegacyTopics((prev) => !prev)}
+              className="text-xs font-bold text-amber-800 hover:text-amber-900 underline cursor-pointer inline-flex items-center gap-1"
+            >
+              {expandedLegacyTopics ? "Hide" : "View"} ({legacyTopicsCount})
+              {expandedLegacyTopics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {expandedLegacyTopics && (
+            <div className="mt-4 pt-3 border-t border-amber-200/70 space-y-2">
+              {course.topics.map((top, tIdx) => (
+                <div
+                  key={top._id || tIdx}
+                  className="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-200"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{top.topicName}</p>
+                    <span className="text-xs text-slate-500">
+                      {top.videos?.length || 0} Videos • {top.pdfs?.length || 0} PDFs
+                    </span>
+                  </div>
+                  <button
+                    disabled={isDeletingAny}
+                    onClick={() => {
+                      setDeleteConfirm({
+                        type: "legacyTopic",
+                        id: top._id,
+                        title: top.topicName,
+                      });
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                    title="Delete Legacy Topic"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Subjects Container */}
       <div className="max-w-5xl mx-auto space-y-6">
-        {course?.topics && course.topics.length > 0 ? (
-          course.topics.map((topic, index) => {
-            const isExpanded = expandedTopics[topic._id] !== false; // expanded by default
-            const topicVideoCount = topic.videos?.length || 0;
-            const topicPdfCount = topic.pdfs?.length || 0;
+        {course?.subjects && course.subjects.length > 0 ? (
+          course.subjects.map((subject, sIdx) => {
+            const isSubjectExpanded = expandedSubjects[subject._id] !== false;
+            const subjectChapters = subject.chapters || [];
+            const subjectVideoCount = subjectChapters.reduce(
+              (acc, c) => acc + (c.videos?.length || 0),
+              0
+            );
+            const subjectPdfCount = subjectChapters.reduce(
+              (acc, c) => acc + (c.pdfs?.length || 0),
+              0
+            );
 
             return (
               <div
-                key={topic._id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden transition-all"
+                key={subject._id}
+                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all"
               >
-                {/* Topic Header Strip */}
-                <div className="p-5 flex items-center justify-between bg-slate-50/90 border-b border-slate-200">
+                {/* Subject Header Bar */}
+                <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
                   <div
-                    className="flex items-center gap-3 cursor-pointer flex-1 select-none"
-                    onClick={() => toggleTopicExpand(topic._id)}
+                    className="flex items-center gap-3.5 cursor-pointer flex-1 select-none"
+                    onClick={() => toggleSubjectExpand(subject._id)}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
-                      {index + 1}
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-300 font-black text-base flex items-center justify-center shrink-0">
+                      {sIdx + 1}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        {topic.topicName}
-                      </h3>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                        <span className="inline-flex items-center gap-1 font-medium">
-                          <Video className="w-3.5 h-3.5 text-blue-600" />
-                          {topicVideoCount} {topicVideoCount === 1 ? "Video" : "Videos"}
-                        </span>
-                        <span>•</span>
-                        <span className="inline-flex items-center gap-1 font-medium">
-                          <FileText className="w-3.5 h-3.5 text-purple-600" />
-                          {topicPdfCount} {topicPdfCount === 1 ? "PDF" : "PDFs"}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/50">
+                          Subject {sIdx + 1}
                         </span>
                       </div>
+                      <h2 className="text-lg sm:text-xl font-black text-white mt-1">
+                        {subject.subjectName}
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                        <span>{subjectChapters.length} Chapters</span>
+                        <span>•</span>
+                        <span>{subjectVideoCount} Videos</span>
+                        <span>•</span>
+                        <span>{subjectPdfCount} PDFs</span>
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Add Video Button */}
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    {/* Add Chapter Button */}
                     <button
-                      onClick={() => setActiveTopicForVideoUpload(topic)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition cursor-pointer shadow-xs"
-                      title="Upload video to this chapter"
+                      onClick={() => setActiveSubjectForChapter(subject)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
+                      title="Add Chapter to this Subject"
                     >
-                      <Video className="w-3.5 h-3.5" /> Add Video
+                      <Plus className="w-4 h-4" /> Add Chapter
                     </button>
 
-                    {/* Add PDF Button */}
-                    <button
-                      onClick={() => setActiveTopicForPdfUpload(topic)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100 transition cursor-pointer"
-                      title="Upload PDF notes to this chapter"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add PDF
-                    </button>
-
-                    {/* Delete Topic Button */}
+                    {/* Delete Subject Button */}
                     <button
                       disabled={isDeletingAny}
                       onClick={() => {
                         setDeleteConfirm({
-                          type: "topic",
-                          id: topic._id,
-                          title: topic.topicName,
+                          type: "subject",
+                          id: subject._id,
+                          title: subject.subjectName,
                         });
                       }}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                      title="Delete Chapter / Topic"
+                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800/80 rounded-xl transition cursor-pointer"
+                      title="Delete Subject"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
 
-                    {/* Expand/Collapse */}
+                    {/* Expand/Collapse Subject */}
                     <button
-                      onClick={() => toggleTopicExpand(topic._id)}
-                      className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition cursor-pointer"
+                      onClick={() => toggleSubjectExpand(subject._id)}
+                      className="p-2 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
                     >
-                      {isExpanded ? (
+                      {isSubjectExpanded ? (
                         <ChevronUp className="w-5 h-5" />
                       ) : (
                         <ChevronDown className="w-5 h-5" />
@@ -448,167 +648,313 @@ const TopicPdfManager = () => {
                   </div>
                 </div>
 
-                {/* Content Inside Topic */}
-                {isExpanded && (
-                  <div className="p-5 space-y-6">
-                    {/* Videos Section */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                          <Film className="w-4 h-4 text-blue-600" />
-                          Lectures & Videos ({topicVideoCount})
-                        </span>
-                        <button
-                          onClick={() => setActiveTopicForVideoUpload(topic)}
-                          className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" /> Add another video
-                        </button>
-                      </div>
+                {/* Subject Content: Chapters List */}
+                {isSubjectExpanded && (
+                  <div className="p-4 sm:p-6 bg-slate-50/50 space-y-4">
+                    {subjectChapters.length > 0 ? (
+                      subjectChapters.map((chapter, cIdx) => {
+                        const isChapterExpanded =
+                          expandedChapters[chapter._id] !== false;
+                        const chapterVideoCount = chapter.videos?.length || 0;
+                        const chapterPdfCount = chapter.pdfs?.length || 0;
 
-                      {topic.videos && topic.videos.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {topic.videos.map((vid, vIdx) => (
-                            <div
-                              key={vid._id || vIdx}
-                              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/20 transition-all bg-white group shadow-2xs"
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden flex-1">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                  <Video className="w-5 h-5" />
-                                </div>
-                                <div className="overflow-hidden flex-1 pr-2">
-                                  <p
-                                    className="text-sm font-bold text-slate-900 truncate"
-                                    title={vid.title}
-                                  >
-                                    {vid.title}
-                                  </p>
-                                  <span className="text-[11px] text-slate-400">
-                                    Video {vIdx + 1} • {vid.createdAt ? new Date(vid.createdAt).toLocaleDateString() : "Uploaded"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={() => setPreviewVideo(vid)}
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
-                                  title="Play / Preview Video"
-                                >
-                                  <PlayCircle className="w-4 h-4" />
-                                </button>
-                                <button
-                                  disabled={isDeletingAny}
-                                  onClick={() => {
-                                    setDeleteConfirm({
-                                      type: "video",
-                                      id: vid._id,
-                                      topicId: topic._id,
-                                      title: vid.title,
-                                    });
-                                  }}
-                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                                  title="Delete Video"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-6 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50">
-                          <Video className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                          <p className="text-xs text-slate-500 font-medium">
-                            No videos added to this chapter yet.
-                          </p>
-                          <button
-                            onClick={() => setActiveTopicForVideoUpload(topic)}
-                            className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                        return (
+                          <div
+                            key={chapter._id}
+                            className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden transition-all"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Upload first video
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* PDFs Section */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3 pt-2 border-t border-slate-100">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                          <FileText className="w-4 h-4 text-purple-600" />
-                          Study Notes & PDFs ({topicPdfCount})
-                        </span>
-                        <button
-                          onClick={() => setActiveTopicForPdfUpload(topic)}
-                          className="text-xs font-bold text-purple-600 hover:text-purple-700 hover:underline cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" /> Add PDF
-                        </button>
-                      </div>
-
-                      {topic.pdfs && topic.pdfs.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {topic.pdfs.map((pdf, pIdx) => (
-                            <div
-                              key={pdf._id || pIdx}
-                              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50/20 transition-all bg-white group shadow-2xs"
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden flex-1">
-                                <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100">
-                                  <FileText className="w-5 h-5" />
+                            {/* Chapter Header Strip */}
+                            <div className="p-4 flex items-center justify-between bg-slate-100/70 border-b border-slate-200">
+                              <div
+                                className="flex items-center gap-3 cursor-pointer flex-1 select-none"
+                                onClick={() => toggleChapterExpand(chapter._id)}
+                              >
+                                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {cIdx + 1}
                                 </div>
-                                <div className="overflow-hidden flex-1 pr-2">
-                                  <p
-                                    className="text-sm font-bold text-slate-800 truncate"
-                                    title={pdf.title}
-                                  >
-                                    {pdf.title}
-                                  </p>
-                                  <span className="text-[11px] text-slate-400">
-                                    {new Date(pdf.createdAt).toLocaleDateString()}
-                                  </span>
+                                <div>
+                                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                                    {chapter.chapterName}
+                                  </h3>
+                                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                    <span className="inline-flex items-center gap-1 font-medium">
+                                      <Video className="w-3.5 h-3.5 text-blue-600" />
+                                      {chapterVideoCount} {chapterVideoCount === 1 ? "Video" : "Videos"}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="inline-flex items-center gap-1 font-medium">
+                                      <FileText className="w-3.5 h-3.5 text-purple-600" />
+                                      {chapterPdfCount} {chapterPdfCount === 1 ? "PDF" : "PDFs"}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1 shrink-0">
-                                <a
-                                  href={pdf.pdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                                  title="Open PDF"
+                              <div className="flex items-center gap-2">
+                                {/* Add Video Button */}
+                                <button
+                                  onClick={() =>
+                                    setActiveChapterForVideoUpload({
+                                      subjectId: subject._id,
+                                      chapterId: chapter._id,
+                                      chapterName: chapter.chapterName,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition cursor-pointer shadow-2xs"
+                                  title="Upload video to this chapter"
                                 >
-                                  <ExternalLink className="w-4 h-4" />
-                                </a>
+                                  <Video className="w-3.5 h-3.5" /> Add Video
+                                </button>
+
+                                {/* Add PDF Button */}
+                                <button
+                                  onClick={() =>
+                                    setActiveChapterForPdfUpload({
+                                      subjectId: subject._id,
+                                      chapterId: chapter._id,
+                                      chapterName: chapter.chapterName,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100 transition cursor-pointer"
+                                  title="Upload PDF notes to this chapter"
+                                >
+                                  <Plus className="w-3.5 h-3.5" /> Add PDF
+                                </button>
+
+                                {/* Delete Chapter Button */}
                                 <button
                                   disabled={isDeletingAny}
                                   onClick={() => {
                                     setDeleteConfirm({
-                                      type: "pdf",
-                                      id: pdf._id,
-                                      topicId: topic._id,
-                                      title: pdf.title,
+                                      type: "chapter",
+                                      subjectId: subject._id,
+                                      id: chapter._id,
+                                      title: chapter.chapterName,
                                     });
                                   }}
                                   className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                                  title="Delete PDF"
+                                  title="Delete Chapter"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
+
+                                {/* Expand/Collapse Chapter */}
+                                <button
+                                  onClick={() => toggleChapterExpand(chapter._id)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition cursor-pointer"
+                                >
+                                  {isChapterExpanded ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </button>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/30">
-                          <p className="text-xs text-slate-400">
-                            Optional: Add PDF notes or worksheets for this chapter.
-                          </p>
-                        </div>
-                      )}
-                    </div>
+
+                            {/* Content Inside Chapter: Videos & PDFs */}
+                            {isChapterExpanded && (
+                              <div className="p-4 sm:p-5 space-y-5 bg-white">
+                                {/* Lectures & Videos */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-2.5">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                      <Film className="w-4 h-4 text-blue-600" />
+                                      Lectures & Videos ({chapterVideoCount})
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        setActiveChapterForVideoUpload({
+                                          subjectId: subject._id,
+                                          chapterId: chapter._id,
+                                          chapterName: chapter.chapterName,
+                                        })
+                                      }
+                                      className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer inline-flex items-center gap-1"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add another video
+                                    </button>
+                                  </div>
+
+                                  {chapter.videos && chapter.videos.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {chapter.videos.map((vid, vIdx) => (
+                                        <div
+                                          key={vid._id || vIdx}
+                                          className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/20 transition-all bg-white group shadow-2xs"
+                                        >
+                                          <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                              <Video className="w-4 h-4" />
+                                            </div>
+                                            <div className="overflow-hidden flex-1 pr-2">
+                                              <p
+                                                className="text-sm font-bold text-slate-900 truncate"
+                                                title={vid.title}
+                                              >
+                                                {vid.title}
+                                              </p>
+                                              <span className="text-[11px] text-slate-400">
+                                                Video {vIdx + 1} • {vid.createdAt ? new Date(vid.createdAt).toLocaleDateString() : "Uploaded"}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              onClick={() => setPreviewVideo(vid)}
+                                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                              title="Play Video"
+                                            >
+                                              <PlayCircle className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              disabled={isDeletingAny}
+                                              onClick={() => {
+                                                setDeleteConfirm({
+                                                  type: "video",
+                                                  subjectId: subject._id,
+                                                  chapterId: chapter._id,
+                                                  id: vid._id,
+                                                  title: vid.title,
+                                                });
+                                              }}
+                                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                              title="Delete Video"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-5 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50">
+                                      <Video className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+                                      <p className="text-xs text-slate-500 font-medium">
+                                        No videos added to this chapter yet.
+                                      </p>
+                                      <button
+                                        onClick={() =>
+                                          setActiveChapterForVideoUpload({
+                                            subjectId: subject._id,
+                                            chapterId: chapter._id,
+                                            chapterName: chapter.chapterName,
+                                          })
+                                        }
+                                        className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" /> Upload first video
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Study Notes & PDFs */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-2.5 pt-2 border-t border-slate-100">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                      <FileText className="w-4 h-4 text-purple-600" />
+                                      Study Notes & PDFs ({chapterPdfCount})
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        setActiveChapterForPdfUpload({
+                                          subjectId: subject._id,
+                                          chapterId: chapter._id,
+                                          chapterName: chapter.chapterName,
+                                        })
+                                      }
+                                      className="text-xs font-bold text-purple-600 hover:text-purple-700 hover:underline cursor-pointer inline-flex items-center gap-1"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" /> Add PDF
+                                    </button>
+                                  </div>
+
+                                  {chapter.pdfs && chapter.pdfs.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {chapter.pdfs.map((pdf, pIdx) => (
+                                        <div
+                                          key={pdf._id || pIdx}
+                                          className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50/20 transition-all bg-white group shadow-2xs"
+                                        >
+                                          <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100">
+                                              <FileText className="w-4 h-4" />
+                                            </div>
+                                            <div className="overflow-hidden flex-1 pr-2">
+                                              <p
+                                                className="text-sm font-bold text-slate-800 truncate"
+                                                title={pdf.title}
+                                              >
+                                                {pdf.title}
+                                              </p>
+                                              <span className="text-[11px] text-slate-400">
+                                                {new Date(pdf.createdAt).toLocaleDateString()}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <a
+                                              href={pdf.pdfUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                                              title="Open PDF"
+                                            >
+                                              <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                            <button
+                                              disabled={isDeletingAny}
+                                              onClick={() => {
+                                                setDeleteConfirm({
+                                                  type: "pdf",
+                                                  subjectId: subject._id,
+                                                  chapterId: chapter._id,
+                                                  id: pdf._id,
+                                                  title: pdf.title,
+                                                });
+                                              }}
+                                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                              title="Delete PDF"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-3.5 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/30">
+                                      <p className="text-xs text-slate-400">
+                                        Optional: Add PDF notes or worksheets for this chapter.
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="bg-white rounded-xl p-8 text-center border border-dashed border-slate-300">
+                        <BookOpen className="w-8 h-8 text-blue-500 mx-auto mb-2 opacity-70" />
+                        <h4 className="text-sm font-bold text-slate-800">
+                          No chapters in this subject yet
+                        </h4>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                          Add chapters inside "{subject.subjectName}" (e.g. "Chapter 1: Overview", "Chapter 2: Core Concepts").
+                        </p>
+                        <button
+                          onClick={() => setActiveSubjectForChapter(subject)}
+                          className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs shadow hover:bg-blue-700 transition cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add First Chapter
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -616,41 +962,47 @@ const TopicPdfManager = () => {
           })
         ) : (
           <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
-            <FolderPlus className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-slate-800">No Chapters / Topics Created Yet</h3>
-            <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1 mb-6">
-              Create chapters or topics first (e.g. "Chapter 1: Reasoning Basics"), then upload 2, 4 or more videos under each chapter!
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-xs">
+              <FolderPlus className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900">
+              No Subjects Created Yet
+            </h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 mb-6 leading-relaxed">
+              Organize this course hierarchically: First create <strong>Subjects</strong> (e.g. "Retail Banking and Wealth Management"), then add <strong>Chapters</strong> inside each subject, and upload videos & study PDFs!
             </p>
             <button
-              onClick={() => setIsTopicModalOpen(true)}
-              className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow-md hover:bg-blue-700 transition cursor-pointer inline-flex items-center gap-2"
+              onClick={() => setIsSubjectModalOpen(true)}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer inline-flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" /> Create First Chapter
+              <Plus className="w-4 h-4" /> Create First Subject
             </button>
           </div>
         )}
       </div>
 
-      {/* Modal: Add Topic / Chapter */}
-      <Dialog open={isTopicModalOpen} onOpenChange={setIsTopicModalOpen}>
+      {/* Modal: Add Subject */}
+      <Dialog open={isSubjectModalOpen} onOpenChange={setIsSubjectModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900">
-              Add New Chapter / Topic
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <FolderPlus className="w-5 h-5 text-blue-600" /> Add Subject
             </DialogTitle>
-
+            <DialogDescription className="text-xs text-slate-500">
+              Create a subject for this course (e.g. Retail Banking & Wealth Management, Principles of Banking, etc.)
+            </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleAddTopicSubmit} className="space-y-4 mt-3 text-left">
+          <form onSubmit={handleAddSubjectSubmit} className="space-y-4 mt-3 text-left">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Chapter / Topic Name <span className="text-red-500">*</span>
+                Subject Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. Chapter 1: Number Systems & Arithmetic"
-                value={topicName}
-                onChange={(e) => setTopicName(e.target.value)}
+                placeholder="e.g. Retail Banking and Wealth Management"
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
                 required
                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -659,17 +1011,77 @@ const TopicPdfManager = () => {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setIsTopicModalOpen(false)}
+                onClick={() => setIsSubjectModalOpen(false)}
                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isAddingTopic}
+                disabled={isAddingSubject}
                 className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
               >
-                {isAddingTopic && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isAddingSubject && <Loader2 className="w-4 h-4 animate-spin" />}
+                Add Subject
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Add Chapter to Subject */}
+      <Dialog
+        open={Boolean(activeSubjectForChapter)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveSubjectForChapter(null);
+            setChapterName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-blue-600" /> Add Chapter
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Adding chapter under subject:{" "}
+              <strong className="text-slate-800">{activeSubjectForChapter?.subjectName}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddChapterSubmit} className="space-y-4 mt-3 text-left">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Chapter Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Chapter 1: Introduction to Retail Banking"
+                value={chapterName}
+                onChange={(e) => setChapterName(e.target.value)}
+                required
+                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubjectForChapter(null);
+                  setChapterName("");
+                }}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isAddingChapter}
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
+              >
+                {isAddingChapter && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Chapter
               </button>
             </div>
@@ -677,9 +1089,9 @@ const TopicPdfManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Upload Video to Topic */}
+      {/* Modal: Upload Video to Chapter */}
       <Dialog
-        open={Boolean(activeTopicForVideoUpload)}
+        open={Boolean(activeChapterForVideoUpload)}
         onOpenChange={(open) => {
           if (uploadPhase === "local" || uploadPhase === "cloud") {
             toast.warning("Video upload in progress. Please wait until it completes.");
@@ -687,7 +1099,7 @@ const TopicPdfManager = () => {
           }
           if (!open) {
             cleanupPolling();
-            setActiveTopicForVideoUpload(null);
+            setActiveChapterForVideoUpload(null);
             setVideoTitle("");
             setVideoFile(null);
             setUploadPhase("idle");
@@ -700,8 +1112,8 @@ const TopicPdfManager = () => {
               <Video className="w-5 h-5 text-blue-600" /> Upload Video Lecture
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Adding video to:{" "}
-              <strong className="text-slate-800">{activeTopicForVideoUpload?.topicName}</strong>
+              Adding video to chapter:{" "}
+              <strong className="text-slate-800">{activeChapterForVideoUpload?.chapterName}</strong>
             </DialogDescription>
           </DialogHeader>
 
@@ -712,7 +1124,7 @@ const TopicPdfManager = () => {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Lecture 1: Concept, Formulas & Solved Examples"
+                placeholder="e.g. Lecture 1: Core Concepts & Practice"
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
                 required
@@ -807,7 +1219,7 @@ const TopicPdfManager = () => {
                 disabled={uploadPhase === "local" || uploadPhase === "cloud"}
                 onClick={() => {
                   cleanupPolling();
-                  setActiveTopicForVideoUpload(null);
+                  setActiveChapterForVideoUpload(null);
                   setVideoTitle("");
                   setVideoFile(null);
                   setUploadPhase("idle");
@@ -836,12 +1248,12 @@ const TopicPdfManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Upload PDF to Topic */}
+      {/* Modal: Upload PDF to Chapter */}
       <Dialog
-        open={Boolean(activeTopicForPdfUpload)}
+        open={Boolean(activeChapterForPdfUpload)}
         onOpenChange={(open) => {
           if (!open) {
-            setActiveTopicForPdfUpload(null);
+            setActiveChapterForPdfUpload(null);
             setPdfTitle("");
             setPdfFile(null);
           }
@@ -853,8 +1265,8 @@ const TopicPdfManager = () => {
               Upload PDF Document
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Upload study material to:{" "}
-              <strong className="text-slate-700">{activeTopicForPdfUpload?.topicName}</strong>
+              Upload study notes to chapter:{" "}
+              <strong className="text-slate-700">{activeChapterForPdfUpload?.chapterName}</strong>
             </DialogDescription>
           </DialogHeader>
 
@@ -890,7 +1302,7 @@ const TopicPdfManager = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setActiveTopicForPdfUpload(null);
+                  setActiveChapterForPdfUpload(null);
                   setPdfTitle("");
                   setPdfFile(null);
                 }}
@@ -959,6 +1371,15 @@ const TopicPdfManager = () => {
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Grant Course Access & Enrolled Students Dialog */}
+      {isAccessDialogOpen && (
+        <GrantCourseAccessDialog
+          isOpen={isAccessDialogOpen}
+          onClose={() => setIsAccessDialogOpen(false)}
+          course={course}
+        />
+      )}
     </div>
   );
 };

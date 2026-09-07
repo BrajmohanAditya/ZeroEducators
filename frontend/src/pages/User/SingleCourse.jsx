@@ -22,14 +22,48 @@ const SingleCourse = () => {
     : "Lifetime Access";
 
   const totalPdfs = React.useMemo(() => {
-    return course?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
-  }, [course?.topics]);
+    const subjectPdfs =
+      course?.subjects?.reduce(
+        (acc, s) =>
+          acc +
+          (s.chapters?.reduce((cAcc, c) => cAcc + (c.pdfs?.length || 0), 0) || 0),
+        0
+      ) || 0;
+    const topicPdfs =
+      course?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
+    return subjectPdfs + topicPdfs;
+  }, [course?.subjects, course?.topics]);
+
+  const totalSubjectVideos = React.useMemo(() => {
+    return (
+      course?.subjects?.reduce(
+        (acc, s) =>
+          acc +
+          (s.chapters?.reduce(
+            (cAcc, c) => cAcc + (c.videos?.length || 0),
+            0
+          ) || 0),
+        0
+      ) || 0
+    );
+  }, [course?.subjects]);
 
   const totalTopicVideos = React.useMemo(() => {
-    return course?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
+    return (
+      course?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0
+    );
   }, [course?.topics]);
 
-  const totalVideos = totalTopicVideos > 0 ? totalTopicVideos : (course?.modules?.length || 0);
+  const totalVideos =
+    totalSubjectVideos + totalTopicVideos > 0
+      ? totalSubjectVideos + totalTopicVideos
+      : course?.modules?.length || 0;
+
+  const totalSubjectsCount = course?.subjects?.length || 0;
+  const totalChaptersCount =
+    course?.subjects?.reduce((acc, s) => acc + (s.chapters?.length || 0), 0) ||
+    course?.topics?.length ||
+    0;
 
   const purchaseHandler = () => {
     mutate({
@@ -75,14 +109,23 @@ const SingleCourse = () => {
               <div className="flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-purple-600" />
                 <span>
-                  {course.topics?.length || 0} {course.topics?.length === 1 ? "Topic" : "Topics"} • {totalPdfs} {totalPdfs === 1 ? "PDF" : "PDFs"}
+                  {totalSubjectsCount > 0
+                    ? `${totalSubjectsCount} Subjects • `
+                    : totalChaptersCount > 0
+                    ? `${totalChaptersCount} Chapters • `
+                    : ""}
+                  {totalPdfs} {totalPdfs === 1 ? "PDF" : "PDFs"}
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-blue-500" />
                 <span>
-                  {course?.topics?.length > 0 ? `${course.topics.length} Chapters • ` : ""}
+                  {totalSubjectsCount > 0
+                    ? `${totalSubjectsCount} Subjects • `
+                    : totalChaptersCount > 0
+                    ? `${totalChaptersCount} Chapters • `
+                    : ""}
                   {totalVideos} {totalVideos === 1 ? "Video" : "Videos"}
                 </span>
               </div>

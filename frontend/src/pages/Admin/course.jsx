@@ -1,7 +1,8 @@
 import CreateCourseDialog from "../../components/Admin/CreateCourseDialog";
+import GrantCourseAccessDialog from "../../components/Admin/GrantCourseAccessDialog";
 import { useGetCourseHook, useDeleteCourseHook, useEditCourseHook } from "../../hooks/course.hook";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, BookOpen, Video, FileText } from "lucide-react";
+import { Edit, Trash2, BookOpen, Video, FileText, UserPlus, Users } from "lucide-react";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import { useState } from "react";
 
@@ -15,6 +16,7 @@ const DashboardProducts = () => {
 
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [accessDialog, setAccessDialog] = useState(null); // { course, tab: 'grant' | 'students' }
 
   const handleDelete = (id, title) => {
     setDeleteConfirm({ id, title });
@@ -32,10 +34,23 @@ const DashboardProducts = () => {
             View, edit, and manage all active courses.
           </p>
         </div>
-        <CreateCourseDialog 
-          editingCourse={editingCourse}
-          onCloseEdit={() => setEditingCourse(null)}
-        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() =>
+              setAccessDialog({
+                course: data?.courses?.[0] || null,
+                tab: "grant",
+              })
+            }
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-200 hover:from-emerald-700 hover:to-teal-700 transition cursor-pointer flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" /> Grant Course Access
+          </button>
+          <CreateCourseDialog 
+            editingCourse={editingCourse}
+            onCloseEdit={() => setEditingCourse(null)}
+          />
+        </div>
       </div>
 
       {/* Admin List Section */}
@@ -94,7 +109,16 @@ const DashboardProducts = () => {
                       )}
                     </td>
 
-                    <td className="p-4 text-slate-600">{item.enrolled || 0}</td>
+                    <td className="p-4 text-slate-600">
+                      <button
+                        onClick={() => setAccessDialog({ course: item, tab: "students" })}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 transition cursor-pointer"
+                        title="View Enrolled Students"
+                      >
+                        <Users className="w-3.5 h-3.5 text-emerald-600" />
+                        {item.enrolled || 0} Students
+                      </button>
+                    </td>
 
                     <td className="p-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -104,6 +128,16 @@ const DashboardProducts = () => {
 
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAccessDialog({ course: item, tab: "grant" });
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer"
+                          title="Grant access to a student"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" /> Grant
+                        </button>
                         {item.courseType === "pdf" ? (
                           <button
                             onClick={() => getCourseId(item)}
@@ -203,12 +237,17 @@ const DashboardProducts = () => {
 
               {/* Card Stats */}
               <div className="bg-slate-50 rounded-lg p-3 flex justify-between items-center text-sm border border-slate-100">
-                <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => setAccessDialog({ course: item, tab: "students" })}
+                  className="flex flex-col text-left cursor-pointer"
+                >
                   <span className="text-slate-500 text-xs">Students</span>
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-emerald-700 text-xs inline-flex items-center gap-1 mt-0.5">
+                    <Users className="w-3.5 h-3.5" />
                     {item.enrolled || 0} Enrolled
                   </span>
-                </div>
+                </button>
                 <div className="h-8 w-px bg-slate-200"></div>
                 <div className="flex flex-col items-end">
                   <span className="text-slate-500 text-xs">Price</span>
@@ -219,40 +258,55 @@ const DashboardProducts = () => {
               </div>
 
               {/* Card Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                {item.courseType === "pdf" ? (
+              <div className="flex flex-col gap-2 pt-1">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => getCourseId(item)}
-                    className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAccessDialog({ course: item, tab: "grant" });
+                    }}
+                    className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer"
                   >
-                    <FileText className="w-4 h-4" /> Topics & PDFs
+                    <UserPlus className="w-3.5 h-3.5" /> Grant Access
                   </button>
-                ) : (
+
+                  {item.courseType === "pdf" ? (
+                    <button
+                      onClick={() => getCourseId(item)}
+                      className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Topics & PDFs
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => getCourseId(item)}
+                      className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-200 cursor-pointer"
+                    >
+                      <Video className="w-3.5 h-3.5" /> Topics & Videos
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => getCourseId(item)}
-                    className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-200 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingCourse(item);
+                    }}
+                    className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-100"
                   >
-                    <Video className="w-4 h-4" /> Topics & Videos
+                    <Edit className="w-3.5 h-3.5" /> Edit
                   </button>
-                )}
-                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingCourse(item);
-                  }}
-                  className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors border border-transparent hover:border-blue-100"
-                >
-                  <Edit className="w-4 h-4" /> Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(item._id, item.title);
-                  }}
-                  className="flex-1 flex justify-center items-center gap-2 py-2 px-3 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(item._id, item.title);
+                    }}
+                    className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -265,6 +319,17 @@ const DashboardProducts = () => {
           )}
         </div>
       </div>
+
+      {/* Grant Access & Enrolled Students Dialog */}
+      {accessDialog && (
+        <GrantCourseAccessDialog
+          isOpen={Boolean(accessDialog)}
+          onClose={() => setAccessDialog(null)}
+          course={accessDialog.course}
+          allCourses={data?.courses || []}
+          initialTab={accessDialog.tab || "grant"}
+        />
+      )}
 
       <DeleteAlertbox
         isOpen={!!deleteConfirm}
