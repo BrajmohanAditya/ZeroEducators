@@ -4,6 +4,7 @@ node_modules/
 # logs
 logs
 *.log
+temp_uploads/
 
 # env files
 .env

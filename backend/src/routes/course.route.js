@@ -1,7 +1,7 @@
 import express from "express";
 import { isAdmin, isLoggedIn } from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.js";
-import { videoUpload } from "../middlewares/videoUpload.js";
+import { videoUpload, formatUploadError } from "../middlewares/videoUpload.js";
 import {
   createCourse,
   deleteCourse,
@@ -79,7 +79,7 @@ courseRoute.post(
       if (err) {
         console.error("Multer video upload error:", err);
         return res.status(400).json({
-          message: err.message || "Video upload failed. Please check the file format and size.",
+          message: formatUploadError(err),
         });
       }
       next();
@@ -126,7 +126,7 @@ courseRoute.post(
       if (err) {
         console.error("Multer video upload error:", err);
         return res.status(400).json({
-          message: err.message || "Video upload failed. Please check the file format and size.",
+          message: formatUploadError(err),
         });
       }
       next();
