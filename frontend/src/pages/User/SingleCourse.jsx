@@ -25,6 +25,12 @@ const SingleCourse = () => {
     return course?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
   }, [course?.topics]);
 
+  const totalTopicVideos = React.useMemo(() => {
+    return course?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
+  }, [course?.topics]);
+
+  const totalVideos = totalTopicVideos > 0 ? totalTopicVideos : (course?.modules?.length || 0);
+
   const purchaseHandler = () => {
     mutate({
       products: {
@@ -76,7 +82,8 @@ const SingleCourse = () => {
               <div className="flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-blue-500" />
                 <span>
-                  {course?.modules?.length || 0} {course?.modules?.length === 1 ? "Video" : "Videos"}
+                  {course?.topics?.length > 0 ? `${course.topics.length} Chapters • ` : ""}
+                  {totalVideos} {totalVideos === 1 ? "Video" : "Videos"}
                 </span>
               </div>
             )}

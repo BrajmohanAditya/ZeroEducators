@@ -4,6 +4,8 @@ import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { User } from "../models/user.model.js";
 import { Modules } from "../models/module.model.js";
+import fs from "fs";
+import { moduleUploadProgressMap } from "./module.controller.js";
 
 const genAi = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
 const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -242,13 +244,23 @@ export const deleteCourse = async (req, res, next) => {
       }
     }
 
-    // Delete topic PDFs from S3 if course has topics
+    // Delete topic PDFs and Videos from S3 if course has topics
     if (course.topics && course.topics.length > 0) {
       for (const topic of course.topics) {
         if (topic.pdfs && topic.pdfs.length > 0) {
           for (const pdf of topic.pdfs) {
             if (pdf.pdf_id) {
               await deleteFromB2(pdf.pdf_id);
+            }
+          }
+        }
+        if (topic.videos && topic.videos.length > 0) {
+          for (const video of topic.videos) {
+            if (video.Video_id) {
+              await deleteFromB2(video.Video_id);
+            }
+            if (video.moduleId) {
+              await Modules.findByIdAndDelete(video.moduleId);
             }
           }
         }
@@ -412,12 +424,25 @@ export const deleteTopic = async (req, res, next) => {
       }
     }
 
+    // Delete all Videos inside this topic from S3 and DB
+    if (topic.videos && topic.videos.length > 0) {
+      for (const video of topic.videos) {
+        if (video.Video_id) {
+          await deleteFromB2(video.Video_id);
+        }
+        if (video.moduleId) {
+          await Modules.findByIdAndDelete(video.moduleId);
+          course.modules.pull(video.moduleId);
+        }
+      }
+    }
+
     course.topics.pull(topicId);
     await course.save();
 
     return res.status(200).json({
       success: true,
-      message: "Topic and associated PDFs deleted successfully",
+      message: "Topic and associated contents deleted successfully",
       course,
     });
   } catch (error) {
@@ -499,6 +524,181 @@ export const deletePdfFromTopic = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: "PDF deleted successfully from topic",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Add Video to a Topic
+export const addVideoToTopic = async (req, res, next) => {
+  let tempFilePath = null;
+  const uploadId = req.body.uploadId;
+  try {
+    const { courseId, topicId } = req.params;
+    const { title } = req.body;
+
+    if (!title || title.trim() === "") {
+      return res.status(400).json({ success: false, message: "Video title is required" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Please select a video file to upload" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topic = course.topics.id(topicId);
+    if (!topic) {
+      return res.status(404).json({ success: false, message: "Topic not found" });
+    }
+
+    tempFilePath = req.file.path;
+    const fileSize = req.file.size || (tempFilePath ? fs.statSync(tempFilePath).size : 0);
+
+    if (uploadId) {
+      moduleUploadProgressMap.set(uploadId, {
+        status: "saving_to_cloud",
+        loaded: 0,
+        total: fileSize,
+        percent: 0,
+      });
+    }
+
+    // Upload to Zata S3 using multipart chunked upload with live progress callback
+    const { url: videoUrl, fileKey: videoId } = await uploadToB2(
+      tempFilePath || req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      "courseModule",
+      (loaded, total) => {
+        if (uploadId) {
+          const totalBytes = total || fileSize || 1;
+          const percent = Math.min(100, Math.round((loaded * 100) / totalBytes));
+          moduleUploadProgressMap.set(uploadId, {
+            status: "saving_to_cloud",
+            loaded,
+            total: totalBytes,
+            percent,
+          });
+        }
+      }
+    );
+
+    // Remove temporary file from local disk after upload
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlink(tempFilePath, (err) => {
+        if (err) console.error("Error removing temp video file:", err);
+      });
+      tempFilePath = null;
+    }
+
+    // Create a Modules entry for streaming and permissions
+    const moduleDoc = await Modules.create({
+      courseId,
+      title: title.trim(),
+      Video: videoUrl,
+      Video_id: videoId,
+    });
+
+    if (!topic.videos) {
+      topic.videos = [];
+    }
+
+    topic.videos.push({
+      title: title.trim(),
+      Video: videoUrl,
+      Video_id: videoId,
+      moduleId: moduleDoc._id,
+      createdAt: new Date(),
+    });
+
+    // Also link module to course.modules for complete backward compatibility
+    course.modules.push(moduleDoc._id);
+
+    await course.save();
+
+    if (uploadId) {
+      moduleUploadProgressMap.set(uploadId, {
+        status: "completed",
+        loaded: fileSize,
+        total: fileSize,
+        percent: 100,
+        module: moduleDoc,
+      });
+      setTimeout(() => {
+        moduleUploadProgressMap.delete(uploadId);
+      }, 3 * 60 * 1000);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Video added to topic successfully",
+      course,
+      video: topic.videos[topic.videos.length - 1],
+    });
+  } catch (error) {
+    if (uploadId) {
+      moduleUploadProgressMap.set(uploadId, {
+        status: "error",
+        message: error.message || "Failed to upload video to topic",
+      });
+    }
+
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (err) {
+        console.error("Error cleaning up temp video on failure:", err);
+      }
+    }
+
+    next(error);
+  }
+};
+
+// Delete Video from a Topic
+export const deleteVideoFromTopic = async (req, res, next) => {
+  try {
+    const { courseId, topicId, videoId } = req.params;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topic = course.topics.id(topicId);
+    if (!topic) {
+      return res.status(404).json({ success: false, message: "Topic not found" });
+    }
+
+    const video = topic.videos.id(videoId);
+    if (!video) {
+      return res.status(404).json({ success: false, message: "Video not found in topic" });
+    }
+
+    // Delete from S3
+    if (video.Video_id) {
+      await deleteFromB2(video.Video_id);
+    }
+
+    // Delete associated Modules document if exists
+    if (video.moduleId) {
+      await Modules.findByIdAndDelete(video.moduleId);
+      course.modules.pull(video.moduleId);
+    } else {
+      await Modules.findOneAndDelete({ Video_id: video.Video_id });
+    }
+
+    topic.videos.pull(videoId);
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Video deleted successfully from topic",
       course,
     });
   } catch (error) {

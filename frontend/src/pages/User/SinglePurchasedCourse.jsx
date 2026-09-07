@@ -4,10 +4,12 @@ import {
   PlayCircle,
   ShieldCheck,
   FileText,
+  Video,
   ExternalLink,
   ChevronDown,
   ChevronUp,
   BookOpen,
+  Film,
 } from "lucide-react";
 import { useGetSinglePurchasedCourseHook } from "@/hooks/course.hook";
 import { useUserStore } from "@/store/user.store";
@@ -20,32 +22,59 @@ const SinglePurchasedCourse = () => {
 
   const isPdfCourse = data?.courseType === "pdf";
 
+  // Active view: 'video' | 'pdf'
+  const [activeContentType, setActiveContentType] = useState(
+    isPdfCourse ? "pdf" : "video"
+  );
+
   // State for video module
   const [module, setModule] = useState(null);
 
-  // State for PDF course
+  // State for PDF document
   const [activePdf, setActivePdf] = useState(null);
   const [openTopics, setOpenTopics] = useState({});
 
-  // Auto-select first video for video courses
   useEffect(() => {
-    if (!isPdfCourse && !module && data?.modules && data.modules.length > 0) {
-      setModule(data.modules[0]);
+    if (isPdfCourse) {
+      setActiveContentType("pdf");
+    } else {
+      setActiveContentType("video");
     }
-  }, [isPdfCourse, data?.modules, module]);
+  }, [isPdfCourse]);
 
-  // Auto-select first PDF and expand first topic for PDF courses
+  // Auto-select first video or first PDF
   useEffect(() => {
-    if (isPdfCourse && !activePdf && data?.topics && data.topics.length > 0) {
+    if (!data) return;
+
+    // Check if course has topics with videos
+    if (data.topics && data.topics.length > 0) {
+      let foundVideo = false;
+      let foundPdf = false;
+
       for (const topic of data.topics) {
-        if (topic.pdfs && topic.pdfs.length > 0) {
-          setActivePdf(topic.pdfs[0]);
-          setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
-          break;
+        if (!foundVideo && topic.videos && topic.videos.length > 0) {
+          if (!module) {
+            setModule(topic.videos[0]);
+            setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+          }
+          foundVideo = true;
+        }
+
+        if (!foundPdf && topic.pdfs && topic.pdfs.length > 0) {
+          if (!activePdf) {
+            setActivePdf(topic.pdfs[0]);
+            setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+          }
+          foundPdf = true;
         }
       }
     }
-  }, [isPdfCourse, data?.topics, activePdf]);
+
+    // Fallback for legacy flat modules
+    if (!module && data.modules && data.modules.length > 0) {
+      setModule(data.modules[0]);
+    }
+  }, [data, module, activePdf]);
 
   // Keyboard shortcut protection (disable Ctrl+S, Ctrl+U, etc.)
   useEffect(() => {
@@ -63,10 +92,12 @@ const SinglePurchasedCourse = () => {
 
   const videoHandler = (item) => {
     setModule(item);
+    setActiveContentType("video");
   };
 
   const pdfHandler = (pdfItem) => {
     setActivePdf(pdfItem);
+    setActiveContentType("pdf");
   };
 
   const toggleTopicAccordion = (topicId) => {
@@ -76,10 +107,15 @@ const SinglePurchasedCourse = () => {
     }));
   };
 
-  const totalPdfs = data?.topics?.reduce(
-    (acc, t) => acc + (t.pdfs?.length || 0),
-    0
-  ) || 0;
+  const totalTopicVideos =
+    data?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
+  const totalVideos =
+    totalTopicVideos > 0 ? totalTopicVideos : data?.modules?.length || 0;
+
+  const totalPdfs =
+    data?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
+
+  const hasTopics = data?.topics && data.topics.length > 0;
 
   return (
     <div
@@ -88,11 +124,11 @@ const SinglePurchasedCourse = () => {
     >
       {/* ── Left Content (Video Player OR PDF Viewer) ── */}
       <div className="w-full lg:w-2/3 flex flex-col bg-slate-50 p-4 sm:p-6 lg:p-8 relative overflow-hidden">
-        {/* Soft elegant glows */}
+        {/* Soft background glows */}
         <div className="absolute top-0 left-1/4 w-3/4 h-3/4 bg-blue-400/10 blur-[120px] pointer-events-none rounded-full"></div>
         <div className="absolute bottom-0 right-1/4 w-3/4 h-3/4 bg-purple-400/10 blur-[120px] pointer-events-none rounded-full"></div>
 
-        {isPdfCourse ? (
+        {activeContentType === "pdf" ? (
           /* ── PDF Viewer Container ── */
           <div className="flex-1 flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] border border-slate-200">
             {activePdf ? (
@@ -157,14 +193,14 @@ const SinglePurchasedCourse = () => {
             className="flex-1 flex items-center justify-center relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
             onContextMenu={(e) => e.preventDefault()}
           >
-            {module?.Video ? (
+            {module?.Video || module?.Video_id ? (
               <div className="relative w-full h-full flex items-center justify-center bg-black group">
                 <video
-                  key={module._id}
+                  key={module._id || module.Video_id}
                   className="h-full w-full object-contain bg-black select-none pointer-events-auto"
                   src={
-                    module._id
-                      ? `${baseUrl}/module/stream/${module._id}`
+                    module.moduleId || module._id
+                      ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
                       : module.Video
                   }
                   controls
@@ -199,7 +235,7 @@ const SinglePurchasedCourse = () => {
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Ready to Learn?</h3>
                 <p className="text-slate-500 max-w-sm text-sm">
-                  Select a video module from the course content sidebar on the right to start watching.
+                  Select a video lecture from the course content sidebar on the right to start watching.
                 </p>
               </div>
             )}
@@ -212,147 +248,215 @@ const SinglePurchasedCourse = () => {
         <div className="p-6 sm:p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-              {isPdfCourse ? "Topics & Notes" : "Course Content"}
+              {hasTopics ? "Course Curriculum" : isPdfCourse ? "Topics & Notes" : "Course Content"}
             </h2>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
-              {isPdfCourse
-                ? `${totalPdfs} ${totalPdfs === 1 ? "PDF" : "PDFs"}`
-                : `${data?.modules?.length || 0} ${data?.modules?.length === 1 ? "Video" : "Videos"}`}
-            </span>
+            <div className="flex items-center gap-2">
+              {totalVideos > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  {totalVideos} {totalVideos === 1 ? "Video" : "Videos"}
+                </span>
+              )}
+              {totalPdfs > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full">
+                  {totalPdfs} {totalPdfs === 1 ? "PDF" : "PDFs"}
+                </span>
+              )}
+            </div>
           </div>
 
-          {isPdfCourse ? (
-            /* ── PDF Topics List ── */
+          {/* If course has topics/chapters */}
+          {hasTopics ? (
             <div className="space-y-4">
-              {data?.topics && data.topics.length > 0 ? (
-                data.topics.map((topic, tIdx) => {
-                  const isExpanded = openTopics[topic._id] !== false; // expanded by default
-                  return (
-                    <div
-                      key={topic._id || tIdx}
-                      className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs"
+              {data.topics.map((topic, tIdx) => {
+                const isExpanded = openTopics[topic._id] !== false; // expanded by default
+                const topicVideos = topic.videos || [];
+                const topicPdfs = topic.pdfs || [];
+
+                return (
+                  <div
+                    key={topic._id || tIdx}
+                    className="rounded-2xl border border-slate-200 overflow-hidden shadow-2xs"
+                  >
+                    {/* Topic Header Accordion */}
+                    <button
+                      type="button"
+                      onClick={() => toggleTopicAccordion(topic._id)}
+                      className="w-full p-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100/70 transition cursor-pointer text-left border-b border-slate-100 select-none"
                     >
-                      {/* Topic Header Accordion */}
-                      <button
-                        type="button"
-                        onClick={() => toggleTopicAccordion(topic._id)}
-                        className="w-full p-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100/70 transition cursor-pointer text-left border-b border-slate-100 select-none"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center shrink-0">
-                            {tIdx + 1}
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-900 text-sm block">
-                              {topic.topicName}
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              {topic.pdfs?.length || 0} {topic.pdfs?.length === 1 ? "document" : "documents"}
-                            </span>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                          {tIdx + 1}
                         </div>
-
-                        {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-slate-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-slate-400" />
-                        )}
-                      </button>
-
-                      {/* PDFs under this Topic */}
-                      {isExpanded && (
-                        <div className="p-2 space-y-1.5 bg-white">
-                          {topic.pdfs && topic.pdfs.length > 0 ? (
-                            topic.pdfs.map((pdf, pIdx) => {
-                              const isActive = activePdf?._id === pdf._id;
-                              return (
-                                <button
-                                  key={pdf._id || pIdx}
-                                  onClick={() => pdfHandler(pdf)}
-                                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer
-                                    ${
-                                      isActive
-                                        ? "border-purple-500 bg-purple-50/80 shadow-xs"
-                                        : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                    }`}
-                                >
-                                  <div
-                                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors
-                                    ${isActive ? "bg-purple-600 text-white" : "bg-red-50 text-red-600 border border-red-100"}`}
-                                  >
-                                    <FileText className="w-4 h-4" />
-                                  </div>
-
-                                  <div className="flex flex-col flex-1 overflow-hidden">
-                                    <span
-                                      className={`text-xs font-semibold truncate ${isActive ? "text-purple-900" : "text-slate-800"}`}
-                                      title={pdf.title}
-                                    >
-                                      {pdf.title}
-                                    </span>
-                                    {isActive && (
-                                      <span className="text-[10px] text-purple-600 font-bold mt-0.5">
-                                        Reading Now
-                                      </span>
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <p className="text-xs text-slate-400 py-3 text-center">
-                              No PDFs uploaded in this topic.
-                            </p>
-                          )}
+                        <div>
+                          <span className="font-bold text-slate-900 text-sm block">
+                            {topic.topicName}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {topicVideos.length} {topicVideos.length === 1 ? "lecture" : "lectures"}
+                            {topicPdfs.length > 0 ? ` • ${topicPdfs.length} ${topicPdfs.length === 1 ? "PDF" : "PDFs"}` : ""}
+                          </span>
                         </div>
+                      </div>
+
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
-                    </div>
+                    </button>
+
+                    {/* Content inside this Topic */}
+                    {isExpanded && (
+                      <div className="p-2 space-y-1.5 bg-white">
+                        {/* Videos in this chapter */}
+                        {topicVideos.map((vid, vIdx) => {
+                          const isActive =
+                            activeContentType === "video" &&
+                            (module?._id === vid._id ||
+                              module?.Video_id === vid.Video_id ||
+                              module?.moduleId === vid.moduleId);
+
+                          return (
+                            <button
+                              key={vid._id || vIdx}
+                              onClick={() => videoHandler(vid)}
+                              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer ${
+                                isActive
+                                  ? "border-emerald-500 bg-emerald-50/80 shadow-xs"
+                                  : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                  isActive
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-blue-50 text-blue-600 border border-blue-100"
+                                }`}
+                              >
+                                <Video className="w-4 h-4" />
+                              </div>
+
+                              <div className="flex flex-col flex-1 overflow-hidden">
+                                <span
+                                  className={`text-xs font-semibold truncate ${
+                                    isActive ? "text-emerald-900" : "text-slate-800"
+                                  }`}
+                                  title={vid.title}
+                                >
+                                  {vid.title}
+                                </span>
+                                {isActive && (
+                                  <span className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                    Now Playing
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        {/* PDFs in this chapter */}
+                        {topicPdfs.map((pdf, pIdx) => {
+                          const isActive =
+                            activeContentType === "pdf" && activePdf?._id === pdf._id;
+
+                          return (
+                            <button
+                              key={pdf._id || pIdx}
+                              onClick={() => pdfHandler(pdf)}
+                              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all text-left cursor-pointer ${
+                                isActive
+                                  ? "border-purple-500 bg-purple-50/80 shadow-xs"
+                                  : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                  isActive
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-purple-50 text-purple-600 border border-purple-100"
+                                }`}
+                              >
+                                <FileText className="w-4 h-4" />
+                              </div>
+
+                              <div className="flex flex-col flex-1 overflow-hidden">
+                                <span
+                                  className={`text-xs font-semibold truncate ${
+                                    isActive ? "text-purple-900" : "text-slate-800"
+                                  }`}
+                                  title={pdf.title}
+                                >
+                                  {pdf.title}
+                                </span>
+                                {isActive && (
+                                  <span className="text-[10px] text-purple-600 font-bold mt-0.5">
+                                    Reading Now
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        {topicVideos.length === 0 && topicPdfs.length === 0 && (
+                          <p className="text-xs text-slate-400 py-3 text-center">
+                            No content uploaded in this chapter yet.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* ── Legacy Flat Modules List (Fallback) ── */
+            <div className="space-y-3">
+              {data?.modules && data.modules.length > 0 ? (
+                data.modules.map((item, index) => {
+                  const isActive =
+                    activeContentType === "video" && module?._id === item._id;
+
+                  return (
+                    <button
+                      key={item._id || index}
+                      onClick={() => videoHandler(item)}
+                      className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl border transition-all text-left cursor-pointer ${
+                        isActive
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                          isActive
+                            ? "bg-emerald-600 text-white"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {index + 1}
+                      </div>
+                      <div className="flex flex-col">
+                        <span
+                          className={`font-semibold line-clamp-2 ${
+                            isActive ? "text-emerald-800" : "text-slate-900"
+                          }`}
+                        >
+                          {item.title}
+                        </span>
+                        {isActive && (
+                          <span className="text-xs text-emerald-600 font-medium mt-1">
+                            Now Playing
+                          </span>
+                        )}
+                      </div>
+                    </button>
                   );
                 })
               ) : (
                 <div className="text-center py-10 text-slate-400">
-                  <p className="text-sm">No topics or study materials uploaded yet.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* ── Video Modules List ── */
-            <div className="space-y-3">
-              {data?.modules && data.modules.length > 0 ? (
-                data.modules.map((item, index) => (
-                  <button
-                    key={item._id || index}
-                    onClick={() => videoHandler(item)}
-                    className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl border transition-all text-left cursor-pointer
-                      ${
-                        module?._id === item._id
-                          ? "border-emerald-500 bg-emerald-50"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                      }`}
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors
-                      ${module?._id === item._id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
-                    >
-                      {index + 1}
-                    </div>
-                    <div className="flex flex-col">
-                      <span
-                        className={`font-semibold line-clamp-2 ${module?._id === item._id ? "text-emerald-800" : "text-slate-900"}`}
-                      >
-                        {item.title}
-                      </span>
-                      {module?._id === item._id && (
-                        <span className="text-xs text-emerald-600 font-medium mt-1">
-                          Now Playing
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="text-center py-10 text-slate-400">
-                  <p className="text-sm">No videos uploaded for this course yet.</p>
+                  <p className="text-sm">No lectures uploaded for this course yet.</p>
                 </div>
               )}
             </div>

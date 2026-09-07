@@ -134,16 +134,34 @@ export const streamModuleVideo = async (req, res) => {
     const { moduleId } = req.params;
     const user = req.user;
 
-    const module = await Modules.findById(moduleId);
+    let module = await Modules.findById(moduleId);
+    let videoId = module?.Video_id;
+    let courseId = module?.courseId;
+
     if (!module) {
+      const courseWithVideo = await Course.findOne({ "topics.videos._id": moduleId });
+      if (courseWithVideo) {
+        courseId = courseWithVideo._id;
+        for (const topic of courseWithVideo.topics) {
+          const v = topic.videos?.id(moduleId);
+          if (v) {
+            videoId = v.Video_id;
+            module = { Video_id: v.Video_id, courseId: courseWithVideo._id };
+            break;
+          }
+        }
+      }
+    }
+
+    if (!module || !videoId) {
       return res.status(404).json({ message: "Module not found" });
     }
 
     // Access control: admins, enrolled users, or free courses
     if (user?.role !== "admin") {
-      const course = await Course.findById(module.courseId);
+      const course = await Course.findById(courseId);
       const isPurchased = user?.purchasedCourse?.some(
-        (cId) => cId.toString() === module.courseId?.toString()
+        (cId) => cId.toString() === courseId?.toString()
       );
       if (!isPurchased && !course?.isFree) {
         return res.status(403).json({ message: "Access denied. Course not enrolled." });
@@ -153,7 +171,7 @@ export const streamModuleVideo = async (req, res) => {
     const range = req.headers.range || "bytes=0-";
     const command = new GetObjectCommand({
       Bucket: ENV.ZATA_BUCKET_NAME,
-      Key: module.Video_id,
+      Key: videoId,
       Range: range,
     });
 

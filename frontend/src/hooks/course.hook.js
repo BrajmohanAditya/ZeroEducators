@@ -10,6 +10,8 @@ import {
   deleteTopicApi,
   addPdfToTopicApi,
   deletePdfFromTopicApi,
+  addVideoToTopicApi,
+  deleteVideoFromTopicApi,
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -150,4 +152,37 @@ export const useDeletePdfFromTopicHook = (courseId) => {
     },
   });
 };
+
+export const useAddVideoToTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addVideoToTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Video added to topic successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to add video to topic");
+    },
+  });
+};
+
+export const useDeleteVideoFromTopicHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteVideoFromTopicApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Video deleted successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to delete video");
+    },
+  });
+};
+
 
