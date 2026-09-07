@@ -319,7 +319,7 @@ const TopicPdfManager = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-slate-50 p-4 sm:p-6 lg:p-8 pb-32">
       {/* Top Header */}
       <div className="max-w-5xl mx-auto mb-8">
         <button
