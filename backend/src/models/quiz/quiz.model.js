@@ -57,6 +57,11 @@ const quizSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    price: {
+      type: Number,
+      default: 0, // 0 means Free
+      min: 0,
+    },
     quizType: {
       type: String,
       enum: ["Free", "Paid"],

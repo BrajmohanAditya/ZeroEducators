@@ -40,7 +40,6 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
       examId: exam?._id || "",
       nameOfExam: exam?.title || "",
       quizName: "",
-      quizType: "Free",
       duration: "",
       totalNoOfQueation: "",
       negativeMark: 0,
@@ -63,7 +62,6 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           examId: quiz.examId?._id || quiz.examId || exam?._id || "",
           nameOfExam: quiz.nameOfExam || exam?.title || "",
           quizName: quiz.quizName || "",
-          quizType: quiz.quizType || "Free",
           duration: quiz.duration || "",
           totalNoOfQueation: quiz.totalNoOfQueation || "",
           negativeMark: quiz.negativeMark || 0,
@@ -81,7 +79,6 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           examId: exam?._id || "",
           nameOfExam: exam?.title || "",
           quizName: "",
-          quizType: "Free",
           duration: "",
           totalNoOfQueation: "",
           negativeMark: 0,
@@ -109,7 +106,6 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
     }
     formData.append("nameOfExam", data.nameOfExam);
     formData.append("quizName", data.quizName);
-    formData.append("quizType", data.quizType || "Free");
     formData.append("duration", Number(data.duration));
     formData.append("negativeMark", Number(data.negativeMark));
     formData.append("totalNoOfQueation", Number(data.totalNoOfQueation));
@@ -212,31 +208,16 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">
-                Quiz Type
-              </label>
-              <select
-                {...register("quizType")}
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
-              >
-                <option value="Free">Free</option>
-                <option value="Paid">Paid (Premium)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">
-                Duration (mins) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                {...register("duration", { required: true, min: 1 })}
-                placeholder="e.g. 60"
-                className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">
+              Duration (mins) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              {...register("duration", { required: true, min: 1 })}
+              placeholder="e.g. 60"
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

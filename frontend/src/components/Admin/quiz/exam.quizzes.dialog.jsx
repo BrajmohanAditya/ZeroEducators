@@ -19,16 +19,17 @@ import {
   PlusCircle,
   FileQuestion,
   Sparkles,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   useGetQuizzesHook,
   useDeleteQuizHook,
   useToggleQuizLockHook,
-  useToggleQuizTypeHook,
 } from "../../../hooks/quiz/quiz.hook";
 import CreateQuiz from "../quiz";
 import QuizQuestionAdd from "../quiz.question.add";
 import ManageQuizQuestionsDialog from "./manage.quiz.questions";
+import QuizBulkUploadDialog from "./quiz.bulk.upload.dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 
 const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
@@ -39,7 +40,6 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
 
   const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuizHook();
   const { mutate: toggleLock, isPending: isTogglingLock } = useToggleQuizLockHook();
-  const { mutate: toggleQuizType, isPending: isTogglingType } = useToggleQuizTypeHook();
 
   const [isAddQuizOpen, setIsAddQuizOpen] = useState(false);
   const [selectedQuizForEdit, setSelectedQuizForEdit] = useState(null);
@@ -49,6 +49,9 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
 
   const [selectedQuizForManageQ, setSelectedQuizForManageQ] = useState(null);
   const [isManageQOpen, setIsManageQOpen] = useState(false);
+
+  const [selectedQuizForBulkUpload, setSelectedQuizForBulkUpload] = useState(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const [quizToDelete, setQuizToDelete] = useState(null);
 
@@ -141,7 +144,6 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
                       <th className="px-4 py-3 font-semibold">Duration</th>
                       <th className="px-4 py-3 font-semibold">Questions</th>
                       <th className="px-4 py-3 font-semibold">Marks</th>
-                      <th className="px-4 py-3 font-semibold">Type</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-5 py-3 font-semibold text-right">Actions</th>
                     </tr>
@@ -168,20 +170,6 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
                         </td>
                         <td className="px-4 py-3.5 text-slate-700 font-medium">
                           {quiz.totalMarks}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <button
-                            onClick={() => toggleQuizType(quiz._id)}
-                            disabled={isTogglingType}
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer border ${
-                              quiz.quizType === "Paid"
-                                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            }`}
-                            title="Click to toggle Free/Paid"
-                          >
-                            {quiz.quizType === "Paid" ? "Paid" : "Free"}
-                          </button>
                         </td>
                         <td className="px-4 py-3.5">
                           <button
@@ -212,6 +200,17 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
                               title="Manage Questions"
                             >
                               <Layers className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setSelectedQuizForBulkUpload(quiz);
+                                setIsBulkUploadOpen(true);
+                              }}
+                              className="p-1.5 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition cursor-pointer"
+                              title="Bulk Upload Questions (Excel / CSV)"
+                            >
+                              <FileSpreadsheet className="w-4 h-4" />
                             </button>
 
                             <button
@@ -262,6 +261,18 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
           }}
           exam={exam}
           quiz={selectedQuizForEdit}
+        />
+      )}
+
+      {/* Bulk Upload Questions via CSV */}
+      {isBulkUploadOpen && (
+        <QuizBulkUploadDialog
+          isOpen={isBulkUploadOpen}
+          onClose={() => {
+            setIsBulkUploadOpen(false);
+            setSelectedQuizForBulkUpload(null);
+          }}
+          quiz={selectedQuizForBulkUpload}
         />
       )}
 

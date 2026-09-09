@@ -53,9 +53,7 @@ const QuizManagement = () => {
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               Exam & Quiz Management
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Pehle Exam create karein, fir uske andar multiple Quizzes / Mock Tests add karein.
-            </p>
+
           </div>
         </div>
 
@@ -102,9 +100,7 @@ const QuizManagement = () => {
             <h3 className="text-lg font-bold text-slate-800">
               No Exams Found
             </h3>
-            <p className="text-slate-500 text-sm max-w-sm mt-1">
-              Shuru karne ke liye upar diye gaye "+ Add Exam" button par click karke pehla exam (e.g. SSC CGL, Banking, Railway) add karein.
-            </p>
+
             <CreateExamDialog>
               <button className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
                 + Add Your First Exam
@@ -119,6 +115,7 @@ const QuizManagement = () => {
                   <th className="px-6 py-4 font-semibold">Exam Title & Logo</th>
                   <th className="px-6 py-4 font-semibold">Category</th>
                   <th className="px-6 py-4 font-semibold">Mock Tests / Quizzes</th>
+                  <th className="px-6 py-4 font-semibold">Price</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
                   <th className="px-6 py-4 font-semibold">Created Date</th>
                   <th className="px-6 py-4 font-semibold text-right">Actions</th>
@@ -171,6 +168,19 @@ const QuizManagement = () => {
                           {exam.totalQuizzes || 0} Tests
                         </span>
                       </div>
+                    </td>
+
+                    {/* Price */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+                          exam.price > 0
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
+                      >
+                        {exam.price > 0 ? `₹${exam.price}` : "Free"}
+                      </span>
                     </td>
 
                     {/* Status */}

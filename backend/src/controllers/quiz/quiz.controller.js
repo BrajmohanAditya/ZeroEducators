@@ -15,6 +15,7 @@ export const createQuiz = async (req, res, next) => {
       section,
       totalNoOfQueation,
       totalMarks,
+      price,
       quizType,
     } = req.body;
 
@@ -68,6 +69,9 @@ export const createQuiz = async (req, res, next) => {
         .json({ success: false, message: "Logo is required" });
     }
 
+    const numericPrice = Math.max(0, Number(price) || 0);
+    const computedQuizType = numericPrice > 0 ? "Paid" : (quizType || "Free");
+
     const newQuiz = new Quiz({
       examId: examId || undefined,
       nameOfExam: finalExamName,
@@ -77,7 +81,8 @@ export const createQuiz = async (req, res, next) => {
       section: typeof section === "string" ? JSON.parse(section) : section,
       totalNoOfQueation: Number(totalNoOfQueation),
       totalMarks: Number(totalMarks),
-      quizType: quizType || "Free",
+      price: numericPrice,
+      quizType: computedQuizType,
       logoUrl: finalLogoUrl,
       logoId: finalLogoId,
     });
@@ -116,7 +121,7 @@ export const getQuizzes = async (req, res, next) => {
     }
 
     const quizzes = await Quiz.find(filter)
-      .populate("examId", "title logoUrl category")
+      .populate("examId", "title logoUrl category price")
       .sort({ createdAt: 1 });
 
     return res.status(200).json({
@@ -189,6 +194,12 @@ export const updateQuiz = async (req, res, next) => {
       );
       updateData.logoUrl = uploadRes.url;
       updateData.logoId = uploadRes.fileKey;
+    }
+
+    // Handle price and auto-sync quizType
+    if (updateData.price !== undefined) {
+      updateData.price = Math.max(0, Number(updateData.price) || 0);
+      updateData.quizType = updateData.price > 0 ? "Paid" : "Free";
     }
 
     const updatedQuiz = await Quiz.findByIdAndUpdate(
@@ -287,3 +298,30 @@ export const toggleQuizType = async (req, res, next) => {
     next(error);
   }
 };
+
+// Update quiz price directly
+export const updateQuizPrice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { price } = req.body;
+    const numericPrice = Math.max(0, Number(price) || 0);
+
+    const quiz = await Quiz.findById(id);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    quiz.price = numericPrice;
+    quiz.quizType = numericPrice > 0 ? "Paid" : "Free";
+    await quiz.save();
+
+    return res.status(200).json({
+      success: true,
+      message: numericPrice > 0 ? `Price set to ₹${numericPrice}` : "Mock set to Free",
+      quiz,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

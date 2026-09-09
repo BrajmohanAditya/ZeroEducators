@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   createQuizQuestionApi,
+  bulkCreateQuizQuestionsApi,
   getQuizQuestionsApi,
   updateQuizQuestionApi,
   deleteQuizQuestionApi,
@@ -66,3 +67,22 @@ export const useDeleteQuizQuestionHook = () => {
     },
   });
 };
+
+export const useBulkCreateQuizQuestionsHook = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: bulkCreateQuizQuestionsApi,
+    onSuccess: (data, variables) => {
+      toast.success(data?.message || "Questions imported successfully");
+      queryClient.invalidateQueries({ queryKey: ["quizQuestions", variables.quizId] });
+      queryClient.invalidateQueries({ queryKey: ["quizQuestions"] });
+    },
+    onError: (err) => {
+      const errorMessage =
+        err.response?.data?.message || "Failed to import questions";
+      toast.error(errorMessage);
+      console.log("Error bulk creating quiz questions:", err);
+    },
+  });
+};
+

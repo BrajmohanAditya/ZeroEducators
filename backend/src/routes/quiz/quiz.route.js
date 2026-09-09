@@ -11,6 +11,7 @@ import upload from "../../middlewares/multer.js";
 import {
   toggleQuizLock,
   toggleQuizType,
+  updateQuizPrice,
 } from "../../controllers/quiz/quiz.controller.js";
 const quizRoute = express.Router();
 
@@ -34,5 +35,6 @@ quizRoute.put(
 quizRoute.delete("/delete/:id", isLoggedIn, isAdmin, deleteQuiz);
 quizRoute.patch("/toggle-lock/:id", isLoggedIn, isAdmin, toggleQuizLock);
 quizRoute.patch("/quizType/:id", isLoggedIn, isAdmin, toggleQuizType);
+quizRoute.patch("/update-price/:id", isLoggedIn, isAdmin, updateQuizPrice);
 
 export default quizRoute;

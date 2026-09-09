@@ -151,3 +151,87 @@ export const deleteQuizQuestion = async (req, res, next) => {
     next(error);
   }
 };
+
+// Bulk Create Quiz Questions from CSV/Excel
+export const bulkCreateQuizQuestions = async (req, res, next) => {
+  try {
+    const { quizId, questions } = req.body;
+
+    if (!quizId) {
+      return res.status(400).json({
+        success: false,
+        message: "Quiz ID is required",
+      });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Questions array is required and must not be empty",
+      });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    // Format & validate questions for insertion
+    const validQuestions = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.questionText || !q.questionText.trim()) {
+        continue; // Skip empty rows
+      }
+
+      const formattedOptions = (q.options || []).map((opt) => ({
+        text: (opt.text !== undefined && opt.text !== null ? String(opt.text) : "").trim(),
+        isCorrect: Boolean(opt.isCorrect),
+        image: opt.image || "",
+      }));
+
+      // If at least 2 options exist
+      if (formattedOptions.length < 2) {
+        continue;
+      }
+
+      // Ensure at least one is correct; if none, default first to true
+      const hasCorrect = formattedOptions.some((o) => o.isCorrect);
+      if (!hasCorrect && formattedOptions.length > 0) {
+        formattedOptions[0].isCorrect = true;
+      }
+
+      validQuestions.push({
+        quizId,
+        sectionName: (q.sectionName || "General").trim(),
+        questionText: q.questionText.trim(),
+        marks: Number(q.marks) > 0 ? Number(q.marks) : 1,
+        optionsInstruction: (q.optionsInstruction || "").trim(),
+        options: formattedOptions,
+        solutionExplanation: (q.solutionExplanation || "").trim(),
+      });
+    }
+
+    if (validQuestions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid questions found to import. Please check your data format.",
+      });
+    }
+
+    const insertedDocs = await QuizQuestion.insertMany(validQuestions);
+
+    return res.status(201).json({
+      success: true,
+      message: `${insertedDocs.length} questions imported successfully`,
+      count: insertedDocs.length,
+      questions: insertedDocs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

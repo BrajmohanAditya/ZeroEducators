@@ -23,6 +23,7 @@ const CreateExamDialog = ({ children, exam, onCloseEdit }) => {
     defaultValues: {
       title: "",
       category: "",
+      price: 0,
       description: "",
     },
   });
@@ -33,6 +34,7 @@ const CreateExamDialog = ({ children, exam, onCloseEdit }) => {
       reset({
         title: exam.title || "",
         category: exam.category || "",
+        price: exam.price !== undefined ? exam.price : 0,
         description: exam.description || "",
       });
     }
@@ -44,6 +46,7 @@ const CreateExamDialog = ({ children, exam, onCloseEdit }) => {
       reset({
         title: "",
         category: "",
+        price: 0,
         description: "",
       });
       if (onCloseEdit) onCloseEdit();
@@ -54,6 +57,7 @@ const CreateExamDialog = ({ children, exam, onCloseEdit }) => {
     const formData = new FormData();
     formData.append("title", data.title);
     if (data.category) formData.append("category", data.category);
+    formData.append("price", Math.max(0, Number(data.price) || 0));
     if (data.description) formData.append("description", data.description);
 
     if (data.logo && data.logo[0]) {
@@ -115,6 +119,25 @@ const CreateExamDialog = ({ children, exam, onCloseEdit }) => {
               placeholder="e.g. Banking, SSC, Railway, UPSC"
               className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">
+              Exam Price (₹) <span className="text-xs font-normal text-slate-400">(0 = Free)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                ₹
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                {...register("price", { min: 0 })}
+                placeholder="0 (Free)"
+                className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
           </div>
 
           <div>

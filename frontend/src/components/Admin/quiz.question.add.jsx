@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import {
-  X,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   FileQuestion,
   Layers,
   BookOpen,
@@ -71,6 +76,9 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
 
   const handleSaveAndNext = () => {
     // Basic validation
+    if (!quiz?._id) {
+      return toast.error("Quiz ID missing. Please re-open the quiz.");
+    }
     if (!formData.questionText) {
       return toast.error("Question text is required");
     }
@@ -79,7 +87,7 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
     }
 
     const payload = {
-      quizId: quiz?._id || "mock-quiz-id",
+      quizId: quiz._id,
       sectionName: currentSection.name,
       questionText: formData.questionText,
       marks: formData.marks,
@@ -136,10 +144,10 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
   };
 
   const getStepIconClass = (stepNum) => {
-    if (currentStep === stepNum) return "bg-slate-900 text-white shadow-md";
+    if (currentStep === stepNum) return "bg-slate-900 text-white shadow-md font-bold";
     if (currentStep > stepNum)
       return "bg-green-100 text-green-700 font-semibold";
-    return "bg-slate-100 text-slate-500 font-medium";
+    return "bg-slate-100 text-slate-600 font-medium hover:bg-slate-200";
   };
 
   const getStepIcon = (stepNum, Icon) => {
@@ -150,19 +158,19 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
   const optionLabels = ["A", "B", "C", "D"];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-3xl w-[95vw] max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10 shrink-0">
-          <div className="flex items-center gap-4">
+        <DialogHeader className="p-5 pb-4 border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-center gap-4 text-left">
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 shadow-sm">
               <FileQuestion className="w-6 h-6" strokeWidth={2} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
+              <DialogTitle className="text-xl font-bold text-slate-900">
                 Create Questions
-              </h2>
-              <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+              </DialogTitle>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 mt-1">
                 <span className="text-indigo-600 font-semibold">
                   Question {currentGlobal} of {globalTotal}
                 </span>
@@ -180,17 +188,11 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        </DialogHeader>
 
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
           {/* Section Pills */}
-          <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-2 mb-6">
             {sections.map((sec, idx) => {
               const completedInSec =
                 idx < currentSectionIdx
@@ -200,43 +202,58 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
                     : 0;
               const isActive = idx === currentSectionIdx;
               return (
-                <div
+                <button
                   key={idx}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${isActive ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm" : "bg-white border-slate-200 text-slate-500"}`}
+                  type="button"
+                  onClick={() => {
+                    setCurrentSectionIdx(idx);
+                    setCurrentQuestionIdx(0);
+                    setCurrentStep(1);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
+                    isActive
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-100"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
-                  {sec.name}: {completedInSec}/{sec.totalQuestions}{" "}
-                  {isActive && <span className="ml-1 text-indigo-400">—</span>}
-                </div>
+                  {sec.name}: {completedInSec}/{sec.totalQuestions}
+                </button>
               );
             })}
           </div>
 
           {/* Step Indicator */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div
-              className={`flex items-center px-6 py-2.5 rounded-xl text-sm transition-all ${getStepIconClass(1)}`}
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6">
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className={`flex items-center px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer ${getStepIconClass(1)}`}
             >
               {getStepIcon(1, HelpCircle)}
               Question
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" strokeWidth={3} />
-            <div
-              className={`flex items-center px-6 py-2.5 rounded-xl text-sm transition-all ${getStepIconClass(2)}`}
+            </button>
+            <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" strokeWidth={3} />
+            <button
+              type="button"
+              onClick={() => setCurrentStep(2)}
+              className={`flex items-center px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer ${getStepIconClass(2)}`}
             >
               {getStepIcon(2, Layers)}
               Options
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" strokeWidth={3} />
-            <div
-              className={`flex items-center px-6 py-2.5 rounded-xl text-sm transition-all ${getStepIconClass(3)}`}
+            </button>
+            <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" strokeWidth={3} />
+            <button
+              type="button"
+              onClick={() => setCurrentStep(3)}
+              className={`flex items-center px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer ${getStepIconClass(3)}`}
             >
               {getStepIcon(3, BookOpen)}
               Solution
-            </div>
+            </button>
           </div>
 
           {/* Form Content */}
-          <div className="min-h-[300px]">
+          <div className="min-h-[260px]">
             {/* Step 1: Question */}
             {currentStep === 1 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -495,8 +512,8 @@ const QuizQuestionAdd = ({ isOpen, onClose, quiz }) => {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

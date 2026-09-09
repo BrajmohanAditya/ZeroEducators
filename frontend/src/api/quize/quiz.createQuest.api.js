@@ -41,3 +41,14 @@ export const deleteQuizQuestionApi = async (id) => {
     );
     return res.data;
 };
+
+export const bulkCreateQuizQuestionsApi = async ({ quizId, questions }) => {
+    const res = await axios.post(`${baseUrl}/quizQuestion/bulk-create`, 
+        { quizId, questions }, 
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};

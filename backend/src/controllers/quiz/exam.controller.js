@@ -6,7 +6,7 @@ import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../.
 // 1. Create a new Exam
 export const createExam = async (req, res, next) => {
   try {
-    const { title, description, category } = req.body;
+    const { title, description, category, price } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -34,6 +34,7 @@ export const createExam = async (req, res, next) => {
       title: title.trim(),
       description: description ? description.trim() : "",
       category: category ? category.trim() : "",
+      price: Math.max(0, Number(price) || 0),
       logoUrl,
       logoId,
     });
@@ -125,7 +126,7 @@ export const getExamById = async (req, res, next) => {
 export const updateExam = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, description, category, isLocked } = req.body;
+    const { title, description, category, price, isLocked } = req.body;
 
     const existingExam = await Exam.findById(id);
     if (!existingExam) {
@@ -139,6 +140,7 @@ export const updateExam = async (req, res, next) => {
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description.trim();
     if (category !== undefined) updateData.category = category.trim();
+    if (price !== undefined) updateData.price = Math.max(0, Number(price) || 0);
     if (isLocked !== undefined) updateData.isLocked = Boolean(isLocked);
 
     // If a new logo file is uploaded

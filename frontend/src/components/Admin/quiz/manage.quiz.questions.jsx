@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   X,
   Loader2,
   Trash2,
@@ -129,31 +135,19 @@ const ManageQuizQuestionsDialog = ({ isOpen, onClose, quiz }) => {
   const optionLabels = ["A", "B", "C", "D"];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-4 flex items-center justify-between shrink-0">
+        <DialogHeader className="bg-slate-50 border-b border-slate-200/80 px-6 py-4 flex flex-row items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <h2 className="font-black text-slate-800 text-base sm:text-lg tracking-tight">
+            <DialogTitle className="font-black text-slate-800 text-base sm:text-lg tracking-tight">
               {editingQuestion ? "Edit Quiz Question" : "Manage Quiz Questions"}
-            </h2>
+            </DialogTitle>
             <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
               {quiz?.quizName}
             </span>
           </div>
-          <button
-            onClick={() => {
-              if (editingQuestion) {
-                setEditingQuestion(null);
-              } else {
-                onClose();
-              }
-            }}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-150 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 min-h-0 custom-scrollbar">
@@ -457,8 +451,8 @@ const ManageQuizQuestionsDialog = ({ isOpen, onClose, quiz }) => {
             </button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

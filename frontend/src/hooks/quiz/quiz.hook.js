@@ -7,6 +7,7 @@ import {
   getQuizByIdApi,
   toggleQuizLockApi,
   toggleQuizTypeApi,
+  updateQuizPriceApi,
   updateQuizApi,
 } from "../../api/quize/quiz.api.js";
 
@@ -102,6 +103,20 @@ export const useUpdateQuizHook = () => {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to update quiz");
+    },
+  });
+};
+
+export const useUpdateQuizPriceHook = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateQuizPriceApi,
+    onSuccess: (data) => {
+      toast.success(data?.message || "Quiz price updated successfully");
+      queryClient.invalidateQueries(["getQuizzes"]);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to update quiz price");
     },
   });
 };

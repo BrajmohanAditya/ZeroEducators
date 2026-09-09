@@ -198,21 +198,19 @@ const QuizeDetail = () => {
                     <div className="p-5 flex-grow">
                       {/* Badges */}
                       <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex gap-2">
-                          {test.quizType === "Free" ? (
-                            <>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-[#ff1053] text-[#ff1053] text-[10px] font-bold tracking-wide">
-                                <CircleDot className="w-2.5 h-2.5 fill-[#ff1053]" />
-                                LIVE TEST
-                              </span>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#2dd46c] text-white text-[10px] font-bold tracking-wide">
-                                FREE
-                              </span>
-                            </>
-                          ) : (
+                        <div className="flex gap-2 items-center">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-[#ff1053] text-[#ff1053] text-[10px] font-bold tracking-wide">
+                            <CircleDot className="w-2.5 h-2.5 fill-[#ff1053]" />
+                            LIVE TEST
+                          </span>
+                          {test.examId?.price > 0 ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold tracking-wider shadow-xs border border-amber-300">
                               <Crown className="w-3 h-3 text-white" strokeWidth={2.5} />
-                              PREMIUM
+                              ₹{test.examId.price}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#2dd46c] text-white text-[10px] font-bold tracking-wide">
+                              FREE
                             </span>
                           )}
                         </div>
