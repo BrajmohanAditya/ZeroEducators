@@ -1069,13 +1069,10 @@ export const addVideoToChapter = async (req, res, next) => {
   const uploadId = req.body.uploadId;
   try {
     const { courseId, subjectId, chapterId } = req.params;
-    const { title } = req.body;
+    const { title, videoUrl: directVideoUrl, videoId: clientVideoId } = req.body;
 
     if (!title || title.trim() === "") {
       return res.status(400).json({ success: false, message: "Video title is required" });
-    }
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "Please select a video file to upload" });
     }
 
     const course = await Course.findById(courseId);
@@ -1091,6 +1088,53 @@ export const addVideoToChapter = async (req, res, next) => {
     const chapter = subject.chapters.id(chapterId);
     if (!chapter) {
       return res.status(404).json({ success: false, message: "Chapter not found" });
+    }
+
+    // Option 1: Direct Video Link / URL provided (no file upload needed)
+    if (directVideoUrl && directVideoUrl.trim() !== "") {
+      const cleanUrl = directVideoUrl.trim();
+      let resolvedVideoId = clientVideoId?.trim();
+      if (!resolvedVideoId) {
+        try {
+          const parsed = new URL(cleanUrl);
+          resolvedVideoId = parsed.pathname.split("/").filter(Boolean).pop() || "link_" + Date.now();
+        } catch {
+          resolvedVideoId = "link_" + Date.now();
+        }
+      }
+
+      const moduleDoc = await Modules.create({
+        courseId,
+        title: title.trim(),
+        Video: cleanUrl,
+        Video_id: resolvedVideoId,
+      });
+
+      if (!chapter.videos) {
+        chapter.videos = [];
+      }
+
+      chapter.videos.push({
+        title: title.trim(),
+        Video: cleanUrl,
+        Video_id: resolvedVideoId,
+        moduleId: moduleDoc._id,
+        createdAt: new Date(),
+      });
+
+      course.modules.push(moduleDoc._id);
+      await course.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Existing video linked to chapter successfully",
+        course,
+        video: chapter.videos[chapter.videos.length - 1],
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Please select a video file or paste a video URL" });
     }
 
     tempFilePath = req.file.path;
@@ -1222,9 +1266,21 @@ export const deleteVideoFromChapter = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Video not found in chapter" });
     }
 
-    // Delete from S3
+    // Delete from S3 only if not reused in another course or chapter
     if (video.Video_id) {
-      await deleteFromB2(video.Video_id);
+      try {
+        const isUsedElsewhere = await Course.exists({
+          $or: [
+            { "subjects.chapters.videos.Video_id": video.Video_id, "subjects.chapters.videos._id": { $ne: videoId } },
+            { "topics.videos.Video_id": video.Video_id },
+          ],
+        });
+        if (!isUsedElsewhere) {
+          await deleteFromB2(video.Video_id);
+        }
+      } catch (b2Err) {
+        console.warn("Could not delete from B2:", b2Err.message);
+      }
     }
 
     // Delete associated Modules document if exists

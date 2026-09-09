@@ -31,6 +31,9 @@ import {
   Layers,
   UserPlus,
   Users,
+  Copy,
+  Check,
+  Link as LinkIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -92,8 +95,11 @@ const TopicPdfManager = () => {
 
   // Video Upload Modal State
   const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
+  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' | 'link'
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [copiedVideoId, setCopiedVideoId] = useState(null);
   const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'local' | 'cloud' | 'done'
   const [localProgress, setLocalProgress] = useState(0);
   const [localLoaded, setLocalLoaded] = useState(0);
@@ -224,18 +230,55 @@ const TopicPdfManager = () => {
     );
   };
 
-  // Handle Upload Video to Chapter
+  // Handle Upload or Link Video to Chapter
   const handleUploadVideoSubmit = (e) => {
     e.preventDefault();
     if (!videoTitle.trim()) {
       toast.error("Please enter a video title");
       return;
     }
+
+    if (!activeChapterForVideoUpload) return;
+
+    // Direct Video Link / Reuse Mode
+    if (videoAddMode === "link") {
+      if (!videoUrl.trim()) {
+        toast.error("Please enter or paste a valid video URL");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("title", videoTitle.trim());
+      formData.append("videoUrl", videoUrl.trim());
+
+      addVideoToChapter(
+        {
+          courseId,
+          subjectId: activeChapterForVideoUpload.subjectId,
+          chapterId: activeChapterForVideoUpload.chapterId,
+          formData,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Existing video linked to chapter successfully!");
+            setVideoTitle("");
+            setVideoUrl("");
+            setVideoFile(null);
+            setActiveChapterForVideoUpload(null);
+          },
+          onError: (err) => {
+            toast.error(err?.response?.data?.message || "Failed to link video");
+          },
+        }
+      );
+      return;
+    }
+
+    // Upload Video File Mode
     if (!videoFile) {
       toast.error("Please choose a video file to upload");
       return;
     }
-    if (!activeChapterForVideoUpload) return;
 
     const uploadId = "up_chap_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
     const formData = new FormData();
@@ -809,6 +852,25 @@ const TopicPdfManager = () => {
                                               <PlayCircle className="w-4 h-4" />
                                             </button>
                                             <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (vid.Video) {
+                                                  navigator.clipboard.writeText(vid.Video);
+                                                  setCopiedVideoId(vid._id || vIdx);
+                                                  toast.success("Video link copied to clipboard!");
+                                                  setTimeout(() => setCopiedVideoId(null), 2000);
+                                                }
+                                              }}
+                                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                              title="Copy Video Link to Reuse"
+                                            >
+                                              {copiedVideoId === (vid._id || vIdx) ? (
+                                                <Check className="w-4 h-4 text-emerald-600" />
+                                              ) : (
+                                                <Copy className="w-4 h-4" />
+                                              )}
+                                            </button>
+                                            <button
                                               disabled={isDeletingAny}
                                               onClick={() => {
                                                 setDeleteConfirm({
@@ -1102,6 +1164,8 @@ const TopicPdfManager = () => {
             setActiveChapterForVideoUpload(null);
             setVideoTitle("");
             setVideoFile(null);
+            setVideoUrl("");
+            setVideoAddMode("file");
             setUploadPhase("idle");
           }
         }}
@@ -1109,13 +1173,41 @@ const TopicPdfManager = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Video className="w-5 h-5 text-blue-600" /> Upload Video Lecture
+              <Video className="w-5 h-5 text-blue-600" /> Add Video Lecture
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
               Adding video to chapter:{" "}
               <strong className="text-slate-800">{activeChapterForVideoUpload?.chapterName}</strong>
             </DialogDescription>
           </DialogHeader>
+
+          {/* Mode Switcher Tabs */}
+          <div className="flex p-1 bg-slate-100 rounded-xl mt-1">
+            <button
+              type="button"
+              disabled={uploadPhase !== "idle" || isAddingVideo}
+              onClick={() => setVideoAddMode("file")}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                videoAddMode === "file"
+                  ? "bg-white text-blue-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UploadCloud className="w-3.5 h-3.5" /> Upload File
+            </button>
+            <button
+              type="button"
+              disabled={uploadPhase !== "idle" || isAddingVideo}
+              onClick={() => setVideoAddMode("link")}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                videoAddMode === "link"
+                  ? "bg-white text-blue-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <LinkIcon className="w-3.5 h-3.5" /> Paste Video Link / Reuse
+            </button>
+          </div>
 
           <form onSubmit={handleUploadVideoSubmit} className="space-y-4 mt-2 text-left">
             <div>
@@ -1128,32 +1220,73 @@ const TopicPdfManager = () => {
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
                 required
-                disabled={uploadPhase !== "idle"}
+                disabled={uploadPhase !== "idle" || isAddingVideo}
                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Select Video File <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                required
-                disabled={uploadPhase !== "idle"}
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer disabled:bg-slate-100"
-              />
-              {videoFile && (
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
+            {videoAddMode === "file" ? (
+              /* Option: Upload File */
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Select Video File <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  required={videoAddMode === "file"}
+                  disabled={uploadPhase !== "idle"}
+                  className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer disabled:bg-slate-100"
+                />
+                {videoFile && (
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* Option 1: Paste Link */
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Video URL / Direct Link <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="https://... (paste existing video link)"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    required={videoAddMode === "link"}
+                    disabled={isAddingVideo}
+                    className="w-full p-2.5 pr-20 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                          setVideoUrl(text.trim());
+                          toast.success("Pasted video link from clipboard!");
+                        }
+                      } catch {
+                        toast.error("Could not read clipboard. Please paste manually (Ctrl+V)");
+                      }
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold cursor-pointer transition"
+                  >
+                    Paste
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  ⚡ <strong>Instant Link:</strong> Copy any existing video link from another course/chapter and paste it here. It will be added instantly without re-uploading!
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Upload Progress Status Indicator */}
-            {uploadPhase !== "idle" && (
+            {/* Upload Progress Status Indicator (Only in File Mode) */}
+            {videoAddMode === "file" && uploadPhase !== "idle" && (
               <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/70 space-y-3">
                 {/* Phase 1: Browser to Server */}
                 <div className="space-y-1">
@@ -1216,33 +1349,54 @@ const TopicPdfManager = () => {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                disabled={uploadPhase === "local" || uploadPhase === "cloud"}
+                disabled={uploadPhase === "local" || uploadPhase === "cloud" || isAddingVideo}
                 onClick={() => {
                   cleanupPolling();
                   setActiveChapterForVideoUpload(null);
                   setVideoTitle("");
                   setVideoFile(null);
+                  setVideoUrl("");
+                  setVideoAddMode("file");
                   setUploadPhase("idle");
                 }}
                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={uploadPhase !== "idle" || !videoFile || !videoTitle.trim()}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
-              >
-                {uploadPhase !== "idle" ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Uploading Video...
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="w-4 h-4" /> Start Upload
-                  </>
-                )}
-              </button>
+
+              {videoAddMode === "link" ? (
+                <button
+                  type="submit"
+                  disabled={isAddingVideo || !videoUrl.trim() || !videoTitle.trim()}
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50 shadow-xs"
+                >
+                  {isAddingVideo ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Linking Video...
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-4 h-4" /> Link Video Instantly
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={uploadPhase !== "idle" || !videoFile || !videoTitle.trim()}
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                >
+                  {uploadPhase !== "idle" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading Video...
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4" /> Start Upload
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </form>
         </DialogContent>

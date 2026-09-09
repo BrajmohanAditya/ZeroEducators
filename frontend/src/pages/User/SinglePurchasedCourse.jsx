@@ -59,8 +59,10 @@ const SinglePurchasedCourse = () => {
             if (!foundVideo && chapter.videos && chapter.videos.length > 0) {
               if (!module) {
                 setModule(chapter.videos[0]);
-                setOpenSubjects((prev) => ({ ...prev, [subject._id]: true }));
-                setOpenChapters((prev) => ({ ...prev, [chapter._id]: true }));
+                if (!isPdfCourse) {
+                  setOpenSubjects((prev) => ({ ...prev, [subject._id]: true }));
+                  setOpenChapters((prev) => ({ ...prev, [chapter._id]: true }));
+                }
               }
               foundVideo = true;
             }
@@ -68,14 +70,24 @@ const SinglePurchasedCourse = () => {
             if (!foundPdf && chapter.pdfs && chapter.pdfs.length > 0) {
               if (!activePdf) {
                 setActivePdf(chapter.pdfs[0]);
-                setOpenSubjects((prev) => ({ ...prev, [subject._id]: true }));
-                setOpenChapters((prev) => ({ ...prev, [chapter._id]: true }));
+                if (isPdfCourse) {
+                  setOpenSubjects((prev) => ({ ...prev, [subject._id]: true }));
+                  setOpenChapters((prev) => ({ ...prev, [chapter._id]: true }));
+                }
               }
               foundPdf = true;
             }
           }
         }
       }
+
+      // If no video or pdf set open subjects yet, ensure the first subject is open
+      setOpenSubjects((prev) => {
+        if (Object.keys(prev).length === 0 && data.subjects[0]?._id) {
+          return { [data.subjects[0]._id]: true };
+        }
+        return prev;
+      });
     }
 
     // Check legacy topics with videos
@@ -87,7 +99,9 @@ const SinglePurchasedCourse = () => {
         if (!foundVideo && topic.videos && topic.videos.length > 0) {
           if (!module) {
             setModule(topic.videos[0]);
-            setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+            if (!isPdfCourse) {
+              setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+            }
           }
           foundVideo = true;
         }
@@ -95,7 +109,9 @@ const SinglePurchasedCourse = () => {
         if (!foundPdf && topic.pdfs && topic.pdfs.length > 0) {
           if (!activePdf) {
             setActivePdf(topic.pdfs[0]);
-            setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+            if (isPdfCourse) {
+              setOpenTopics((prev) => ({ ...prev, [topic._id]: true }));
+            }
           }
           foundPdf = true;
         }
@@ -106,7 +122,7 @@ const SinglePurchasedCourse = () => {
     if (!module && data.modules && data.modules.length > 0) {
       setModule(data.modules[0]);
     }
-  }, [data, module, activePdf]);
+  }, [data, module, activePdf, isPdfCourse]);
 
   // Keyboard shortcut protection (disable Ctrl+S, Ctrl+U, etc.)
   useEffect(() => {
@@ -135,21 +151,21 @@ const SinglePurchasedCourse = () => {
   const toggleSubjectAccordion = (subjectId) => {
     setOpenSubjects((prev) => ({
       ...prev,
-      [subjectId]: prev[subjectId] === undefined ? false : !prev[subjectId],
+      [subjectId]: !prev[subjectId],
     }));
   };
 
   const toggleChapterAccordion = (chapterId) => {
     setOpenChapters((prev) => ({
       ...prev,
-      [chapterId]: prev[chapterId] === undefined ? false : !prev[chapterId],
+      [chapterId]: !prev[chapterId],
     }));
   };
 
   const toggleTopicAccordion = (topicId) => {
     setOpenTopics((prev) => ({
       ...prev,
-      [topicId]: prev[topicId] === undefined ? false : !prev[topicId],
+      [topicId]: !prev[topicId],
     }));
   };
 
@@ -336,7 +352,7 @@ const SinglePurchasedCourse = () => {
           {hasSubjects ? (
             <div className="space-y-4">
               {data.subjects.map((subject, sIdx) => {
-                const isSubjectOpen = openSubjects[subject._id] !== false;
+                const isSubjectOpen = Boolean(openSubjects[subject._id]);
                 const subjectChapters = subject.chapters || [];
                 const sVideosCount = subjectChapters.reduce(
                   (acc, c) => acc + (c.videos?.length || 0),
@@ -384,7 +400,7 @@ const SinglePurchasedCourse = () => {
                       <div className="p-2 space-y-2 bg-slate-50/50">
                         {subjectChapters.length > 0 ? (
                           subjectChapters.map((chapter, cIdx) => {
-                            const isChapterOpen = openChapters[chapter._id] !== false;
+                            const isChapterOpen = Boolean(openChapters[chapter._id]);
                             const chapVideos = chapter.videos || [];
                             const chapPdfs = chapter.pdfs || [];
 
@@ -540,7 +556,7 @@ const SinglePurchasedCourse = () => {
             /* Legacy Topics Fallback */
             <div className="space-y-4">
               {data.topics.map((topic, tIdx) => {
-                const isExpanded = openTopics[topic._id] !== false; // expanded by default
+                const isExpanded = Boolean(openTopics[topic._id]);
                 const topicVideos = topic.videos || [];
                 const topicPdfs = topic.pdfs || [];
 
