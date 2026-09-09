@@ -80,8 +80,42 @@ export const parseCSVText = (text) => {
   return rows;
 };
 
+// Fuzzy / Alias Section Matching
+export const isSectionMatch = (secA, secB) => {
+  if (!secA || !secB) return false;
+  const a = String(secA).trim().toLowerCase();
+  const b = String(secB).trim().toLowerCase();
+  if (a === b) return true;
+
+  // Common exam section alias groups
+  const quantAliases = ["quant", "quantitative", "quantitative aptitude", "math", "maths", "numerical ability", "numerical"];
+  const reasoningAliases = ["reasoning", "reasoning ability", "logical reasoning", "logic", "general intelligence"];
+  const englishAliases = ["english", "english language", "general english", "verbal ability", "verbal"];
+  const gaAliases = ["ga", "ca", "ga/ca", "ga / ca", "general awareness", "current affairs", "general knowledge", "gk"];
+  const computerAliases = ["computer", "computer knowledge", "computer aptitude", "computer awareness", "it"];
+
+  const aliasGroups = [quantAliases, reasoningAliases, englishAliases, gaAliases, computerAliases];
+
+  for (const group of aliasGroups) {
+    const matchA = group.some((alias) => a === alias || a.includes(alias) || alias.includes(a));
+    const matchB = group.some((alias) => b === alias || b.includes(alias) || alias.includes(b));
+    if (matchA && matchB) return true;
+  }
+
+  return a.includes(b) || b.includes(a);
+};
+
+export const resolveSectionName = (rawSection, availableSections = [], defaultSection = "General") => {
+  if (!rawSection || !rawSection.trim()) return defaultSection;
+  const trimmed = rawSection.trim();
+  if (!availableSections || availableSections.length === 0) return trimmed;
+
+  const found = availableSections.find((sec) => isSectionMatch(sec, trimmed));
+  return found || trimmed;
+};
+
 // Map parsed rows into formatted quiz questions
-export const parseQuestionsFromCSV = (csvText, defaultSection = "General") => {
+export const parseQuestionsFromCSV = (csvText, defaultSection = "General", availableSections = []) => {
   const rows = parseCSVText(csvText);
   if (rows.length < 2) {
     return {
@@ -134,9 +168,10 @@ export const parseQuestionsFromCSV = (csvText, defaultSection = "General") => {
       continue; // Skip empty row
     }
 
-    const sectionName =
+    const rawSection =
       (sectionIdx !== -1 && row[sectionIdx] ? row[sectionIdx].trim() : "") ||
       defaultSection;
+    const sectionName = resolveSectionName(rawSection, availableSections, defaultSection);
     const marks = marksIdx !== -1 && Number(row[marksIdx]) > 0 ? Number(row[marksIdx]) : 1;
 
     const optA = (optAIdx !== -1 ? row[optAIdx] : "") || "";
@@ -297,7 +332,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
 };
 
 // Parse raw text questions (e.g. copied from Word, PDF, or typed directly)
-export const parseQuestionsFromRawText = (rawText, defaultSection = "General") => {
+export const parseQuestionsFromRawText = (rawText, defaultSection = "General", availableSections = []) => {
   if (!rawText || !rawText.trim()) {
     return {
       questions: [],
@@ -448,9 +483,10 @@ export const parseQuestionsFromRawText = (rawText, defaultSection = "General") =
       label: opt.label || String.fromCharCode(65 + idx),
     }));
 
+    const resolvedSec = resolveSectionName(defaultSection, availableSections, defaultSection);
     questions.push({
       rowNum: questions.length + 1,
-      sectionName: defaultSection,
+      sectionName: resolvedSec,
       questionText: qText,
       marks: 1,
       options: formattedOptions,

@@ -1,6 +1,7 @@
 import { Exam } from "../../models/quiz/exam.model.js";
 import { Quiz } from "../../models/quiz/quiz.model.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
+import { QuizResult } from "../../models/quiz/quizResult.model.js";
 import { User } from "../../models/user.model.js";
 import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../../config/zata.js";
 import jwt from "jsonwebtoken";
@@ -210,6 +211,13 @@ export const deleteExam = async (req, res, next) => {
     const childQuizzes = await Quiz.find({
       $or: [{ examId: deletedExam._id }, { nameOfExam: deletedExam.title }],
     });
+
+    const quizIds = childQuizzes.map((q) => q._id);
+
+    // Delete all quiz results for these quizzes
+    if (quizIds.length > 0) {
+      await QuizResult.deleteMany({ quiz: { $in: quizIds } });
+    }
 
     for (const quiz of childQuizzes) {
       if (quiz.logoId) {

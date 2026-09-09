@@ -1,5 +1,6 @@
 import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
+import { EbookQuestion } from "../models/eBook/ebookQuestion.model.js";
 
 export const createEbook = async (req, res, next) => {
   try {
@@ -118,13 +119,34 @@ export const deleteEbook = async (req, res, next) => {
 
     // Delete thumbnail from B2
     if (ebook.thumbnail_id) {
-      await deleteFromB2(ebook.thumbnail_id);
+      try {
+        await deleteFromB2(ebook.thumbnail_id);
+      } catch (e) {
+        console.error("Error deleting ebook thumbnail:", e);
+      }
     }
 
     // Delete PDF from B2
     if (ebook.pdf_id) {
-      await deleteFromB2(ebook.pdf_id);
+      try {
+        await deleteFromB2(ebook.pdf_id);
+      } catch (e) {
+        console.error("Error deleting ebook PDF:", e);
+      }
     }
+
+    // Delete all child questions and their images
+    const questions = await EbookQuestion.find({ ebookId: id });
+    for (const q of questions) {
+      if (q.questionImageId) {
+        try {
+          await deleteFromB2(q.questionImageId);
+        } catch (e) {
+          console.error("Error deleting question image:", e);
+        }
+      }
+    }
+    await EbookQuestion.deleteMany({ ebookId: id });
 
     await Ebook.findByIdAndDelete(id);
 

@@ -22,6 +22,10 @@ const ebookQuestionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    questionImageId: {
+      type: String,
+      default: "",
+    },
     marks: {
       type: Number,
       required: true,

@@ -56,7 +56,8 @@ const QuizBulkUploadDialog = ({ isOpen, onClose, quiz }) => {
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
-        const result = parseQuestionsFromCSV(text, defaultSection);
+        const availableSections = sections.map((s) => s.name);
+        const result = parseQuestionsFromCSV(text, defaultSection, availableSections);
         setParsedResult(result);
         if (result.validCount === 0 && result.errors.length > 0) {
           toast.error(result.errors[0]);
@@ -74,7 +75,8 @@ const QuizBulkUploadDialog = ({ isOpen, onClose, quiz }) => {
       return;
     }
 
-    const result = parseQuestionsFromRawText(rawText, defaultSection);
+    const availableSections = sections.map((s) => s.name);
+    const result = parseQuestionsFromRawText(rawText, defaultSection, availableSections);
     setParsedResult(result);
     if (result.validCount === 0 && result.errors.length > 0) {
       toast.error(result.errors[0]);

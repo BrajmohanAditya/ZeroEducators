@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, AlertTriangle, Maximize } from "lucide-react";
+import { User, AlertTriangle, Maximize, AlertCircle } from "lucide-react";
 import { useGetQuizByIdHook } from "@/hooks/quiz/quiz.hook";
 import QuestionUi from "@/components/userComponent/quizes/question.ui.jsx";
 import { useParams, useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import { useGetQuizQuestionsHook } from "@/hooks/quiz/quiz.createQuest.hook.js";
 import OptionUI from "@/components/userComponent/quizes/option.ui.jsx";
 import QuestionButtonUI from "@/components/userComponent/quizes/question.button.jsx";
 import SolutionUI from "@/components/userComponent/quizes/solution.jsx";
+import { isSectionMatch } from "@/utils/csv.parser";
 import {
   useSubmitQuizHook,
   useGetMyQuizResultsHook,
@@ -96,19 +97,52 @@ const QuizeInterface = () => {
   };
   // ---------------------------
 
+  // Derive full list of sections: from quiz configuration + any additional sections found in questions
+  const quizSections = React.useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    (currentQuiz?.section || []).forEach((sec) => {
+      const name = sec?.name?.trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase());
+        list.push({ _id: sec._id || name, name });
+      }
+    });
+
+    // Also include any section present in questions that wasn't already in quiz.section
+    (questions?.questions || []).forEach((q) => {
+      const qSec = q.sectionName?.trim();
+      if (qSec) {
+        const alreadyCovered = list.some((sec) => isSectionMatch(sec.name, qSec));
+        if (!alreadyCovered && !seen.has(qSec.toLowerCase())) {
+          seen.add(qSec.toLowerCase());
+          list.push({ _id: qSec, name: qSec });
+        }
+      }
+    });
+
+    return list;
+  }, [currentQuiz?.section, questions?.questions]);
+
   // 4. Automatically select the first section dynamically
   React.useEffect(() => {
-    if (currentQuiz?.section?.length > 0 && !activeSection) {
-      setActiveSection(currentQuiz.section[0].name);
+    if (
+      quizSections.length > 0 &&
+      (!activeSection || !quizSections.some((s) => isSectionMatch(s.name, activeSection)))
+    ) {
+      setActiveSection(quizSections[0].name);
     }
-  }, [currentQuiz, activeSection]);
+  }, [quizSections, activeSection]);
 
-  // 5. Filter questions by active section and pick the current one
-  const sectionQuestions =
-    questions?.questions?.filter((q) => q.sectionName === activeSection) || [];
+  // 5. Filter questions by active section using resilient matching
+  const sectionQuestions = React.useMemo(() => {
+    if (!activeSection) return [];
+    return questions?.questions?.filter((q) => isSectionMatch(q.sectionName, activeSection)) || [];
+  }, [questions?.questions, activeSection]);
+
   const currentQuestion = sectionQuestions[currentQuestionIndex];
 
-  // Reset to first question whenever the user switches sections
   // Reset to first question whenever the user switches sections
   React.useEffect(() => {
     setCurrentQuestionIndex(0);
@@ -154,11 +188,11 @@ const QuizeInterface = () => {
           SECTIONS
         </span>
 
-        {currentQuiz?.section?.map((sec) => (
+        {quizSections?.map((sec) => (
           <button
             key={sec._id || sec.name}
             className={` cursor-pointer px-5 py-2.5 rounded-t-lg font-medium transition ${
-              activeSection === sec.name
+              isSectionMatch(activeSection, sec.name)
                 ? "bg-[#158993] text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
             }`}
@@ -171,7 +205,7 @@ const QuizeInterface = () => {
 
       <div className="min-h-[56px] py-2 border-b border-slate-200 flex flex-wrap items-center justify-between px-4 md:px-6 bg-white shrink-0 gap-3">
         <div className="font-bold text-slate-800 text-base">
-          Question No. {currentQuestionIndex + 1}
+          Question No. {sectionQuestions.length > 0 ? currentQuestionIndex + 1 : 0}
         </div>
 
         <div className="flex items-center gap-8">
@@ -180,7 +214,7 @@ const QuizeInterface = () => {
             <span className="text-slate-500 text-xs font-medium">Marks</span>
             <div className="flex gap-1 mt-0.5">
               <span className="bg-green-600 text-white px-1.5 rounded-sm text-xs font-bold">
-                +{currentQuestion?.marks}
+                +{currentQuestion?.marks || 1}
               </span>
               <span className="bg-red-500 text-white px-1.5 rounded-sm text-xs font-bold">
                 -{currentQuiz?.negativeMark || 0}
@@ -200,48 +234,60 @@ const QuizeInterface = () => {
         {/* Left Side (Questions + Options + Bottom Bar) */}
         <div className="flex-1 flex flex-col min-w-0 lg:border-r border-slate-200 overflow-hidden">
           {/* Questions and Options Row */}
-          <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden min-h-0">
-            {/* Render the Question UI */}
-            <div className="shrink-0 lg:flex-1 min-h-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white lg:overflow-y-auto overflow-x-hidden custom-scrollbar">
-              <QuestionUi question={currentQuestion} />
+          {sectionQuestions.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+              <AlertCircle className="w-12 h-12 text-slate-300 mb-3" />
+              <p className="text-base font-semibold text-slate-700">
+                No questions in "{activeSection}"
+              </p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                No questions have been uploaded for this section yet. Please switch to another section from the tabs above.
+              </p>
             </div>
-            {/* {console.log(currentQuestion)} */}
-            {/* Render the Option UI */}
-            <div className="shrink-0 lg:flex-1 min-h-0 border-b lg:border-b-0 border-slate-200 bg-white lg:overflow-y-auto custom-scrollbar flex flex-col">
-              <OptionUI
-                key={currentQuestion?._id || currentQuestionIndex}
-                options={currentQuestion?.options}
-                instruction={currentQuestion?.optionsInstruction}
-                selectedOption={userAnswers[currentQuestion?._id]}
-                isSubmitted={isSubmitted}
-                isRevealed={revealedQuestions[currentQuestion?._id]}
-                onSelectOption={(index) => {
-                  if (isSubmitted) {
-                    setRevealedQuestions((prev) => ({
-                      ...prev,
-                      [currentQuestion?._id]: true,
-                    }));
-                  } else {
-                    setUserAnswers((prev) => ({
-                      ...prev,
-                      [currentQuestion?._id]: index,
-                    }));
-                  }
-                }}
-              />
+          ) : (
+            <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden min-h-0">
+              {/* Render the Question UI */}
+              <div className="shrink-0 lg:flex-1 min-h-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white lg:overflow-y-auto overflow-x-hidden custom-scrollbar">
+                <QuestionUi question={currentQuestion} />
+              </div>
+              {/* {console.log(currentQuestion)} */}
+              {/* Render the Option UI */}
+              <div className="shrink-0 lg:flex-1 min-h-0 border-b lg:border-b-0 border-slate-200 bg-white lg:overflow-y-auto custom-scrollbar flex flex-col">
+                <OptionUI
+                  key={currentQuestion?._id || currentQuestionIndex}
+                  options={currentQuestion?.options}
+                  instruction={currentQuestion?.optionsInstruction}
+                  selectedOption={userAnswers[currentQuestion?._id]}
+                  isSubmitted={isSubmitted}
+                  isRevealed={revealedQuestions[currentQuestion?._id]}
+                  onSelectOption={(index) => {
+                    if (isSubmitted) {
+                      setRevealedQuestions((prev) => ({
+                        ...prev,
+                        [currentQuestion?._id]: true,
+                      }));
+                    } else {
+                      setUserAnswers((prev) => ({
+                        ...prev,
+                        [currentQuestion?._id]: index,
+                      }));
+                    }
+                  }}
+                />
 
-              {isSubmitted &&
-                (currentQuestion?.solutionExplanation ||
-                  currentQuestion?.solutionImage) && (
-                  <div className="px-10 pb-10">
-                    <SolutionUI
-                      solutionText={currentQuestion?.solutionExplanation}
-                      solutionImage={currentQuestion?.solutionImage}
-                    />
-                  </div>
-                )}
+                {isSubmitted &&
+                  (currentQuestion?.solutionExplanation ||
+                    currentQuestion?.solutionImage) && (
+                    <div className="px-10 pb-10">
+                      <SolutionUI
+                        solutionText={currentQuestion?.solutionExplanation}
+                        solutionImage={currentQuestion?.solutionImage}
+                      />
+                    </div>
+                  )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* --- BOTTOM BAR --- */}
 

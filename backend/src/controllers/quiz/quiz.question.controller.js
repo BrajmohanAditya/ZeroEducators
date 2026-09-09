@@ -100,9 +100,12 @@ export const getQuizQuestions = async (req, res, next) => {
         try {
           const decoded = jwt.verify(token, ENV.JWT_SECRET);
           const user = await User.findById(decoded.userId);
-          const hasPurchased = user?.purchasedExams?.some(
-            (id) => id.toString() === exam._id.toString()
-          );
+          const isAdmin = user?.role === "admin" || user?.role === "Instructor";
+          const hasPurchased =
+            isAdmin ||
+            user?.purchasedExams?.some(
+              (id) => id.toString() === exam._id.toString()
+            );
 
           if (!hasPurchased) {
             return res.status(403).json({

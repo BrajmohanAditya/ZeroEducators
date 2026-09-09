@@ -1,6 +1,6 @@
 import { EbookQuestion } from "../models/eBook/ebookQuestion.model.js";
 import { Ebook } from "../models/eBook/ebook.model.js";
-import { uploadToZata as uploadToB2 } from "../config/zata.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
 
 export const createEbookQuestion = async (req, res, next) => {
   try {
@@ -56,6 +56,7 @@ export const createEbookQuestion = async (req, res, next) => {
     }
 
     let questionImageUrl = "";
+    let questionImageId = "";
     if (req.file) {
       const uploadResImg = await uploadToB2(
         req.file.buffer,
@@ -64,6 +65,7 @@ export const createEbookQuestion = async (req, res, next) => {
         "ebooks/questions"
       );
       questionImageUrl = uploadResImg.url;
+      questionImageId = uploadResImg.fileKey;
     }
 
     const newQuestion = new EbookQuestion({
@@ -72,6 +74,7 @@ export const createEbookQuestion = async (req, res, next) => {
       chapterName,
       questionText,
       questionImage: questionImageUrl,
+      questionImageId,
       marks: Number(marks || 1),
       optionsInstruction,
       options: parsedOptions,
@@ -125,6 +128,14 @@ export const deleteEbookQuestion = async (req, res, next) => {
       });
     }
 
+    if (question.questionImageId) {
+      try {
+        await deleteFromB2(question.questionImageId);
+      } catch (e) {
+        console.error("Error deleting question image from B2:", e);
+      }
+    }
+
     await EbookQuestion.findByIdAndDelete(id);
 
     return res.status(200).json({
@@ -170,15 +181,22 @@ export const updateEbookQuestion = async (req, res, next) => {
       }
     }
 
-    let questionImageUrl = question.questionImage;
     if (req.file) {
+      if (question.questionImageId) {
+        try {
+          await deleteFromB2(question.questionImageId);
+        } catch (e) {
+          console.error("Error deleting old question image:", e);
+        }
+      }
       const uploadResImg = await uploadToB2(
         req.file.buffer,
         req.file.originalname,
         req.file.mimetype,
         "ebooks/questions"
       );
-      questionImageUrl = uploadResImg.url;
+      question.questionImage = uploadResImg.url;
+      question.questionImageId = uploadResImg.fileKey;
     }
 
     question.chapterNumber = Number(chapterNumber || question.chapterNumber);
@@ -188,7 +206,6 @@ export const updateEbookQuestion = async (req, res, next) => {
     if (optionsInstruction !== undefined) question.optionsInstruction = optionsInstruction;
     if (parsedOptions !== undefined) question.options = parsedOptions;
     if (solutionExplanation !== undefined) question.solutionExplanation = solutionExplanation;
-    question.questionImage = questionImageUrl;
 
     await question.save();
 

@@ -249,30 +249,73 @@ export const deleteCourse = async (req, res, next) => {
     }
 
     if (course.thumbnail_id) {
-      await deleteFromB2(course.thumbnail_id);
-    }
-    const modules = await Modules.find({ courseId: courseId });
-
-    for (let i = 0; i < modules.length; i++) {
-      if (modules[i].Video_id) {
-        await deleteFromB2(modules[i].Video_id);
+      try {
+        await deleteFromB2(course.thumbnail_id);
+      } catch (e) {
+        console.error("Error deleting course thumbnail:", e);
       }
     }
 
-    // Delete topic PDFs and Videos from S3 if course has topics
+    // 1. Delete all Subject & Chapter PDFs and Videos from S3
+    if (course.subjects && course.subjects.length > 0) {
+      for (const subject of course.subjects) {
+        if (subject.chapters && subject.chapters.length > 0) {
+          for (const chapter of subject.chapters) {
+            // Delete chapter PDFs
+            if (chapter.pdfs && chapter.pdfs.length > 0) {
+              for (const pdf of chapter.pdfs) {
+                if (pdf.pdf_id) {
+                  try {
+                    await deleteFromB2(pdf.pdf_id);
+                  } catch (e) {
+                    console.error("Error deleting chapter pdf:", e);
+                  }
+                }
+              }
+            }
+
+            // Delete chapter Videos
+            if (chapter.videos && chapter.videos.length > 0) {
+              for (const video of chapter.videos) {
+                if (video.Video_id) {
+                  try {
+                    await deleteFromB2(video.Video_id);
+                  } catch (e) {
+                    console.error("Error deleting chapter video:", e);
+                  }
+                }
+                if (video.moduleId) {
+                  await Modules.findByIdAndDelete(video.moduleId);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Delete legacy topic PDFs and Videos from S3
     if (course.topics && course.topics.length > 0) {
       for (const topic of course.topics) {
         if (topic.pdfs && topic.pdfs.length > 0) {
           for (const pdf of topic.pdfs) {
             if (pdf.pdf_id) {
-              await deleteFromB2(pdf.pdf_id);
+              try {
+                await deleteFromB2(pdf.pdf_id);
+              } catch (e) {
+                console.error("Error deleting topic pdf:", e);
+              }
             }
           }
         }
         if (topic.videos && topic.videos.length > 0) {
           for (const video of topic.videos) {
             if (video.Video_id) {
-              await deleteFromB2(video.Video_id);
+              try {
+                await deleteFromB2(video.Video_id);
+              } catch (e) {
+                console.error("Error deleting topic video:", e);
+              }
             }
             if (video.moduleId) {
               await Modules.findByIdAndDelete(video.moduleId);
@@ -282,7 +325,19 @@ export const deleteCourse = async (req, res, next) => {
       }
     }
 
+    // 3. Clean up any remaining Modules belonging to this course
+    const remainingModules = await Modules.find({ courseId: courseId });
+    for (const mod of remainingModules) {
+      if (mod.Video_id) {
+        try {
+          await deleteFromB2(mod.Video_id);
+        } catch (e) {
+          console.error("Error deleting module video:", e);
+        }
+      }
+    }
     await Modules.deleteMany({ courseId: courseId });
+
     const deletedCourse = await Course.findByIdAndDelete(courseId);
 
     if (!deletedCourse) {

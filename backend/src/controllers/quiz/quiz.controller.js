@@ -2,6 +2,7 @@ import { Quiz } from "../../models/quiz/quiz.model.js";
 import { Exam } from "../../models/quiz/exam.model.js";
 import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../../config/zata.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
+import { QuizResult } from "../../models/quiz/quizResult.model.js";
 
 // Create a new quiz
 export const createQuiz = async (req, res, next) => {
@@ -278,6 +279,7 @@ export const deleteQuiz = async (req, res, next) => {
         console.error("Error deleting quiz logo:", e);
       }
     }
+    await QuizResult.deleteMany({ quiz: quizId });
     await QuizQuestion.deleteMany({ quizId: quizId });
     return res.status(200).json({
       success: true,
