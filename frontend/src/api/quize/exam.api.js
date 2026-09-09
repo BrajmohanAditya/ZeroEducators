@@ -53,3 +53,20 @@ export const toggleExamLockApi = async (id) => {
   });
   return res.data;
 };
+
+export const getMyPurchasedExamsApi = async () => {
+  try {
+    const res = await axios.get(`${baseUrl}/exam/my-purchased-exams`, {
+      withCredentials: true,
+    });
+    return res.data;
+  } catch (error) {
+    return {
+      success: true,
+      purchasedExams: [],
+      purchasedExamIds: [],
+      isAdmin: false,
+    };
+  }
+};
+

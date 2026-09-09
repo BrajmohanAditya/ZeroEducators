@@ -1,5 +1,9 @@
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
 import { Quiz } from "../../models/quiz/quiz.model.js";
+import { Exam } from "../../models/quiz/exam.model.js";
+import { User } from "../../models/user.model.js";
+import jwt from "jsonwebtoken";
+import { ENV } from "../../config/env.js";
 
 // Create a new quiz question
 export const createQuizQuestion = async (req, res, next) => {
@@ -75,8 +79,48 @@ export const getQuizQuestions = async (req, res, next) => {
     if (quiz.isLocked) {
       return res.status(403).json({
         success: false,
-        message: " locked",
+        message: "Quiz is locked",
       });
+    }
+
+    // Check if test is paid and requires exam purchase (Free demo tests bypass this)
+    const isPaid = quiz.quizType === "Paid" && !quiz.isFreeDemo;
+    if (isPaid) {
+      const exam = quiz.examId ? await Exam.findById(quiz.examId) : null;
+      if (exam && exam.price > 0) {
+        const token = req.cookies?.token || req.query?.token;
+        if (!token) {
+          return res.status(401).json({
+            success: false,
+            isPaymentRequired: true,
+            message: "Please log in and purchase this exam package to access this test.",
+          });
+        }
+
+        try {
+          const decoded = jwt.verify(token, ENV.JWT_SECRET);
+          const user = await User.findById(decoded.userId);
+          const hasPurchased = user?.purchasedExams?.some(
+            (id) => id.toString() === exam._id.toString()
+          );
+
+          if (!hasPurchased) {
+            return res.status(403).json({
+              success: false,
+              isPaymentRequired: true,
+              message: `Please unlock ${exam.title} package (₹${exam.price}) to access this mock test.`,
+              examId: exam._id,
+              price: exam.price,
+            });
+          }
+        } catch (authErr) {
+          return res.status(401).json({
+            success: false,
+            isPaymentRequired: true,
+            message: "Invalid session. Please log in again.",
+          });
+        }
+      }
     }
 
     const questions = await QuizQuestion.find({ quizId });

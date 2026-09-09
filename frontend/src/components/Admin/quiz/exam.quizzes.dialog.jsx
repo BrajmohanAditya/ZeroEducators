@@ -25,6 +25,7 @@ import {
   useGetQuizzesHook,
   useDeleteQuizHook,
   useToggleQuizLockHook,
+  useToggleQuizTypeHook,
 } from "../../../hooks/quiz/quiz.hook";
 import CreateQuiz from "../quiz";
 import QuizQuestionAdd from "../quiz.question.add";
@@ -40,6 +41,7 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
 
   const { mutate: deleteQuiz, isPending: isDeleting } = useDeleteQuizHook();
   const { mutate: toggleLock, isPending: isTogglingLock } = useToggleQuizLockHook();
+  const { mutate: toggleAccessType, isPending: isTogglingAccessType } = useToggleQuizTypeHook();
 
   const [isAddQuizOpen, setIsAddQuizOpen] = useState(false);
   const [selectedQuizForEdit, setSelectedQuizForEdit] = useState(null);
@@ -144,6 +146,7 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
                       <th className="px-4 py-3 font-semibold">Duration</th>
                       <th className="px-4 py-3 font-semibold">Questions</th>
                       <th className="px-4 py-3 font-semibold">Marks</th>
+                      <th className="px-4 py-3 font-semibold">Access Type</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-5 py-3 font-semibold text-right">Actions</th>
                     </tr>
@@ -170,6 +173,22 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
                         </td>
                         <td className="px-4 py-3.5 text-slate-700 font-medium">
                           {quiz.totalMarks}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <button
+                            onClick={() => toggleAccessType(quiz._id)}
+                            disabled={isTogglingAccessType}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+                              quiz.isFreeDemo || quiz.quizType === "Free"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                            }`}
+                            title="Click to toggle Free Demo / Package access"
+                          >
+                            {quiz.isFreeDemo || quiz.quizType === "Free"
+                              ? "🟢 Free Demo"
+                              : "🔒 Package Only"}
+                          </button>
                         </td>
                         <td className="px-4 py-3.5">
                           <button

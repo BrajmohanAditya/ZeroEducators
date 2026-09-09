@@ -295,3 +295,175 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
+
+// Parse raw text questions (e.g. copied from Word, PDF, or typed directly)
+export const parseQuestionsFromRawText = (rawText, defaultSection = "General") => {
+  if (!rawText || !rawText.trim()) {
+    return {
+      questions: [],
+      errors: ["Please enter or paste questions text."],
+      totalRows: 0,
+      validCount: 0,
+      invalidCount: 0,
+    };
+  }
+
+  const cleanText = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  const lines = cleanText.split("\n");
+
+  const isQuestionStart = (line) => {
+    const trimmed = line.trim();
+    return /^(?:Q(?:uestion)?[\s.:#0-9]*\d+[\s.:)]|\d+[\s.:)])/i.test(trimmed);
+  };
+
+  const isOptionLine = (line) => {
+    const trimmed = line.trim();
+    return /^(?:\(?([A-Ea-e1-5])[\s.):\]\-]|(?:option\s*([A-Ea-e1-5])\s*[:.\-]))/i.test(trimmed);
+  };
+
+  const rawBlocks = [];
+  let currentBlock = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (currentBlock.length > 0) currentBlock.push("");
+      continue;
+    }
+
+    if (isQuestionStart(trimmed) && currentBlock.length > 0) {
+      const hasOption = currentBlock.some((l) => isOptionLine(l));
+      if (hasOption) {
+        rawBlocks.push(currentBlock.join("\n"));
+        currentBlock = [line];
+        continue;
+      }
+    }
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    rawBlocks.push(currentBlock.join("\n"));
+  }
+
+  let blocksToProcess = rawBlocks;
+  if (blocksToProcess.length <= 1) {
+    const doubleNewlineBlocks = cleanText.split(/\n\s*\n+/).filter((b) => b.trim().length > 0);
+    if (doubleNewlineBlocks.length > 1) {
+      blocksToProcess = doubleNewlineBlocks;
+    }
+  }
+
+  const questions = [];
+  const errors = [];
+
+  blocksToProcess.forEach((block, bIdx) => {
+    const bLines = block.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    if (bLines.length < 2) return;
+
+    let questionLines = [];
+    const options = [];
+    let answerText = "";
+    let explanationLines = [];
+    let state = "question";
+
+    for (let lIdx = 0; lIdx < bLines.length; lIdx++) {
+      const line = bLines[lIdx];
+
+      // Check Answer line
+      const ansMatch = line.match(/^(?:ans(?:wer)?|correct(?:\s*ans(?:wer)?)?|right(?:\s*option)?|ans\.)\s*[:=\-.]?\s*(.*)$/i);
+      if (ansMatch && !isOptionLine(line)) {
+        answerText = ansMatch[1].trim();
+        state = "after_answer";
+        continue;
+      }
+
+      // Check Explanation line
+      const expMatch = line.match(/^(?:explanation|solution|explain|reason)\s*[:=\-.]\s*(.*)$/i);
+      if (expMatch) {
+        explanationLines.push(expMatch[1].trim());
+        state = "explanation";
+        continue;
+      }
+
+      if (state === "explanation") {
+        explanationLines.push(line);
+        continue;
+      }
+
+      // Check Option line
+      const optMatch = line.match(/^(?:\(?([A-Ea-e1-5])[\s.):\]\-]|(?:option\s*([A-Ea-e1-5])\s*[:.\-]))\s*(.*)$/i);
+      if (optMatch) {
+        state = "options";
+        const label = (optMatch[1] || optMatch[2] || "").toUpperCase();
+        const text = (optMatch[3] || "").trim();
+        options.push({ label, text });
+        continue;
+      }
+
+      if (state === "question") {
+        questionLines.push(line);
+      } else if (state === "options" && options.length > 0) {
+        options[options.length - 1].text += " " + line;
+      }
+    }
+
+    let qText = questionLines.join(" ").trim();
+    qText = qText.replace(/^(?:Q(?:uestion)?[\s.:#0-9]*\d+[\s.:)]*|\d+[\s.:)]+)\s*/i, "").trim();
+
+    if (!qText) {
+      errors.push(`Item ${bIdx + 1}: Question text is missing.`);
+      return;
+    }
+
+    if (options.length < 2) {
+      errors.push(`Question "${qText.substring(0, 30)}...": Needs at least 2 options (A, B).`);
+      return;
+    }
+
+    let correctIdx = 0;
+    const cleanAns = answerText.toUpperCase().trim();
+    if (cleanAns) {
+      const letterMatch = cleanAns.match(/^([A-E1-5])/);
+      if (letterMatch) {
+        const char = letterMatch[1];
+        const letterMap = { "1": "A", "2": "B", "3": "C", "4": "D", "5": "E" };
+        const targetLabel = letterMap[char] || char;
+        const found = options.findIndex((o) => o.label === targetLabel);
+        if (found !== -1) correctIdx = found;
+      } else {
+        const found = options.findIndex(
+          (o) =>
+            o.text.toLowerCase() === cleanAns.toLowerCase() ||
+            cleanAns.toLowerCase().includes(o.text.toLowerCase())
+        );
+        if (found !== -1) correctIdx = found;
+      }
+    }
+
+    const formattedOptions = options.map((opt, idx) => ({
+      text: opt.text,
+      isCorrect: idx === correctIdx,
+      label: opt.label || String.fromCharCode(65 + idx),
+    }));
+
+    questions.push({
+      rowNum: questions.length + 1,
+      sectionName: defaultSection,
+      questionText: qText,
+      marks: 1,
+      options: formattedOptions,
+      correctAnswerLabel: formattedOptions[correctIdx]?.label || "A",
+      solutionExplanation: explanationLines.join(" ").trim(),
+    });
+  });
+
+  return {
+    questions,
+    errors,
+    totalRows: blocksToProcess.length,
+    validCount: questions.length,
+    invalidCount: errors.length,
+  };
+};

@@ -55,7 +55,7 @@ const quizSchema = new mongoose.Schema(
     },
     isLocked: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     price: {
       type: Number,
@@ -67,6 +67,10 @@ const quizSchema = new mongoose.Schema(
       enum: ["Free", "Paid"],
       default: "Free",
       required: true,
+    },
+    isFreeDemo: {
+      type: Boolean,
+      default: false,
     },
   },
   {

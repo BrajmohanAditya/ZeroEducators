@@ -10,7 +10,17 @@ const orderSchema = new mongoose.Schema(
     course: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
-      required: true,
+      required: false,
+    },
+    exam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+      required: false,
+    },
+    orderType: {
+      type: String,
+      enum: ["course", "exam"],
+      default: "course",
     },
 
     totalAmount: {

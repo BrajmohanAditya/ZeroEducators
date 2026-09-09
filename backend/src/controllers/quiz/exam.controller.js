@@ -1,7 +1,10 @@
 import { Exam } from "../../models/quiz/exam.model.js";
 import { Quiz } from "../../models/quiz/quiz.model.js";
 import { QuizQuestion } from "../../models/quiz/quiz.question.model.js";
+import { User } from "../../models/user.model.js";
 import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../../config/zata.js";
+import jwt from "jsonwebtoken";
+import { ENV } from "../../config/env.js";
 
 // 1. Create a new Exam
 export const createExam = async (req, res, next) => {
@@ -257,6 +260,70 @@ export const toggleExamLock = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error toggling exam lock:", error);
+    next(error);
+  }
+};
+
+// 7. Get logged-in user's purchased exams (supports guests gracefully)
+export const getMyPurchasedExams = async (req, res, next) => {
+  try {
+    const token = req.cookies?.token || req.query?.token;
+    if (!token) {
+      return res.status(200).json({
+        success: true,
+        purchasedExams: [],
+        purchasedExamIds: [],
+        isAdmin: false,
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, ENV.JWT_SECRET || process.env.JWT_SECRET);
+    } catch {
+      return res.status(200).json({
+        success: true,
+        purchasedExams: [],
+        purchasedExamIds: [],
+        isAdmin: false,
+      });
+    }
+
+    const userId = decoded?.userId || decoded?.id;
+    if (!userId) {
+      return res.status(200).json({
+        success: true,
+        purchasedExams: [],
+        purchasedExamIds: [],
+        isAdmin: false,
+      });
+    }
+
+    const user = await User.findById(userId)
+      .select("purchasedExams role")
+      .populate("purchasedExams");
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        purchasedExams: [],
+        purchasedExamIds: [],
+        isAdmin: false,
+      });
+    }
+
+    const purchasedExamIds = (user.purchasedExams || []).map((e) =>
+      e._id ? e._id.toString() : e.toString()
+    );
+
+    return res.status(200).json({
+      success: true,
+      purchasedExams: user.purchasedExams || [],
+      purchasedExamIds,
+      isAdmin: user.role === "admin",
+    });
+  } catch (error) {
+    console.error("Error getting purchased exams:", error);
     next(error);
   }
 };

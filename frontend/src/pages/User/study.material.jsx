@@ -16,46 +16,73 @@ import {
 } from "lucide-react";
 
 import { useGetQuizzesHook } from "@/hooks/quiz/quiz.hook";
+import { useGetExamsHook } from "@/hooks/quiz/exam.hook";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 const StudyMaterial = () => {
   const navigate = useNavigate();
 
-  // (The old 'quizzes' variable was removed because 'data' is no longer defined)
+  // Fetch all exams
+  const { data: examsData } = useGetExamsHook();
+  const allExams = examsData?.exams || [];
+
   // Fetch Free Quizzes
   const { data: freeData, isLoading: isFreeLoading } =
     useGetQuizzesHook("Free");
   const freeQuizzes = freeData?.quizzes || [];
+
   // Fetch Paid Quizzes
   const { data: paidData, isLoading: isPaidLoading } =
     useGetQuizzesHook("Paid");
   const paidQuizzes = paidData?.quizzes || [];
 
-  // Group Free Quizzes by Exam so only Exam name appears (e.g. "SBI PO")
   const freeExamsMap = new Map();
+  const paidExamsMap = new Map();
+
+  // 1. Add from Exams collection
+  allExams.forEach((exam) => {
+    const examPrice = Number(exam.price) || 0;
+    const item = {
+      id: exam._id,
+      name: exam.title,
+      logoUrl: exam.logoUrl,
+    };
+    if (examPrice > 0) {
+      paidExamsMap.set(exam._id.toString(), item);
+    } else {
+      freeExamsMap.set(exam._id.toString(), item);
+    }
+  });
+
+  // 2. Also support legacy quizzes if any exist without examId
   freeQuizzes.forEach((quiz) => {
-    const examKey = quiz.examId?._id || quiz.nameOfExam;
+    const examObj = quiz.examId;
+    const examPrice = examObj?.price ?? quiz.price ?? 0;
+    if (examPrice > 0) return; // STRICT: paid packages must not appear under Free
+    const examKey = (examObj?._id || quiz.examId || quiz.nameOfExam || "").toString();
     if (examKey && !freeExamsMap.has(examKey)) {
       freeExamsMap.set(examKey, {
-        id: quiz.examId?._id || quiz.examId,
-        name: quiz.examId?.title || quiz.nameOfExam || "Exam",
-        logoUrl: quiz.examId?.logoUrl || quiz.logoUrl,
+        id: examObj?._id || quiz.examId,
+        name: examObj?.title || quiz.nameOfExam || "Exam",
+        logoUrl: examObj?.logoUrl || quiz.logoUrl,
       });
     }
   });
-  const freeExams = Array.from(freeExamsMap.values());
 
-  // Group Paid Quizzes by Exam so only Exam name appears (e.g. "SBI PO")
-  const paidExamsMap = new Map();
   paidQuizzes.forEach((quiz) => {
-    const examKey = quiz.examId?._id || quiz.nameOfExam;
+    const examObj = quiz.examId;
+    const examPrice = examObj?.price ?? quiz.price ?? 0;
+    if (examPrice <= 0) return;
+    const examKey = (examObj?._id || quiz.examId || quiz.nameOfExam || "").toString();
     if (examKey && !paidExamsMap.has(examKey)) {
       paidExamsMap.set(examKey, {
-        id: quiz.examId?._id || quiz.examId,
-        name: quiz.examId?.title || quiz.nameOfExam || "Exam",
-        logoUrl: quiz.examId?.logoUrl || quiz.logoUrl,
+        id: examObj?._id || quiz.examId,
+        name: examObj?.title || quiz.nameOfExam || "Exam",
+        logoUrl: examObj?.logoUrl || quiz.logoUrl,
       });
     }
   });
+
+  const freeExams = Array.from(freeExamsMap.values());
   const paidExams = Array.from(paidExamsMap.values());
 
   const cards = [

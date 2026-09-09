@@ -29,6 +29,12 @@ const userSchema = new mongoose.Schema({
             ref: "Course",
         }
     ],
+    purchasedExams:[
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Exam",
+        }
+    ],
     otp: {
         type: String,
         default: null

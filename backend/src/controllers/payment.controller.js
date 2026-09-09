@@ -4,6 +4,7 @@ import {
   fetchCashfreeOrderPayments,
 } from "../config/cashfree.js";
 import { Course } from "../models/course.model.js";
+import { Exam } from "../models/quiz/exam.model.js";
 import { Order } from "../models/order.model.js";
 import { User } from "../models/user.model.js";
 import { ENV } from "../config/env.js";
@@ -221,3 +222,175 @@ export const checkoutSuccess = async (req, res, next) => {
     next(error);
   }
 };
+
+export const createExamCheckOutSession = async (req, res, next) => {
+  try {
+    const { examId } = req.body;
+
+    if (!examId) {
+      return res.status(400).json({ message: "Please provide exam ID" });
+    }
+
+    const exam = await Exam.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+
+    // Check if already purchased
+    const alreadyPurchased = user?.purchasedExams?.some(
+      (id) => id.toString() === examId.toString()
+    );
+
+    if (alreadyPurchased) {
+      return res.status(200).json({
+        success: true,
+        alreadyPurchased: true,
+        examId,
+        message: "You have already unlocked this exam package!",
+      });
+    }
+
+    // If Exam price is 0 (Free exam), unlock directly without gateway
+    if (!exam.price || Number(exam.price) === 0) {
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { purchasedExams: examId },
+      });
+
+      const freeOrder = new Order({
+        user: userId,
+        exam: examId,
+        orderType: "exam",
+        totalAmount: 0,
+        paymentId: `FREE_EXAM_${Date.now()}`,
+        orderId: `FREE_EXAM_ORDER_${Date.now()}`,
+        paymentGateway: "free",
+      });
+      await freeOrder.save();
+
+      return res.status(200).json({
+        success: true,
+        isFree: true,
+        examId,
+        message: "Exam unlocked successfully!",
+      });
+    }
+
+    const orderAmount = Number(exam.price);
+    const orderId = `exam_ord_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+    let phone = user?.mobileNo ? String(user.mobileNo).replace(/\D/g, "") : "";
+    if (phone.length > 10) phone = phone.slice(-10);
+    if (phone.length < 10) phone = "9999999999";
+
+    const order = await createCashfreeOrder({
+      orderId,
+      orderAmount,
+      currency: "INR",
+      customerDetails: {
+        customerId: user._id.toString(),
+        name: user.name || "Student",
+        email: user.email || "student@example.com",
+        phone: phone,
+      },
+      orderNote: `Exam Package: ${exam.title} (ID: ${examId})`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      order: {
+        orderId,
+        paymentSessionId: order.payment_session_id,
+        examId,
+        amount: orderAmount,
+      },
+    });
+  } catch (error) {
+    console.error("Error creating Exam checkout session:", error);
+    next(error);
+  }
+};
+
+export const checkoutExamSuccess = async (req, res, next) => {
+  try {
+    const { orderId, examId: providedExamId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ message: "Order ID is required" });
+    }
+
+    const existingOrder = await Order.findOne({ orderId });
+    if (existingOrder) {
+      return res.status(200).json({
+        success: true,
+        message: "Exam order already processed",
+        orderId: existingOrder._id,
+        examId: existingOrder.exam,
+      });
+    }
+
+    const cfOrder = await fetchCashfreeOrder(orderId);
+
+    if (!cfOrder || cfOrder.order_status !== "PAID") {
+      return res.status(400).json({
+        message: `Payment not completed. Current status: ${cfOrder?.order_status || "UNKNOWN"}`,
+      });
+    }
+
+    const userId = req.user._id;
+    let examId = providedExamId;
+
+    if (!examId && cfOrder.order_note) {
+      const match = cfOrder.order_note.match(/ID:\s*([a-f0-9]{24})/i);
+      if (match) {
+        examId = match[1];
+      }
+    }
+
+    if (!examId) {
+      return res.status(400).json({ message: "Associated exam not found for this order" });
+    }
+
+    let paymentId = `cf_${orderId}`;
+    try {
+      const payments = await fetchCashfreeOrderPayments(orderId);
+      if (Array.isArray(payments) && payments.length > 0) {
+        const successPayment = payments.find((p) => p.payment_status === "SUCCESS") || payments[0];
+        if (successPayment?.cf_payment_id) {
+          paymentId = String(successPayment.cf_payment_id);
+        }
+      }
+    } catch (paymentFetchError) {
+      console.warn("Could not fetch payment details:", paymentFetchError);
+    }
+
+    const newOrder = new Order({
+      user: userId,
+      exam: examId,
+      orderType: "exam",
+      totalAmount: cfOrder.order_amount,
+      orderId: orderId,
+      paymentId: paymentId,
+      paymentGateway: "cashfree",
+    });
+
+    await newOrder.save();
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { purchasedExams: examId },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Payment successful! Exam package unlocked.",
+      orderId: newOrder._id,
+      examId: examId,
+    });
+  } catch (error) {
+    console.error("Error verifying Cashfree Exam checkout success:", error);
+    next(error);
+  }
+};
+

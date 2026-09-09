@@ -20,18 +20,28 @@ export const createCashfreeOrder = async ({
   orderAmount,
   currency = "INR",
   customerDetails,
+  customerId,
+  customerName,
+  customerEmail,
+  customerPhone,
   orderMeta,
   orderNote,
 }) => {
+  const cDetails = customerDetails || {};
+  const finalCustomerId = cDetails.customerId || customerId || "cust_" + Date.now();
+  const finalCustomerName = cDetails.name || customerName || "Customer";
+  const finalCustomerEmail = cDetails.email || customerEmail || "student@example.com";
+  const finalCustomerPhone = cDetails.phone || customerPhone || "9999999999";
+
   const payload = {
     order_id: orderId,
     order_amount: orderAmount,
     order_currency: currency,
     customer_details: {
-      customer_id: customerDetails.customerId,
-      customer_name: customerDetails.name || "Customer",
-      customer_email: customerDetails.email,
-      customer_phone: customerDetails.phone || "9999999999",
+      customer_id: finalCustomerId,
+      customer_name: finalCustomerName,
+      customer_email: finalCustomerEmail,
+      customer_phone: finalCustomerPhone,
     },
     order_note: orderNote,
   };

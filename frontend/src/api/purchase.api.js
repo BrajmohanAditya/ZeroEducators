@@ -39,3 +39,26 @@ export const getAllPurchasedCourseApi = async()=>{
     return res.data
 }
 
+export const purchaseExamApi = async (payload) => {
+    const res = await axios.post(`${baseUrl}/payment/checkout-exam`,
+        payload,
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true
+        }
+    );
+    return res.data;
+};
+
+export const checkOutExamSuccessApi = async (paymentData) => {
+    const res = await axios.post(`${baseUrl}/payment/checkout-exam-success`,
+        paymentData,
+        {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true  
+        }
+    );
+    return res.data;
+};
+
+

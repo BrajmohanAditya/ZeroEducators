@@ -7,6 +7,7 @@ import {
   updateExamApi,
   deleteExamApi,
   toggleExamLockApi,
+  getMyPurchasedExamsApi,
 } from "../../api/quize/exam.api.js";
 
 export const useGetExamsHook = (params = {}) => {
@@ -87,3 +88,13 @@ export const useToggleExamLockHook = () => {
     },
   });
 };
+
+export const useGetMyPurchasedExamsHook = () => {
+  return useQuery({
+    queryKey: ["getMyPurchasedExams"],
+    queryFn: getMyPurchasedExamsApi,
+    staleTime: 2 * 60 * 1000,
+    retry: false,
+  });
+};
+

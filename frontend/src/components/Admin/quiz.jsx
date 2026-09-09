@@ -66,6 +66,7 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           totalNoOfQueation: quiz.totalNoOfQueation || "",
           negativeMark: quiz.negativeMark || 0,
           totalMarks: quiz.totalMarks || "",
+          isFreeDemo: quiz.isFreeDemo || quiz.quizType === "Free" || false,
           sections:
             quiz.section && quiz.section.length > 0
               ? quiz.section.map((s) => ({
@@ -83,6 +84,7 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           totalNoOfQueation: "",
           negativeMark: 0,
           totalMarks: "",
+          isFreeDemo: false,
           sections: [{ name: "", totalQuestions: "" }],
         });
       }
@@ -110,6 +112,8 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
     formData.append("negativeMark", Number(data.negativeMark));
     formData.append("totalNoOfQueation", Number(data.totalNoOfQueation));
     formData.append("totalMarks", Number(data.totalMarks));
+    formData.append("isFreeDemo", data.isFreeDemo ? "true" : "false");
+    formData.append("quizType", data.isFreeDemo ? "Free" : "Paid");
 
     const sectionsData = data.sections.map((s) => ({
       name: s.name,
@@ -206,6 +210,60 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
               placeholder="e.g. Mock Test 1, Set 1, Final Practice"
               className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
+          </div>
+
+          {/* Test Access Type (Free Demo vs Exam Package) */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Test Access Type
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label
+                onClick={() => setValue("isFreeDemo", true)}
+                className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${
+                  watch("isFreeDemo")
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-900 shadow-xs"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="accessTypeRadio"
+                  checked={watch("isFreeDemo") === true}
+                  onChange={() => setValue("isFreeDemo", true)}
+                  className="mt-0.5 accent-emerald-600"
+                />
+                <div>
+                  <div className="text-xs font-bold text-emerald-700">🟢 Free Demo Test</div>
+                  <div className="text-[11px] text-slate-500 font-normal leading-tight mt-0.5">
+                    Anyone can attempt for free
+                  </div>
+                </div>
+              </label>
+
+              <label
+                onClick={() => setValue("isFreeDemo", false)}
+                className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${
+                  !watch("isFreeDemo")
+                    ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-xs"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="accessTypeRadio"
+                  checked={watch("isFreeDemo") !== true}
+                  onChange={() => setValue("isFreeDemo", false)}
+                  className="mt-0.5 accent-indigo-600"
+                />
+                <div>
+                  <div className="text-xs font-bold text-indigo-700">🔒 Exam Package</div>
+                  <div className="text-[11px] text-slate-500 font-normal leading-tight mt-0.5">
+                    Requires purchasing Exam
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div>

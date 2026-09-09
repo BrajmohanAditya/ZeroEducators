@@ -25,6 +25,7 @@ export const createQuiz = async (req, res, next) => {
     let finalLogoUrl = "";
     let finalLogoId = "";
 
+    let parentExamPrice = 0;
     // If examId is provided, retrieve exam details
     if (examId) {
       const exam = await Exam.findById(examId);
@@ -37,6 +38,7 @@ export const createQuiz = async (req, res, next) => {
       finalExamName = finalExamName || exam.title;
       finalLogoUrl = exam.logoUrl;
       finalLogoId = exam.logoId;
+      parentExamPrice = exam.price || 0;
     }
 
     if (
@@ -69,8 +71,10 @@ export const createQuiz = async (req, res, next) => {
         .json({ success: false, message: "Logo is required" });
     }
 
-    const numericPrice = Math.max(0, Number(price) || 0);
-    const computedQuizType = numericPrice > 0 ? "Paid" : (quizType || "Free");
+    const { isFreeDemo } = req.body;
+    const booleanFreeDemo = isFreeDemo === true || isFreeDemo === "true" || quizType === "Free";
+    const numericPrice = booleanFreeDemo ? 0 : Math.max(0, Number(price) || parentExamPrice || 0);
+    const computedQuizType = booleanFreeDemo ? "Free" : (numericPrice > 0 ? "Paid" : "Free");
 
     const newQuiz = new Quiz({
       examId: examId || undefined,
@@ -83,6 +87,7 @@ export const createQuiz = async (req, res, next) => {
       totalMarks: Number(totalMarks),
       price: numericPrice,
       quizType: computedQuizType,
+      isFreeDemo: booleanFreeDemo,
       logoUrl: finalLogoUrl,
       logoId: finalLogoId,
     });
@@ -106,9 +111,6 @@ export const getQuizzes = async (req, res, next) => {
     
     // Create a filter object. Default is empty (fetch all).
     const filter = {};
-    if (quizType) {
-      filter.quizType = quizType; // 'Free' or 'Paid'
-    }
 
     if (examId) {
       // Find the exam to support legacy quizzes that only had nameOfExam
@@ -120,8 +122,39 @@ export const getQuizzes = async (req, res, next) => {
       }
     }
 
+    // Only apply quizType filter if no specific examId is passed, or if user explicitly filtered
+    if (quizType && !examId) {
+      const paidExams = await Exam.find({ price: { $gt: 0 } }).select("_id");
+      const paidExamIds = paidExams.map((e) => e._id);
+
+      if (quizType === "Paid") {
+        filter.$or = [
+          { quizType: "Paid", isFreeDemo: { $ne: true } },
+          { price: { $gt: 0 }, isFreeDemo: { $ne: true } },
+          { examId: { $in: paidExamIds } },
+        ];
+      } else if (quizType === "Free") {
+        filter.$and = [
+          {
+            $or: [
+              { quizType: "Free" },
+              { isFreeDemo: true },
+              { price: { $lte: 0 } },
+            ],
+          },
+          {
+            $or: [
+              { examId: { $nin: paidExamIds } },
+              { examId: { $exists: false } },
+              { examId: null },
+            ],
+          },
+        ];
+      }
+    }
+
     const quizzes = await Quiz.find(filter)
-      .populate("examId", "title logoUrl category price")
+      .populate("examId", "title logoUrl category price isLocked")
       .sort({ createdAt: 1 });
 
     return res.status(200).json({
@@ -287,11 +320,12 @@ export const toggleQuizType = async (req, res, next) => {
 
     // Toggle between 'Free' and 'Paid'
     quiz.quizType = quiz.quizType === "Paid" ? "Free" : "Paid";
+    quiz.isFreeDemo = quiz.quizType === "Free";
     await quiz.save();
 
     return res.status(200).json({ 
       success: true, 
-      message: `Quiz changed to ${quiz.quizType}`, 
+      message: `Quiz changed to ${quiz.quizType === "Free" ? "Free Demo" : "Paid"}`, 
       quiz 
     });
   } catch (error) {

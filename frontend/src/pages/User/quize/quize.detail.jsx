@@ -8,11 +8,16 @@ import {
   ChevronRight,
   Layers,
   Sparkles,
+  CheckCircle2,
+  LockKeyhole,
 } from "lucide-react";
 import { useGetQuizzesHook } from "@/hooks/quiz/quiz.hook";
-import { useGetExamsHook } from "@/hooks/quiz/exam.hook";
+import { useGetExamsHook, useGetMyPurchasedExamsHook } from "@/hooks/quiz/exam.hook";
+import { useExamPaymentHook } from "@/hooks/payment.hook";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGetMyQuizResultsHook } from "@/hooks/quiz/quizResult.hook.js";
+import { useUserStore } from "@/store/user.store";
+import { toast } from "sonner";
 import PageLoader from "@/components/ui/PageLoader";
 
 const QuizeDetail = () => {
@@ -20,9 +25,33 @@ const QuizeDetail = () => {
   const quizType = searchParams.get("type"); // "Free" or "Paid" or null
   const selectedExamId = searchParams.get("examId"); // Exam ID if filtered
 
+  const { user } = useUserStore();
+  const navigate = useNavigate();
+
   // Fetch all exams for filter pills
   const { data: examsData, isLoading: isExamsLoading } = useGetExamsHook();
   const exams = examsData?.exams || [];
+
+  // Fetch user's purchased exams
+  const { data: myPurchasedData } = useGetMyPurchasedExamsHook();
+  const purchasedExamIds = myPurchasedData?.purchasedExamIds || [];
+  const isAdminUser = myPurchasedData?.isAdmin || false;
+
+  const { mutate: purchaseExam, isPending: isPurchasingExam } =
+    useExamPaymentHook();
+
+  const handlePurchase = (examId) => {
+    if (!user) {
+      toast.error("Please login to unlock this exam package");
+      navigate("/login");
+      return;
+    }
+    if (!examId) {
+      toast.error("Invalid exam selected");
+      return;
+    }
+    purchaseExam({ examId });
+  };
 
   // Fetch quizzes (filtered by type and/or examId)
   const queryParams = {};
@@ -32,12 +61,11 @@ const QuizeDetail = () => {
   const { data, isLoading, isError } = useGetQuizzesHook(
     Object.keys(queryParams).length > 0 ? queryParams : undefined
   );
-  const navigate = useNavigate();
 
   const { data: myResultsData, isLoading: isResultsLoading } =
     useGetMyQuizResultsHook();
 
-  const loading = isLoading || isResultsLoading || isExamsLoading;
+  const loading = isLoading || isExamsLoading;
 
   const completedQuizIds =
     myResultsData?.results?.map((result) => result.quiz?._id || result.quiz) ||
@@ -65,7 +93,10 @@ const QuizeDetail = () => {
     setSearchParams(newParams);
   };
 
-  const currentExam = exams.find((e) => e._id === selectedExamId);
+  const currentExam = exams.find((e) => String(e._id) === String(selectedExamId));
+  const isCurrentExamPurchased = Boolean(
+    selectedExamId && purchasedExamIds.map(String).includes(String(selectedExamId))
+  );
 
   return (
     <PageLoader isLoading={loading} isError={isError}>
@@ -170,6 +201,62 @@ const QuizeDetail = () => {
             )}
           </div>
 
+          {/* Exam Package Purchase / Status Banner */}
+          {currentExam && currentExam.price > 0 && (
+            <div className="w-full">
+              {isCurrentExamPurchased ? (
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm sm:text-base">
+                        {currentExam.title} Package Unlocked!
+                      </h3>
+                      <p className="text-emerald-100 text-xs mt-0.5">
+                        Aapke paas is exam ke sabhi mock tests ka complete access hai.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/20 text-xs font-bold shrink-0">
+                    <Sparkles className="w-3.5 h-3.5" /> Full Package Active
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-indigo-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                      <Crown className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-extrabold text-base sm:text-lg tracking-tight">
+                          Unlock {currentExam.title} Full Mock Package
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold border border-amber-400/30">
+                          ₹{currentExam.price}
+                        </span>
+                      </div>
+                      <p className="text-slate-300 text-xs mt-0.5 max-w-xl">
+                        Aapko milenge sabhi sets, detailed solutions aur rank analysis. Ek baar purchase karein aur sabhi sets unlock karein!
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handlePurchase(selectedExamId)}
+                    disabled={isPurchasingExam}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-black text-xs sm:text-sm transition shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Crown className="w-4 h-4 text-slate-950" />
+                    {isPurchasingExam ? "Opening..." : `Unlock All Sets for ₹${currentExam.price}`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quizzes Grid */}
           {quizzes.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm">
@@ -189,6 +276,14 @@ const QuizeDetail = () => {
                 const isCompleted = completedQuizIds.includes(test._id);
                 const examLogo = test.logoUrl || test.examId?.logoUrl;
                 const examTitle = test.nameOfExam || test.examId?.title;
+                const examObj = test.examId;
+                const examPrice = examObj?.price ?? test.price ?? 0;
+                const examIdVal = (examObj?._id || test.examId || "").toString();
+                const isExamPaid = examPrice > 0;
+                const isUserOwned = Boolean(
+                  examIdVal && purchasedExamIds.map(String).includes(examIdVal)
+                );
+                const isFreeDemo = Boolean(test.isFreeDemo || test.quizType === "Free");
 
                 return (
                   <div
@@ -199,19 +294,26 @@ const QuizeDetail = () => {
                       {/* Badges */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex gap-2 items-center">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-[#ff1053] text-[#ff1053] text-[10px] font-bold tracking-wide">
-                            <CircleDot className="w-2.5 h-2.5 fill-[#ff1053]" />
-                            LIVE TEST
-                          </span>
-                          {test.examId?.price > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold tracking-wider shadow-xs border border-amber-300">
-                              <Crown className="w-3 h-3 text-white" strokeWidth={2.5} />
-                              ₹{test.examId.price}
+                          {isFreeDemo ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold tracking-wide">
+                              <Sparkles className="w-3 h-3 text-emerald-600" />
+                              FREE DEMO
+                            </span>
+                          ) : isUserOwned ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold tracking-wide">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              UNLOCKED
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#2dd46c] text-white text-[10px] font-bold tracking-wide">
-                              FREE
-                            </span>
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold tracking-wider shadow-xs">
+                                <Crown className="w-3 h-3 text-white" strokeWidth={2.5} />
+                                PREMIUM
+                              </span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold tracking-wide">
+                                ₹{examPrice}
+                              </span>
+                            </>
                           )}
                         </div>
 
@@ -269,17 +371,28 @@ const QuizeDetail = () => {
                             Show Solution
                           </button>
                         </div>
-                      ) : (
+                      ) : isFreeDemo || isUserOwned || !isExamPaid ? (
                         <button
                           onClick={() => navigate(`/quizeInterface/${test._id}`)}
                           disabled={test.isLocked}
                           className={`w-full py-2.5 px-3 rounded-lg text-white text-xs font-bold transition-all shadow-sm ${
                             test.isLocked
                               ? "bg-slate-300 cursor-not-allowed opacity-75"
-                              : "bg-[#00c2e0] hover:bg-[#00a8c2] hover:shadow-md cursor-pointer"
+                              : isFreeDemo
+                              ? "bg-[#00c2e0] hover:bg-[#00a8c2] hover:shadow-md cursor-pointer"
+                              : "bg-emerald-600 hover:bg-emerald-700 hover:shadow-md cursor-pointer"
                           }`}
                         >
-                          {test.isLocked ? "Locked" : "Start Now"}
+                          {test.isLocked ? "Locked" : isFreeDemo ? "Start Free Demo" : "Start Now"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handlePurchase(examIdVal)}
+                          disabled={isPurchasingExam}
+                          className="w-full py-2.5 px-3 rounded-lg text-white text-xs font-extrabold transition-all shadow-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 cursor-pointer flex items-center justify-center gap-1.5 shadow-amber-200"
+                        >
+                          <LockKeyhole className="w-3.5 h-3.5" />
+                          {isPurchasingExam ? "Opening..." : `Unlock Exam (₹${examPrice})`}
                         </button>
                       )}
                     </div>

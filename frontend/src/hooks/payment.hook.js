@@ -1,5 +1,10 @@
-import { purchaseCourseApi, checkOutSuccessApi } from "@/api/purchase.api";
-import { useMutation } from "@tanstack/react-query";
+import {
+  purchaseCourseApi,
+  checkOutSuccessApi,
+  purchaseExamApi,
+  checkOutExamSuccessApi,
+} from "@/api/purchase.api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -59,12 +64,10 @@ export const usePaymentHook = () => {
             }
 
             if (result?.redirect) {
-              // Cashfree handles redirect if required by payment method
               return;
             }
 
             if (result?.paymentDetails) {
-              // Payment completed in modal, verify and finalize order on backend
               checkoutSuccessMutation.mutate({
                 orderId: data.order.orderId,
                 courseId: data.order.courseId,
@@ -85,3 +88,86 @@ export const usePaymentHook = () => {
     },
   });
 };
+
+export const useCheckoutExamSuccessHook = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (paymentData) => checkOutExamSuccessApi(paymentData),
+    onSuccess: (data) => {
+      toast.success(data.message || "Exam package unlocked successfully!");
+      queryClient.invalidateQueries(["getMyPurchasedExams"]);
+      queryClient.invalidateQueries(["getQuizzes"]);
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Exam payment verification failed");
+    },
+  });
+};
+
+export const useExamPaymentHook = () => {
+  const checkoutSuccessMutation = useCheckoutExamSuccessHook();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: purchaseExamApi,
+    onSuccess: async (data) => {
+      if (data.alreadyPurchased || data.isFree) {
+        toast.success(data.message || "Exam package unlocked!");
+        queryClient.invalidateQueries(["getMyPurchasedExams"]);
+        queryClient.invalidateQueries(["getQuizzes"]);
+        return;
+      }
+
+      if (data.order && data.order.paymentSessionId) {
+        if (!window.Cashfree) {
+          toast.error("Payment gateway failed to load. Please refresh the page.");
+          return;
+        }
+
+        const mode = (import.meta.env.VITE_CASHFREE_MODE || "production").toLowerCase();
+        const cashfree = window.Cashfree({
+          mode: mode === "production" ? "production" : "sandbox",
+        });
+
+        const checkoutOptions = {
+          paymentSessionId: data.order.paymentSessionId,
+          redirectTarget: "_modal",
+        };
+
+        cashfree
+          .checkout(checkoutOptions)
+          .then((result) => {
+            if (result?.error) {
+              console.error("Cashfree checkout error:", result.error);
+              toast.error(result.error.message || "Payment cancelled or failed");
+              return;
+            }
+
+            if (result?.redirect) {
+              return;
+            }
+
+            if (result?.paymentDetails) {
+              checkoutSuccessMutation.mutate({
+                orderId: data.order.orderId,
+                examId: data.order.examId,
+              });
+            }
+          })
+          .catch((err) => {
+            console.error("Cashfree checkout error:", err);
+            toast.error("Error opening payment modal. Please try again.");
+          });
+      } else {
+        toast.success(data.message || "Request processed");
+      }
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to initiate exam payment");
+    },
+  });
+};
+
