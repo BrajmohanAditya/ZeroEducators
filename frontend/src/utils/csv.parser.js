@@ -87,22 +87,25 @@ export const isSectionMatch = (secA, secB) => {
   const b = String(secB).trim().toLowerCase();
   if (a === b) return true;
 
-  // Common exam section alias groups
-  const quantAliases = ["quant", "quantitative", "quantitative aptitude", "math", "maths", "numerical ability", "numerical"];
-  const reasoningAliases = ["reasoning", "reasoning ability", "logical reasoning", "logic", "general intelligence"];
-  const englishAliases = ["english", "english language", "general english", "verbal ability", "verbal"];
-  const gaAliases = ["ga", "ca", "ga/ca", "ga / ca", "general awareness", "current affairs", "general knowledge", "gk"];
-  const computerAliases = ["computer", "computer knowledge", "computer aptitude", "computer awareness", "it"];
+  // Split into words/tokens
+  const wordsA = a.split(/[\s/_-]+/).filter(Boolean);
+  const wordsB = b.split(/[\s/_-]+/).filter(Boolean);
 
-  const aliasGroups = [quantAliases, reasoningAliases, englishAliases, gaAliases, computerAliases];
+  const quantWords = new Set(["quant", "quantitative", "math", "maths", "mathematics", "numerical"]);
+  const reasoningWords = new Set(["reasoning", "logic", "logical", "intelligence"]);
+  const englishWords = new Set(["english", "verbal"]);
+  const gaWords = new Set(["ga", "ca", "gk", "awareness", "affairs"]);
+  const computerWords = new Set(["computer"]);
 
-  for (const group of aliasGroups) {
-    const matchA = group.some((alias) => a === alias || a.includes(alias) || alias.includes(a));
-    const matchB = group.some((alias) => b === alias || b.includes(alias) || alias.includes(b));
-    if (matchA && matchB) return true;
+  const groups = [quantWords, reasoningWords, englishWords, gaWords, computerWords];
+
+  for (const group of groups) {
+    const hasA = wordsA.some((w) => group.has(w));
+    const hasB = wordsB.some((w) => group.has(w));
+    if (hasA && hasB) return true;
   }
 
-  return a.includes(b) || b.includes(a);
+  return false;
 };
 
 export const resolveSectionName = (rawSection, availableSections = [], defaultSection = "General") => {

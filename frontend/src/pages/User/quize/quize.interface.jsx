@@ -129,7 +129,7 @@ const QuizeInterface = () => {
   React.useEffect(() => {
     if (
       quizSections.length > 0 &&
-      (!activeSection || !quizSections.some((s) => isSectionMatch(s.name, activeSection)))
+      (!activeSection || !quizSections.some((s) => s.name === activeSection))
     ) {
       setActiveSection(quizSections[0].name);
     }
@@ -192,7 +192,7 @@ const QuizeInterface = () => {
           <button
             key={sec._id || sec.name}
             className={` cursor-pointer px-5 py-2.5 rounded-t-lg font-medium transition ${
-              isSectionMatch(activeSection, sec.name)
+              activeSection === sec.name
                 ? "bg-[#158993] text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
             }`}
