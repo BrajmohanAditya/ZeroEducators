@@ -1,4 +1,6 @@
-import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2 } from "../config/zata.js";
+import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2, s3Client } from "../config/zata.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
 import { ENV } from "../config/env.js";
 import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -1534,5 +1536,102 @@ export const getCourseEnrolledStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+// Stream a PDF file securely to prevent direct download
+export const streamCoursePdf = async (req, res, next) => {
+  try {
+    const { courseId, pdfId } = req.params;
+    const user = req.user;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Access control: admins, enrolled users, or free courses
+    if (user?.role !== "admin") {
+      const isPurchased = user?.purchasedCourse?.some(
+        (cId) => cId.toString() === courseId.toString()
+      );
+      if (!isPurchased && !course?.isFree) {
+        return res.status(403).json({ message: "Access denied. Course not enrolled." });
+      }
+    }
+
+    // Locate PDF document in subjects or topics
+    let targetPdf = null;
+    if (course.subjects && Array.isArray(course.subjects)) {
+      for (const sub of course.subjects) {
+        for (const chap of sub.chapters || []) {
+          const p = chap.pdfs?.id(pdfId);
+          if (p) {
+            targetPdf = p;
+            break;
+          }
+        }
+        if (targetPdf) break;
+      }
+    }
+
+    if (!targetPdf && course.topics && Array.isArray(course.topics)) {
+      for (const top of course.topics) {
+        const p = top.pdfs?.id(pdfId);
+        if (p) {
+          targetPdf = p;
+          break;
+        }
+      }
+    }
+
+    if (!targetPdf) {
+      return res.status(404).json({ message: "PDF not found in course" });
+    }
+
+    // 1. Try S3 if pdf_id is present
+    if (targetPdf.pdf_id) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: ENV.ZATA_BUCKET_NAME,
+          Key: targetPdf.pdf_id,
+        });
+        const s3Response = await s3Client.send(command);
+
+        res.writeHead(200, {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+          "X-Content-Type-Options": "nosniff",
+        });
+
+        return s3Response.Body.pipe(res);
+      } catch (s3Err) {
+        console.warn("S3 GetObject failed, falling back to direct URL fetch:", s3Err?.message);
+      }
+    }
+
+    // 2. Fallback to fetching pdfUrl directly and piping
+    if (targetPdf.pdfUrl) {
+      const resp = await fetch(targetPdf.pdfUrl);
+      if (!resp.ok) {
+        return res.status(resp.status).json({ message: "Failed to fetch PDF file" });
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
+        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        "X-Content-Type-Options": "nosniff",
+      });
+      return Readable.fromWeb(resp.body).pipe(res);
+    }
+
+    return res.status(404).json({ message: "PDF source not found" });
+  } catch (error) {
+    if (!res.headersSent) {
+      console.error("streamCoursePdf error:", error);
+      res.status(500).json({ message: "Failed to stream PDF" });
+    }
+  }
+};
+
 
 

@@ -15,6 +15,7 @@ import {
   Lock,
 } from "lucide-react";
 import { toast } from "sonner";
+import SecurePdfViewer from "@/components/common/SecurePdfViewer";
 import { useGetSinglePurchasedCourseHook } from "@/hooks/course.hook";
 import { useUserStore } from "@/store/user.store";
 
@@ -229,103 +230,24 @@ const SinglePurchasedCourse = () => {
             className={
               isPdfFullscreen
                 ? "fixed inset-0 z-[99999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none"
-                : "flex-1 flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] border border-slate-200 select-none"
+                : "flex-1 flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-slate-900 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-800 select-none"
             }
-            onContextMenu={(e) => e.preventDefault()}
           >
             {activePdf ? (
-              <div className="flex flex-col h-full w-full">
-                {/* PDF Top Bar */}
-                <div
-                  className={`px-4 sm:px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0 shadow-md ${
-                    isPdfFullscreen ? "border-b border-slate-800" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 rounded-lg bg-purple-600/30 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/30">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <h2
-                        className="text-sm sm:text-base font-bold truncate text-slate-100"
-                        title={activePdf.title}
-                      >
-                        {activePdf.title}
-                      </h2>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                        <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                          <Lock className="w-2.5 h-2.5" /> Protected Material
-                        </span>
-                        <span>•</span>
-                        <span>Download Disabled</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    {user && (
-                      <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/90 px-3 py-1 rounded-lg border border-slate-700/60 font-mono">
-                        <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-                        <span className="truncate max-w-[180px]">{user.email || user.name}</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setIsPdfFullscreen((prev) => !prev)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-bold rounded-lg transition shadow-xs shrink-0 cursor-pointer"
-                      title={isPdfFullscreen ? "Exit Fullscreen (Esc)" : "View Fullscreen"}
-                    >
-                      {isPdfFullscreen ? (
-                        <>
-                          <Minimize2 className="w-3.5 h-3.5" /> Exit Fullscreen
-                        </>
-                      ) : (
-                        <>
-                          <Maximize2 className="w-3.5 h-3.5" /> View Fullscreen
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* PDF Document Frame */}
-                <div
-                  className="flex-1 w-full bg-slate-100 relative overflow-hidden select-none"
-                  onContextMenu={(e) => e.preventDefault()}
-                >
-                  <iframe
-                    key={activePdf._id || activePdf.pdfUrl}
-                    src={`${activePdf.pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-                    className="w-full h-full border-none select-none"
-                    title={activePdf.title}
-                  />
-
-                  {/* Multi-Row Diagonal Watermark across the reader */}
-                  {user && (
-                    <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-around items-center opacity-[0.06] -rotate-12 overflow-hidden">
-                      {[...Array(6)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="text-slate-900 font-extrabold text-sm sm:text-base tracking-widest uppercase whitespace-nowrap"
-                        >
-                          {user.email || user.name} • ZERO EDUCATORS CONFIDENTIAL • NOT FOR REPRODUCTION
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Floating Bottom-Right Watermark Badge */}
-                  {user && (
-                    <div className="absolute bottom-3 right-4 pointer-events-none select-none z-30 opacity-70 hover:opacity-100 transition-opacity text-[11px] font-mono text-slate-800 bg-white/85 px-2.5 py-1 rounded-md border border-slate-300 flex items-center gap-1.5 shadow-sm backdrop-blur-xs">
-                      <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                      <span>{user.email || user.name || "ZeroEducators"}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <SecurePdfViewer
+                key={activePdf._id || activePdf.pdfUrl}
+                pdfUrl={
+                  id && activePdf._id
+                    ? `${baseUrl}/course/stream-pdf/${id}/${activePdf._id}`
+                    : activePdf.pdfUrl
+                }
+                title={activePdf.title}
+                user={user}
+                isFullscreen={isPdfFullscreen}
+                onToggleFullscreen={() => setIsPdfFullscreen((prev) => !prev)}
+              />
             ) : (
-              <div className="text-center flex flex-col items-center justify-center p-12 bg-white w-full h-full">
+              <div className="text-center flex flex-col items-center justify-center p-12 bg-white w-full h-full rounded-3xl">
                 <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mb-4 ring-1 ring-purple-100">
                   <FileText className="w-10 h-10 text-purple-600" />
                 </div>

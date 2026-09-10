@@ -28,6 +28,7 @@ import {
   grantCourseAccess,
   revokeCourseAccess,
   getCourseEnrolledStudents,
+  streamCoursePdf,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -46,6 +47,7 @@ courseRoute.get(
   isLoggedIn,
   getSinglePurchasedCourse,
 );
+courseRoute.get("/stream-pdf/:courseId/:pdfId", isLoggedIn, streamCoursePdf);
 courseRoute.delete("/deleteCourse/:id", isLoggedIn, isAdmin, deleteCourse);
 courseRoute.put("/editCourse/:id", isLoggedIn, isAdmin, upload.single("thumbnail"), editCourse);
 
