@@ -108,6 +108,26 @@ const TopicPdfManager = () => {
   const [cloudLoaded, setCloudLoaded] = useState(0);
   const [cloudTotal, setCloudTotal] = useState(0);
   const pollIntervalRef = useRef(null);
+  const wakeLockRef = useRef(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ("wakeLock" in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      }
+    } catch (e) {
+      console.warn("Screen Wake Lock not supported or rejected:", e);
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      try {
+        wakeLockRef.current.release();
+      } catch (_) {}
+      wakeLockRef.current = null;
+    }
+  };
 
   // Video Preview Dialog State
   const [previewVideo, setPreviewVideo] = useState(null);
@@ -123,15 +143,33 @@ const TopicPdfManager = () => {
   const toggleSubjectExpand = (subjectId) => {
     setExpandedSubjects((prev) => ({
       ...prev,
-      [subjectId]: prev[subjectId] === undefined ? false : !prev[subjectId],
+      [subjectId]: !prev[subjectId],
     }));
   };
 
   const toggleChapterExpand = (chapterId) => {
     setExpandedChapters((prev) => ({
       ...prev,
-      [chapterId]: prev[chapterId] === undefined ? false : !prev[chapterId],
+      [chapterId]: !prev[chapterId],
     }));
+  };
+
+  const handleExpandAll = () => {
+    const subjectsMap = {};
+    const chaptersMap = {};
+    course?.subjects?.forEach((s) => {
+      subjectsMap[s._id] = true;
+      s.chapters?.forEach((c) => {
+        chaptersMap[c._id] = true;
+      });
+    });
+    setExpandedSubjects(subjectsMap);
+    setExpandedChapters(chaptersMap);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedSubjects({});
+    setExpandedChapters({});
   };
 
   const formatFileSize = (bytes) => {
@@ -147,6 +185,7 @@ const TopicPdfManager = () => {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
+    releaseWakeLock();
   };
 
   useEffect(() => {
@@ -189,6 +228,12 @@ const TopicPdfManager = () => {
       },
       {
         onSuccess: () => {
+          if (activeSubjectForChapter?._id) {
+            setExpandedSubjects((prev) => ({
+              ...prev,
+              [activeSubjectForChapter._id]: true,
+            }));
+          }
           setChapterName("");
           setActiveSubjectForChapter(null);
         },
@@ -222,6 +267,12 @@ const TopicPdfManager = () => {
       },
       {
         onSuccess: () => {
+          if (activeChapterForPdfUpload?.chapterId) {
+            setExpandedChapters((prev) => ({
+              ...prev,
+              [activeChapterForPdfUpload.chapterId]: true,
+            }));
+          }
           setPdfTitle("");
           setPdfFile(null);
           setActiveChapterForPdfUpload(null);
@@ -260,6 +311,12 @@ const TopicPdfManager = () => {
         },
         {
           onSuccess: () => {
+            if (activeChapterForVideoUpload?.chapterId) {
+              setExpandedChapters((prev) => ({
+                ...prev,
+                [activeChapterForVideoUpload.chapterId]: true,
+              }));
+            }
             toast.success("Existing video linked to chapter successfully!");
             setVideoTitle("");
             setVideoUrl("");
@@ -296,6 +353,7 @@ const TopicPdfManager = () => {
     setCloudTotal(fileSize);
 
     cleanupPolling();
+    requestWakeLock();
 
     const startCloudPolling = () => {
       setUploadPhase("cloud");
@@ -313,8 +371,15 @@ const TopicPdfManager = () => {
 
             if (res.status === "completed") {
               cleanupPolling();
+              releaseWakeLock();
               setUploadPhase("done");
               setCloudProgress(100);
+              if (activeChapterForVideoUpload?.chapterId) {
+                setExpandedChapters((prev) => ({
+                  ...prev,
+                  [activeChapterForVideoUpload.chapterId]: true,
+                }));
+              }
               queryClient.invalidateQueries(["getSingleCourse", courseId]);
               queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
               queryClient.invalidateQueries(["getCourse"]);
@@ -357,8 +422,15 @@ const TopicPdfManager = () => {
       {
         onSuccess: () => {
           cleanupPolling();
+          releaseWakeLock();
           setUploadPhase("done");
           setCloudProgress(100);
+          if (activeChapterForVideoUpload?.chapterId) {
+            setExpandedChapters((prev) => ({
+              ...prev,
+              [activeChapterForVideoUpload.chapterId]: true,
+            }));
+          }
           queryClient.invalidateQueries(["getSingleCourse", courseId]);
           queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
           queryClient.invalidateQueries(["getCourse"]);
@@ -369,9 +441,15 @@ const TopicPdfManager = () => {
             setUploadPhase("idle");
           }, 800);
         },
-        onError: () => {
+        onError: (err) => {
           cleanupPolling();
+          releaseWakeLock();
           setUploadPhase("idle");
+          const errorMsg =
+            err?.response?.data?.message ||
+            err?.message ||
+            "Video upload failed. If uploading from iPhone, ensure screen stays on and video is downloaded from iCloud.";
+          toast.error(errorMsg);
         },
       }
     );
@@ -605,9 +683,34 @@ const TopicPdfManager = () => {
 
       {/* Main Subjects Container */}
       <div className="max-w-5xl mx-auto space-y-6">
+        {course?.subjects && course.subjects.length > 0 && (
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Curriculum Structure ({course.subjects.length} Subjects)
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExpandAll}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2.5 py-1 rounded-md transition cursor-pointer"
+              >
+                Expand All
+              </button>
+              <span className="text-slate-300">|</span>
+              <button
+                type="button"
+                onClick={handleCollapseAll}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 px-2.5 py-1 rounded-md transition cursor-pointer"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+        )}
+
         {course?.subjects && course.subjects.length > 0 ? (
           course.subjects.map((subject, sIdx) => {
-            const isSubjectExpanded = expandedSubjects[subject._id] !== false;
+            const isSubjectExpanded = Boolean(expandedSubjects[subject._id]);
             const subjectChapters = subject.chapters || [];
             const subjectVideoCount = subjectChapters.reduce(
               (acc, c) => acc + (c.videos?.length || 0),
@@ -696,8 +799,7 @@ const TopicPdfManager = () => {
                   <div className="p-4 sm:p-6 bg-slate-50/50 space-y-4">
                     {subjectChapters.length > 0 ? (
                       subjectChapters.map((chapter, cIdx) => {
-                        const isChapterExpanded =
-                          expandedChapters[chapter._id] !== false;
+                        const isChapterExpanded = Boolean(expandedChapters[chapter._id]);
                         const chapterVideoCount = chapter.videos?.length || 0;
                         const chapterPdfCount = chapter.pdfs?.length || 0;
 
@@ -1233,7 +1335,7 @@ const TopicPdfManager = () => {
                 </label>
                 <input
                   type="file"
-                  accept="video/*"
+                  accept="video/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.mkv"
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   required={videoAddMode === "file"}
                   disabled={uploadPhase !== "idle"}
@@ -1244,6 +1346,16 @@ const TopicPdfManager = () => {
                     File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
                   </p>
                 )}
+                <div className="mt-2 text-[11px] text-slate-600 bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 space-y-1">
+                  <p className="font-semibold text-amber-800 flex items-center gap-1">
+                    📱 <strong>iPhone / iOS Upload Tips:</strong>
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-amber-900/90">
+                    <li>Screen will stay awake automatically during upload — keep this tab open.</li>
+                    <li>If the video is backed up to iCloud, open it in the Photos app first to let it download locally.</li>
+                    <li>Both iPhone .MOV and .MP4 recordings are supported.</li>
+                  </ul>
+                </div>
               </div>
             ) : (
               /* Option 1: Paste Link */

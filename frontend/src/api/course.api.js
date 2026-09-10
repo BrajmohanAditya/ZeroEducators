@@ -3,7 +3,6 @@ const baseUrl = import.meta.env.VITE_BASE_URL;
 
 export const createCourseApi = async (payload) => {
   const res = await axios.post(`${baseUrl}/course/createCourse`, payload, {
-    headers: { "Content-Type": "multipart/form-data" },
     withCredentials: true,
   });
   return res.data;
@@ -61,7 +60,6 @@ export const editCourseApi = async ({ courseId, formData }) => {
     `${baseUrl}/course/editCourse/${courseId}`,
     formData,
     {
-      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
     }
   );
@@ -96,7 +94,6 @@ export const addPdfToTopicApi = async ({ courseId, topicId, formData }) => {
     `${baseUrl}/course/${courseId}/topic/${topicId}/pdf`,
     formData,
     {
-      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
     }
   );
@@ -124,7 +121,6 @@ export const addVideoToTopicApi = async ({
     `${baseUrl}/course/${courseId}/topic/${topicId}/video`,
     formData,
     {
-      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
       onUploadProgress,
     }
@@ -207,7 +203,6 @@ export const addPdfToChapterApi = async ({
     `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/pdf`,
     formData,
     {
-      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
     }
   );
@@ -241,7 +236,6 @@ export const addVideoToChapterApi = async ({
     `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/video`,
     formData,
     {
-      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
       onUploadProgress,
     }
@@ -306,6 +300,13 @@ export const getCourseEnrolledStudentsApi = async (courseId) => {
     `${baseUrl}/course/admin/${courseId}/enrolled-students`,
     { withCredentials: true }
   );
+  return res.data;
+};
+
+export const copyCourseApi = async (formData) => {
+  const res = await axios.post(`${baseUrl}/course/copy-course`, formData, {
+    withCredentials: true,
+  });
   return res.data;
 };
 

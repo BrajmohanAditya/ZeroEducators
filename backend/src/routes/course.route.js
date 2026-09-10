@@ -29,6 +29,7 @@ import {
   revokeCourseAccess,
   getCourseEnrolledStudents,
   streamCoursePdf,
+  copyCourse,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -38,6 +39,13 @@ courseRoute.post(
   isAdmin,
   upload.single("thumbnail"),
   createCourse,
+);
+courseRoute.post(
+  "/copy-course",
+  isLoggedIn,
+  isAdmin,
+  upload.single("thumbnail"),
+  copyCourse,
 );
 courseRoute.get("/getCourse", getCourse);
 courseRoute.get("/getSingleCourse/:id", getSingleCourse);

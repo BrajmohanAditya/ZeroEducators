@@ -24,6 +24,7 @@ import {
   grantCourseAccessApi,
   revokeCourseAccessApi,
   getCourseEnrolledStudentsApi,
+  copyCourseApi,
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -379,6 +380,20 @@ export const useRevokeCourseAccessHook = (courseId) => {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to revoke course access");
+    },
+  });
+};
+
+export const useCopyCourseHook = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: copyCourseApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Course copied successfully!");
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to copy course");
     },
   });
 };

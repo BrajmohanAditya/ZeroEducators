@@ -1633,5 +1633,245 @@ export const streamCoursePdf = async (req, res, next) => {
   }
 };
 
+// ==========================================
+// COPY / DUPLICATE COURSE CONTROLLER
+// ==========================================
+export const copyCourse = async (req, res, next) => {
+  try {
+    const {
+      sourceCourseId,
+      title,
+      description,
+      amount,
+      duration,
+      isFree,
+      courseType,
+      pricingPlans,
+      copyAll,
+      selectedSubjectIds,
+      selectedChapterIds,
+    } = req.body;
+    const thumbnailFile = req.file;
+
+    if (!sourceCourseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Source Course ID is required to copy a course",
+      });
+    }
+
+    const sourceCourse = await Course.findById(sourceCourseId);
+    if (!sourceCourse) {
+      return res.status(404).json({
+        success: false,
+        message: "Source course not found",
+      });
+    }
+
+    // Parse pricing plans
+    let parsedPricingPlans = [];
+    if (pricingPlans) {
+      try {
+        parsedPricingPlans =
+          typeof pricingPlans === "string" ? JSON.parse(pricingPlans) : pricingPlans;
+        if (Array.isArray(parsedPricingPlans)) {
+          parsedPricingPlans = parsedPricingPlans
+            .filter((p) => p && p.duration && p.price !== undefined && p.price !== "")
+            .map((p) => ({
+              duration: String(p.duration).trim(),
+              price: Number(p.price),
+              label: p.label ? String(p.label).trim() : "",
+            }));
+        }
+      } catch (err) {
+        console.warn("Failed to parse pricingPlans:", err);
+      }
+    } else if (sourceCourse.pricingPlans && sourceCourse.pricingPlans.length > 0) {
+      parsedPricingPlans = sourceCourse.pricingPlans.map((p) => ({
+        duration: p.duration,
+        price: p.price,
+        label: p.label || "",
+      }));
+    }
+
+    const isFreeCourse =
+      isFree === true || isFree === "true" || (amount !== undefined && Number(amount) === 0);
+
+    let finalAmount = isFreeCourse
+      ? 0
+      : amount !== undefined && amount !== ""
+      ? Number(amount)
+      : sourceCourse.amount || 0;
+
+    if (parsedPricingPlans.length > 0 && !isFreeCourse) {
+      finalAmount = parsedPricingPlans[0].price;
+    }
+
+    // Thumbnail: if new uploaded, upload to B2/S3; else reuse source thumbnail
+    let imageUrl = sourceCourse.thumbnail || "";
+    let imageId = sourceCourse.thumbnail_id || "";
+
+    if (thumbnailFile) {
+      const uploadRes = await uploadToB2(
+        thumbnailFile.buffer,
+        thumbnailFile.originalname,
+        thumbnailFile.mimetype,
+        "courses"
+      );
+      imageUrl = uploadRes.url;
+      imageId = uploadRes.fileKey;
+    }
+
+    const finalDuration =
+      duration ||
+      (parsedPricingPlans.length > 0
+        ? parsedPricingPlans.map((p) => p.duration).join(" / ")
+        : sourceCourse.duration || "");
+
+    const newTitle = title?.trim() || `Copy of ${sourceCourse.title}`;
+    const newDescription = description?.trim() || sourceCourse.description || "";
+    const newCourseType = courseType || sourceCourse.courseType || "video";
+
+    const newCourse = new Course({
+      userId: req.user._id,
+      title: newTitle,
+      description: newDescription,
+      amount: finalAmount,
+      isFree: isFreeCourse,
+      duration: finalDuration,
+      pricingPlans: isFreeCourse ? [] : parsedPricingPlans,
+      courseType: newCourseType,
+      thumbnail: imageUrl,
+      thumbnail_id: imageId,
+      modules: [],
+      subjects: [],
+      topics: [],
+    });
+
+    // Parse selection arrays
+    const isCopyAll = copyAll === true || copyAll === "true" || (!selectedSubjectIds && !selectedChapterIds);
+    let parsedSubjectIds = null;
+    let parsedChapterIds = null;
+
+    if (!isCopyAll) {
+      if (selectedSubjectIds) {
+        parsedSubjectIds = typeof selectedSubjectIds === "string"
+          ? JSON.parse(selectedSubjectIds)
+          : selectedSubjectIds;
+      }
+      if (selectedChapterIds) {
+        parsedChapterIds = typeof selectedChapterIds === "string"
+          ? JSON.parse(selectedChapterIds)
+          : selectedChapterIds;
+      }
+    }
+
+    const subjectIdSet = parsedSubjectIds ? new Set(parsedSubjectIds.map(String)) : null;
+    const chapterIdSet = parsedChapterIds ? new Set(parsedChapterIds.map(String)) : null;
+
+    // Clone curriculum subjects & chapters
+    for (const subject of sourceCourse.subjects || []) {
+      const shouldIncludeSubject = isCopyAll || !subjectIdSet || subjectIdSet.has(String(subject._id));
+      if (!shouldIncludeSubject) continue;
+
+      const newChapters = [];
+      for (const chapter of subject.chapters || []) {
+        const shouldIncludeChapter = isCopyAll || !chapterIdSet || chapterIdSet.has(String(chapter._id));
+        if (!shouldIncludeChapter) continue;
+
+        const newVideos = [];
+        for (const video of chapter.videos || []) {
+          // Create independent Modules record linking video to the new course
+          const newModule = await Modules.create({
+            courseId: newCourse._id,
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+          });
+          newCourse.modules.push(newModule._id);
+
+          newVideos.push({
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+            moduleId: newModule._id,
+            createdAt: new Date(),
+          });
+        }
+
+        const newPdfs = (chapter.pdfs || []).map((pdf) => ({
+          title: pdf.title,
+          pdfUrl: pdf.pdfUrl,
+          pdf_id: pdf.pdf_id,
+          createdAt: new Date(),
+        }));
+
+        newChapters.push({
+          chapterName: chapter.chapterName,
+          videos: newVideos,
+          pdfs: newPdfs,
+          createdAt: new Date(),
+        });
+      }
+
+      if (isCopyAll || newChapters.length > 0 || (subjectIdSet && subjectIdSet.has(String(subject._id)))) {
+        newCourse.subjects.push({
+          subjectName: subject.subjectName,
+          chapters: newChapters,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    // Clone legacy topics if copyAll is true
+    if (isCopyAll && sourceCourse.topics && sourceCourse.topics.length > 0) {
+      for (const topic of sourceCourse.topics) {
+        const newVideos = [];
+        for (const video of topic.videos || []) {
+          const newModule = await Modules.create({
+            courseId: newCourse._id,
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+          });
+          newCourse.modules.push(newModule._id);
+          newVideos.push({
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+            moduleId: newModule._id,
+            createdAt: new Date(),
+          });
+        }
+
+        const newPdfs = (topic.pdfs || []).map((pdf) => ({
+          title: pdf.title,
+          pdfUrl: pdf.pdfUrl,
+          pdf_id: pdf.pdf_id,
+          createdAt: new Date(),
+        }));
+
+        newCourse.topics.push({
+          topicName: topic.topicName,
+          videos: newVideos,
+          pdfs: newPdfs,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    await newCourse.save();
+
+    return res.status(201).json({
+      success: true,
+      message: `Course "${newCourse.title}" created successfully from "${sourceCourse.title}"!`,
+      course: newCourse,
+    });
+  } catch (error) {
+    console.error("error in copyCourse:", error);
+    next(error);
+  }
+};
+
 
 
