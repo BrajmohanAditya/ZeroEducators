@@ -231,10 +231,11 @@ const QuizBulkUploadDialog = ({ isOpen, onClose, quiz }) => {
                     <div>
                       <span className="font-bold block mb-0.5">Quick Format:</span>
                       <p className="text-[11px] text-slate-600">
-                        Copy & paste your questions directly. Question numbers, options (A, B, C, D), and answer tags are automatically detected:
+                        Copy & paste your questions directly. Question numbers, instruction, options (A, B, C, D), and answer tags are automatically detected:
                       </p>
                       <pre className="mt-1.5 p-2 bg-white/90 border border-indigo-200/60 rounded text-[11px] font-mono text-slate-800 overflow-x-auto">
 {`Q.55 The applications of AI includes
+Instruction: Select the most appropriate option
 A. Gaming
 B. Expert Systems
 C. ML and DL
@@ -249,7 +250,7 @@ Explanation: AI includes Gaming, Expert Systems, and ML/DL.`}
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
                     rows={10}
-                    placeholder={`Paste questions here...\n\nExample:\nQ.55 The applications of AI includes\nA. Gaming\nB. Expert Systems\nC. ML and DL\nD. All of the above\nAns: D\nExplanation: Optional explanation here`}
+                    placeholder={`Paste questions here...\n\nExample:\nQ.55 The applications of AI includes\nInstruction: Select the most appropriate option\nA. Gaming\nB. Expert Systems\nC. ML and DL\nD. All of the above\nAns: D\nExplanation: Optional explanation here`}
                     className="w-full p-4 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none custom-scrollbar leading-relaxed"
                   />
 
@@ -275,8 +276,8 @@ Explanation: AI includes Gaming, Expert Systems, and ML/DL.`}
                         How it works via CSV:
                       </span>
                       <ol className="list-decimal list-inside space-y-1 text-slate-600">
-                        <li>Click <b>"Download Sample CSV"</b> above to get the template.</li>
-                        <li>Add questions and options in Excel or Google Sheets.</li>
+                        <li>Click <b>"Download Sample CSV"</b> above to get the template (includes <b>optionsInstruction</b> column).</li>
+                        <li>Add questions, optional instructions, and options in Excel or Google Sheets.</li>
                         <li>Upload the <b>.csv</b> file below to preview and import!</li>
                       </ol>
                     </div>
@@ -390,6 +391,14 @@ Explanation: AI includes Gaming, Expert Systems, and ML/DL.`}
                           </td>
                           <td className="px-4 py-3">
                             <div className="space-y-1">
+                              {q.optionsInstruction && (
+                                <div className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded mb-1.5 flex items-center gap-1">
+                                  <span className="font-bold text-indigo-900 shrink-0">Instruction:</span>
+                                  <span className="truncate max-w-[200px] italic" title={q.optionsInstruction}>
+                                    {q.optionsInstruction}
+                                  </span>
+                                </div>
+                              )}
                               {q.options.map((opt, oIdx) => (
                                 <div
                                   key={oIdx}

@@ -295,6 +295,14 @@ const ManageQuizQuestionsDialog = ({ isOpen, onClose, quiz }) => {
                         </div>
                       </div>
 
+                      {/* Options Instruction */}
+                      {q.optionsInstruction && (
+                        <div className="mt-2 text-xs font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                          <span className="font-bold text-indigo-900 shrink-0">Instruction:</span>
+                          <span className="italic">{q.optionsInstruction}</span>
+                        </div>
+                      )}
+
                       {/* Options preview */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100">
                         {q.options.map((opt, oIdx) => (

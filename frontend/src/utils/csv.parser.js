@@ -140,6 +140,16 @@ export const parseQuestionsFromCSV = (csvText, defaultSection = "General", avail
   const sectionIdx = findColIndex(["section", "category", "subject"]);
   const questionIdx = findColIndex(["questiontext", "question", "title", "qtext"]);
   const marksIdx = findColIndex(["mark", "point", "score"]);
+  const optInstIdx = findColIndex([
+    "optionsinstruction",
+    "optioninstruction",
+    "instructionforoptions",
+    "optioninstructions",
+    "optionsdirection",
+    "direction",
+    "instruction",
+    "instructions",
+  ]);
   const optAIdx = findColIndex(["optiona", "option1", "opta", "opt1"]);
   const optBIdx = findColIndex(["optionb", "option2", "optb", "opt2"]);
   const optCIdx = findColIndex(["optionc", "option3", "optc", "opt3"]);
@@ -176,6 +186,7 @@ export const parseQuestionsFromCSV = (csvText, defaultSection = "General", avail
       defaultSection;
     const sectionName = resolveSectionName(rawSection, availableSections, defaultSection);
     const marks = marksIdx !== -1 && Number(row[marksIdx]) > 0 ? Number(row[marksIdx]) : 1;
+    const optionsInstruction = (optInstIdx !== -1 && row[optInstIdx] ? row[optInstIdx].trim() : "") || "";
 
     const optA = (optAIdx !== -1 ? row[optAIdx] : "") || "";
     const optB = (optBIdx !== -1 ? row[optBIdx] : "") || "";
@@ -227,6 +238,7 @@ export const parseQuestionsFromCSV = (csvText, defaultSection = "General", avail
       rowNum,
       sectionName,
       questionText: questionText.trim(),
+      optionsInstruction: optionsInstruction.trim(),
       marks,
       options,
       correctAnswerLabel: rawOptions[correctIdx]?.label || "A",
@@ -252,6 +264,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
     [
       "sectionName",
       "questionText",
+      "optionsInstruction",
       "marks",
       "optionA",
       "optionB",
@@ -263,6 +276,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
     [
       section1,
       "What comes next in the sequence: 2, 4, 8, 16, ...?",
+      "Select the most appropriate option.",
       "1",
       "24",
       "32",
@@ -274,6 +288,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
     [
       section1,
       "If CAT is coded as 3120, what is the code for DOG?",
+      "Choose the single correct option.",
       "1",
       "4157",
       "4156",
@@ -285,6 +300,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
     [
       section2,
       "Find the value of x if 3x + 15 = 45.",
+      "",
       "1",
       "5",
       "10",
@@ -296,6 +312,7 @@ export const downloadSampleQuestionsCSV = (sections = []) => {
     [
       section2,
       "What is 20% of 250?",
+      "",
       "1",
       "40",
       "50",
@@ -401,6 +418,7 @@ export const parseQuestionsFromRawText = (rawText, defaultSection = "General", a
     if (bLines.length < 2) return;
 
     let questionLines = [];
+    let optionsInstruction = "";
     const options = [];
     let answerText = "";
     let explanationLines = [];
@@ -408,6 +426,15 @@ export const parseQuestionsFromRawText = (rawText, defaultSection = "General", a
 
     for (let lIdx = 0; lIdx < bLines.length; lIdx++) {
       const line = bLines[lIdx];
+
+      // Check Instruction line: e.g. "Instruction: ...", "Option Instruction: ...", "Direction: ..."
+      const instMatch = line.match(
+        /^(?:options?\s*instructions?|instructions?\s*(?:for\s*options?)?|directions?)\s*[:=\-.]\s*(.*)$/i
+      );
+      if (instMatch && !isOptionLine(line)) {
+        optionsInstruction = instMatch[1].trim();
+        continue;
+      }
 
       // Check Answer line
       const ansMatch = line.match(/^(?:ans(?:wer)?|correct(?:\s*ans(?:wer)?)?|right(?:\s*option)?|ans\.)\s*[:=\-.]?\s*(.*)$/i);
@@ -491,6 +518,7 @@ export const parseQuestionsFromRawText = (rawText, defaultSection = "General", a
       rowNum: questions.length + 1,
       sectionName: resolvedSec,
       questionText: qText,
+      optionsInstruction: optionsInstruction.trim(),
       marks: 1,
       options: formattedOptions,
       correctAnswerLabel: formattedOptions[correctIdx]?.label || "A",
