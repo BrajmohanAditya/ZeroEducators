@@ -1873,5 +1873,153 @@ export const copyCourse = async (req, res, next) => {
   }
 };
 
+// Reorder chapters within a subject
+export const reorderChapters = async (req, res, next) => {
+  try {
+    const { courseId, subjectId } = req.params;
+    const { chapterIds } = req.body;
+
+    if (!Array.isArray(chapterIds)) {
+      return res.status(400).json({ success: false, message: "chapterIds must be an array of IDs" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const subject = course.subjects.id(subjectId);
+    if (!subject) {
+      return res.status(404).json({ success: false, message: "Subject not found" });
+    }
+
+    const chapterMap = new Map();
+    subject.chapters.forEach((ch) => {
+      chapterMap.set(ch._id.toString(), ch);
+    });
+
+    const newChapters = [];
+    chapterIds.forEach((id) => {
+      const ch = chapterMap.get(id.toString());
+      if (ch) {
+        newChapters.push(ch);
+        chapterMap.delete(id.toString());
+      }
+    });
+
+    // Append any chapters not in the provided array to prevent accidental data loss
+    chapterMap.forEach((ch) => {
+      newChapters.push(ch);
+    });
+
+    subject.chapters = newChapters;
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Chapters reordered successfully",
+      subject,
+    });
+  } catch (error) {
+    console.error("Error in reorderChapters:", error);
+    next(error);
+  }
+};
+
+// Reorder subjects within a course
+export const reorderSubjects = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const { subjectIds } = req.body;
+
+    if (!Array.isArray(subjectIds)) {
+      return res.status(400).json({ success: false, message: "subjectIds must be an array of IDs" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const subjectMap = new Map();
+    course.subjects.forEach((subj) => {
+      subjectMap.set(subj._id.toString(), subj);
+    });
+
+    const newSubjects = [];
+    subjectIds.forEach((id) => {
+      const subj = subjectMap.get(id.toString());
+      if (subj) {
+        newSubjects.push(subj);
+        subjectMap.delete(id.toString());
+      }
+    });
+
+    subjectMap.forEach((subj) => {
+      newSubjects.push(subj);
+    });
+
+    course.subjects = newSubjects;
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Subjects reordered successfully",
+      subjects: course.subjects,
+    });
+  } catch (error) {
+    console.error("Error in reorderSubjects:", error);
+    next(error);
+  }
+};
+
+// Reorder topics in a course (for legacy/flat topic courses)
+export const reorderTopics = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const { topicIds } = req.body;
+
+    if (!Array.isArray(topicIds)) {
+      return res.status(400).json({ success: false, message: "topicIds must be an array of IDs" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const topicMap = new Map();
+    course.topics.forEach((top) => {
+      topicMap.set(top._id.toString(), top);
+    });
+
+    const newTopics = [];
+    topicIds.forEach((id) => {
+      const top = topicMap.get(id.toString());
+      if (top) {
+        newTopics.push(top);
+        topicMap.delete(id.toString());
+      }
+    });
+
+    topicMap.forEach((top) => {
+      newTopics.push(top);
+    });
+
+    course.topics = newTopics;
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Topics reordered successfully",
+      topics: course.topics,
+    });
+  } catch (error) {
+    console.error("Error in reorderTopics:", error);
+    next(error);
+  }
+};
+
+
 
 

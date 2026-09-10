@@ -30,6 +30,9 @@ import {
   getCourseEnrolledStudents,
   streamCoursePdf,
   copyCourse,
+  reorderChapters,
+  reorderSubjects,
+  reorderTopics,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -68,6 +71,7 @@ courseRoute.get("/admin/:courseId/enrolled-students", isLoggedIn, isAdmin, getCo
 // Topic Management Routes (Legacy Compatibility)
 courseRoute.post("/:courseId/topic", isLoggedIn, isAdmin, addTopic);
 courseRoute.delete("/:courseId/topic/:topicId", isLoggedIn, isAdmin, deleteTopic);
+courseRoute.put("/:courseId/reorder-topics", isLoggedIn, isAdmin, reorderTopics);
 
 // Topic PDF Management Routes
 courseRoute.post(
@@ -106,10 +110,12 @@ courseRoute.delete("/:courseId/topic/:topicId/video/:videoId", isLoggedIn, isAdm
 // Subject Routes
 courseRoute.post("/:courseId/subject", isLoggedIn, isAdmin, addSubject);
 courseRoute.delete("/:courseId/subject/:subjectId", isLoggedIn, isAdmin, deleteSubject);
+courseRoute.put("/:courseId/reorder-subjects", isLoggedIn, isAdmin, reorderSubjects);
 
 // Chapter Routes
 courseRoute.post("/:courseId/subject/:subjectId/chapter", isLoggedIn, isAdmin, addChapter);
 courseRoute.delete("/:courseId/subject/:subjectId/chapter/:chapterId", isLoggedIn, isAdmin, deleteChapter);
+courseRoute.put("/:courseId/subject/:subjectId/reorder-chapters", isLoggedIn, isAdmin, reorderChapters);
 
 // Chapter PDF Routes
 courseRoute.post(

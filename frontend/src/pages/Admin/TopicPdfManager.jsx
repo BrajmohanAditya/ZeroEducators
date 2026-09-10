@@ -11,6 +11,9 @@ import {
   useAddVideoToChapterHook,
   useDeleteVideoFromChapterHook,
   useDeleteTopicHook,
+  useReorderChaptersHook,
+  useReorderSubjectsHook,
+  useReorderTopicsHook,
 } from "../../hooks/course.hook";
 import {
   ArrowLeft,
@@ -34,6 +37,9 @@ import {
   Copy,
   Check,
   Link as LinkIcon,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +50,7 @@ import {
 } from "@/components/ui/dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
+import ReorderModal from "@/components/Admin/ReorderModal";
 import { getModuleUploadProgressApi } from "@/api/module.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -76,6 +83,67 @@ const TopicPdfManager = () => {
 
   // Legacy Topic delete mutation
   const { mutate: deleteTopic, isPending: isDeletingTopic } = useDeleteTopicHook(courseId);
+
+  // Reorder mutations
+  const { mutate: reorderChapters, isPending: isReorderingChapters } = useReorderChaptersHook(courseId);
+  const { mutate: reorderSubjects, isPending: isReorderingSubjects } = useReorderSubjectsHook(courseId);
+  const { mutate: reorderTopics, isPending: isReorderingTopics } = useReorderTopicsHook(courseId);
+
+  // Reorder Modal State
+  const [reorderConfig, setReorderConfig] = useState(null);
+
+  const handleQuickMoveChapter = (subjectId, chapters, fromIdx, toIdx) => {
+    if (toIdx < 0 || toIdx >= chapters.length || fromIdx === toIdx) return;
+    const newOrder = [...chapters];
+    const [moved] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, moved);
+    const chapterIds = newOrder.map((c) => c._id);
+
+    reorderChapters({
+      courseId,
+      subjectId,
+      chapterIds,
+    });
+  };
+
+  const handleSaveReorder = (orderedItems) => {
+    if (!reorderConfig) return;
+    if (reorderConfig.type === "chapters") {
+      const chapterIds = orderedItems.map((item) => item._id);
+      reorderChapters(
+        {
+          courseId,
+          subjectId: reorderConfig.subjectId,
+          chapterIds,
+        },
+        {
+          onSuccess: () => setReorderConfig(null),
+        }
+      );
+    } else if (reorderConfig.type === "subjects") {
+      const subjectIds = orderedItems.map((item) => item._id);
+      reorderSubjects(
+        {
+          courseId,
+          subjectIds,
+        },
+        {
+          onSuccess: () => setReorderConfig(null),
+        }
+      );
+    } else if (reorderConfig.type === "topics") {
+      const topicIds = orderedItems.map((item) => item._id);
+      reorderTopics(
+        {
+          courseId,
+          topicIds,
+        },
+        {
+          onSuccess: () => setReorderConfig(null),
+        }
+      );
+    }
+  };
 
   // Custom Delete Alert Box State
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -697,6 +765,26 @@ const TopicPdfManager = () => {
               Curriculum Structure ({course.subjects.length} Subjects)
             </h2>
             <div className="flex items-center gap-2">
+              {course.subjects.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReorderConfig({
+                        type: "subjects",
+                        title: "Rearrange Subjects",
+                        subtitle: "Drag or select position numbers to rearrange the subjects in this course.",
+                        items: course.subjects,
+                      })
+                    }
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1"
+                    title="Rearrange Subjects Order"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5" /> Rearrange Subjects
+                  </button>
+                  <span className="text-slate-300">|</span>
+                </>
+              )}
               <button
                 type="button"
                 onClick={handleExpandAll}
@@ -763,6 +851,26 @@ const TopicPdfManager = () => {
                   </div>
 
                   <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    {/* Rearrange Chapters/Units Button */}
+                    {subjectChapters.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReorderConfig({
+                            type: "chapters",
+                            subjectId: subject._id,
+                            title: `Rearrange Units - ${subject.subjectName}`,
+                            subtitle: "Drag or choose position numbers to reorder the units/modules in this subject.",
+                            items: subjectChapters,
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-850 hover:bg-slate-750 text-indigo-300 border border-slate-700 hover:border-indigo-400/50 rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
+                        title="Rearrange order of units in this subject"
+                      >
+                        <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400" /> Rearrange
+                      </button>
+                    )}
+
                     {/* Add Chapter Button */}
                     <button
                       onClick={() => setActiveSubjectForChapter(subject)}
@@ -822,8 +930,37 @@ const TopicPdfManager = () => {
                                 className="flex items-center gap-3 cursor-pointer flex-1 select-none"
                                 onClick={() => toggleChapterExpand(chapter._id)}
                               >
-                                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
-                                  {cIdx + 1}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                    {cIdx + 1}
+                                  </div>
+                                  {/* Quick Move Up/Down Buttons */}
+                                  <div className="flex flex-col -space-y-0.5" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      disabled={cIdx === 0 || isReorderingChapters}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuickMoveChapter(subject._id, subjectChapters, cIdx, cIdx - 1);
+                                      }}
+                                      className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-20 disabled:pointer-events-none transition cursor-pointer"
+                                      title="Move Up (Ek step upar karein)"
+                                    >
+                                      <ArrowUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={cIdx === subjectChapters.length - 1 || isReorderingChapters}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuickMoveChapter(subject._id, subjectChapters, cIdx, cIdx + 1);
+                                      }}
+                                      className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-20 disabled:pointer-events-none transition cursor-pointer"
+                                      title="Move Down (Ek step neeche karein)"
+                                    >
+                                      <ArrowDown className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
                                 <div>
                                   <h3 className="text-sm sm:text-base font-bold text-slate-900">
@@ -1645,6 +1782,19 @@ const TopicPdfManager = () => {
           isOpen={isAccessDialogOpen}
           onClose={() => setIsAccessDialogOpen(false)}
           course={course}
+        />
+      )}
+
+      {/* Reorder Modal */}
+      {reorderConfig && (
+        <ReorderModal
+          isOpen={Boolean(reorderConfig)}
+          onClose={() => setReorderConfig(null)}
+          title={reorderConfig.title}
+          subtitle={reorderConfig.subtitle}
+          items={reorderConfig.items}
+          isLoading={isReorderingChapters || isReorderingSubjects || isReorderingTopics}
+          onSave={handleSaveReorder}
         />
       )}
     </div>

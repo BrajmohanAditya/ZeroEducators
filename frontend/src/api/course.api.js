@@ -316,4 +316,41 @@ export const copyCourseApi = async (formData) => {
   return res.data;
 };
 
+export const reorderChaptersApi = async ({ courseId, subjectId, chapterIds }) => {
+  const res = await axios.put(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/reorder-chapters`,
+    { chapterIds },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const reorderSubjectsApi = async ({ courseId, subjectIds }) => {
+  const res = await axios.put(
+    `${baseUrl}/course/${courseId}/reorder-subjects`,
+    { subjectIds },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const reorderTopicsApi = async ({ courseId, topicIds }) => {
+  const res = await axios.put(
+    `${baseUrl}/course/${courseId}/reorder-topics`,
+    { topicIds },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+
 

@@ -25,6 +25,9 @@ import {
   revokeCourseAccessApi,
   getCourseEnrolledStudentsApi,
   copyCourseApi,
+  reorderChaptersApi,
+  reorderSubjectsApi,
+  reorderTopicsApi,
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -397,6 +400,52 @@ export const useCopyCourseHook = () => {
     },
   });
 };
+
+export const useReorderChaptersHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reorderChaptersApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "Chapters order updated successfully!");
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || "Failed to reorder chapters");
+    },
+  });
+};
+
+export const useReorderSubjectsHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reorderSubjectsApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "Subjects order updated successfully!");
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || "Failed to reorder subjects");
+    },
+  });
+};
+
+export const useReorderTopicsHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reorderTopicsApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      toast.success(data?.message || "Topics order updated successfully!");
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || "Failed to reorder topics");
+    },
+  });
+};
+
 
 
 
