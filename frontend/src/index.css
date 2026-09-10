@@ -171,4 +171,12 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}
+}
+
+/* Security: Disable Print Preview for Protected Content */
+@media print {
+  body {
+    display: none !important;
+  }
+}
+
