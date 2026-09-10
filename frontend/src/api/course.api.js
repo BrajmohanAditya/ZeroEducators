@@ -122,6 +122,9 @@ export const addVideoToTopicApi = async ({
     formData,
     {
       withCredentials: true,
+      timeout: 0,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       onUploadProgress,
     }
   );
@@ -237,6 +240,9 @@ export const addVideoToChapterApi = async ({
     formData,
     {
       withCredentials: true,
+      timeout: 0,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       onUploadProgress,
     }
   );

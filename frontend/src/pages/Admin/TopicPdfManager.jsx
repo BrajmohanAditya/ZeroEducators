@@ -445,11 +445,19 @@ const TopicPdfManager = () => {
           cleanupPolling();
           releaseWakeLock();
           setUploadPhase("idle");
-          const errorMsg =
-            err?.response?.data?.message ||
-            err?.message ||
-            "Video upload failed. If uploading from iPhone, ensure screen stays on and video is downloaded from iCloud.";
-          toast.error(errorMsg);
+          let errorMsg = err?.response?.data?.message;
+          if (!errorMsg) {
+            if (err?.response?.status === 413) {
+              errorMsg = "Video file is too large (HTTP 413). The live server/proxy (Nginx or Cloudflare) rejected the file size.";
+            } else if (err?.response?.status === 504 || err?.response?.status === 408) {
+              errorMsg = "Upload timed out (HTTP 504). The mobile connection is too slow for this video size.";
+            } else if (err?.code === "ERR_NETWORK" || err?.message?.includes("Network Error")) {
+              errorMsg = "Network connection dropped during upload. Please ensure a stable Wi-Fi connection.";
+            } else {
+              errorMsg = err?.message || "Video upload failed. Please try again.";
+            }
+          }
+          toast.error(errorMsg, { duration: 6000 });
         },
       }
     );
@@ -1269,6 +1277,8 @@ const TopicPdfManager = () => {
             setVideoUrl("");
             setVideoAddMode("file");
             setUploadPhase("idle");
+          } else {
+            setUploadPhase("idle");
           }
         }}
       >
@@ -1287,7 +1297,7 @@ const TopicPdfManager = () => {
           <div className="flex p-1 bg-slate-100 rounded-xl mt-1">
             <button
               type="button"
-              disabled={uploadPhase !== "idle" || isAddingVideo}
+              disabled={uploadPhase === "local" || uploadPhase === "cloud"}
               onClick={() => setVideoAddMode("file")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 videoAddMode === "file"
@@ -1299,7 +1309,7 @@ const TopicPdfManager = () => {
             </button>
             <button
               type="button"
-              disabled={uploadPhase !== "idle" || isAddingVideo}
+              disabled={uploadPhase === "local" || uploadPhase === "cloud"}
               onClick={() => setVideoAddMode("link")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 videoAddMode === "link"
@@ -1322,7 +1332,7 @@ const TopicPdfManager = () => {
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
                 required
-                disabled={uploadPhase !== "idle" || isAddingVideo}
+                disabled={uploadPhase === "local" || uploadPhase === "cloud"}
                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
               />
             </div>
@@ -1338,7 +1348,7 @@ const TopicPdfManager = () => {
                   accept="video/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.mkv"
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   required={videoAddMode === "file"}
-                  disabled={uploadPhase !== "idle"}
+                  disabled={uploadPhase === "local" || uploadPhase === "cloud"}
                   className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer disabled:bg-slate-100"
                 />
                 {videoFile && (
@@ -1346,16 +1356,7 @@ const TopicPdfManager = () => {
                     File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
                   </p>
                 )}
-                <div className="mt-2 text-[11px] text-slate-600 bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 space-y-1">
-                  <p className="font-semibold text-amber-800 flex items-center gap-1">
-                    📱 <strong>iPhone / iOS Upload Tips:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-0.5 text-amber-900/90">
-                    <li>Screen will stay awake automatically during upload — keep this tab open.</li>
-                    <li>If the video is backed up to iCloud, open it in the Photos app first to let it download locally.</li>
-                    <li>Both iPhone .MOV and .MP4 recordings are supported.</li>
-                  </ul>
-                </div>
+
               </div>
             ) : (
               /* Option 1: Paste Link */
@@ -1495,10 +1496,10 @@ const TopicPdfManager = () => {
               ) : (
                 <button
                   type="submit"
-                  disabled={uploadPhase !== "idle" || !videoFile || !videoTitle.trim()}
+                  disabled={uploadPhase === "local" || uploadPhase === "cloud" || !videoFile || !videoTitle.trim()}
                   className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 >
-                  {uploadPhase !== "idle" ? (
+                  {uploadPhase === "local" || uploadPhase === "cloud" ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> Uploading Video...
                     </>
