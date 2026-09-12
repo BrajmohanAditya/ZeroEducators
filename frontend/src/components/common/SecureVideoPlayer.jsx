@@ -92,10 +92,57 @@ const SecureVideoPlayer = ({
     return () => clearInterval(interval);
   }, []);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Sync fullscreen change state (e.g. if user presses Esc or hardware back)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentFs = Boolean(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      setIsFullscreen(isCurrentFs);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!isFullscreen) {
+        const el = containerRef.current;
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        } else if (el.msRequestFullscreen) {
+          await el.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error("Fullscreen error:", err);
+    }
+  };
+
   const studentIdentifier = user?.email || user?.name || "Student Account";
 
   return (
     <div
+      ref={containerRef}
       className={`relative w-full h-full flex items-center justify-center bg-black overflow-hidden select-none group ${className}`}
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
@@ -108,7 +155,7 @@ const SecureVideoPlayer = ({
         src={src}
         poster={poster}
         controls
-        controlsList="nodownload noplaybackrate"
+        controlsList="nodownload noplaybackrate nofullscreen"
         disablePictureInPicture
         disableRemotePlayback
         playsInline
@@ -120,10 +167,28 @@ const SecureVideoPlayer = ({
         onError={onError}
       />
 
-      {/* ── MAIN FLOATING WATERMARK (Crystal Clear Red Text, Zero Vibration Fade Movement) ── */}
+      {/* ── Dedicated Fullscreen Toggle Button (Overlays onto custom container so watermark never hides) ── */}
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        aria-label="Toggle Fullscreen"
+        className="absolute bottom-3.5 right-3.5 z-40 bg-black/60 hover:bg-black/90 active:scale-95 text-white/90 p-2 rounded-lg border border-white/15 backdrop-blur-xs transition-all shadow-md flex items-center justify-center pointer-events-auto cursor-pointer"
+      >
+        {isFullscreen ? (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 9L4 4m0 0l5 0m-5 0l0 5m11 2l5 5m0 0l-5 0m5 0l0-5M9 15l-5 5m0 0l5 0m-5 0l0-5m11-2l5-5m0 0l-5 0m5 0l0 5" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        )}
+      </button>
+
+      {/* ── MAIN FLOATING WATERMARK (Always on top, even in Fullscreen mode) ── */}
       {user && (
         <div
-          className={`absolute pointer-events-none select-none z-30 font-mono text-[12px] sm:text-[13px] flex flex-col gap-0.5 tracking-wider font-bold text-red-500 transition-opacity duration-700 ease-in-out ${
+          className={`absolute pointer-events-none select-none z-50 font-mono text-[12px] sm:text-[13px] flex flex-col gap-0.5 tracking-wider font-bold text-red-500 transition-opacity duration-700 ease-in-out ${
             visible ? "opacity-100" : "opacity-0"
           }`}
           style={{

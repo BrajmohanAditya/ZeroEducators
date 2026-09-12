@@ -216,11 +216,11 @@ const SinglePurchasedCourse = () => {
 
   return (
     <div
-      className="flex flex-col lg:flex-row h-[calc(100vh-80px)] bg-slate-50 overflow-hidden select-none"
+      className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] lg:h-[calc(100vh-80px)] bg-slate-50 overflow-y-auto lg:overflow-hidden select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* ── Left Content (Video Player OR PDF Viewer) ── */}
-      <div className="w-full lg:w-2/3 flex flex-col bg-slate-50 p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      <div className="w-full lg:w-2/3 flex flex-col bg-slate-50 p-2 sm:p-4 lg:p-8 relative overflow-hidden shrink-0">
         {/* Soft background glows */}
         <div className="absolute top-0 left-1/4 w-3/4 h-3/4 bg-blue-400/10 blur-[120px] pointer-events-none rounded-full"></div>
         <div className="absolute bottom-0 right-1/4 w-3/4 h-3/4 bg-purple-400/10 blur-[120px] pointer-events-none rounded-full"></div>
@@ -231,7 +231,7 @@ const SinglePurchasedCourse = () => {
             className={
               isPdfFullscreen
                 ? "fixed inset-0 z-[99999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none"
-                : "flex-1 flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-slate-900 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-800 select-none"
+                : "flex-1 min-h-[400px] flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-900 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-800 select-none"
             }
           >
             {activePdf ? (
@@ -260,9 +260,9 @@ const SinglePurchasedCourse = () => {
             )}
           </div>
         ) : (
-          /* ── Video Player Container ── */
+          /* ── Video Player Container (16:9 Aspect ratio on Mobile, Full on Desktop) ── */
           <div
-            className="flex-1 flex items-center justify-center relative z-10 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
+            className="w-full aspect-video lg:aspect-auto lg:flex-1 flex items-center justify-center relative z-10 max-w-5xl mx-auto rounded-xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
             onContextMenu={(e) => e.preventDefault()}
           >
             {module?.Video || module?.Video_id ? (
