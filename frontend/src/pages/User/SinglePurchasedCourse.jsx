@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import SecurePdfViewer from "@/components/common/SecurePdfViewer";
+import SecureVideoPlayer from "@/components/common/SecureVideoPlayer";
 import { useGetSinglePurchasedCourseHook } from "@/hooks/course.hook";
 import { useUserStore } from "@/store/user.store";
 
@@ -265,40 +266,20 @@ const SinglePurchasedCourse = () => {
             onContextMenu={(e) => e.preventDefault()}
           >
             {module?.Video || module?.Video_id ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-black group">
-                <video
-                  key={module._id || module.Video_id}
-                  className="h-full w-full object-contain bg-black select-none pointer-events-auto"
-                  src={
-                    module.moduleId || module._id
-                      ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
-                      : module.Video
+              <SecureVideoPlayer
+                videoKey={module._id || module.Video_id}
+                src={
+                  module.moduleId || module._id
+                    ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
+                    : module.Video
+                }
+                user={user}
+                onError={(e) => {
+                  if (module?.Video && e.currentTarget.src !== module.Video) {
+                    e.currentTarget.src = module.Video;
                   }
-                  controls
-                  controlsList="nodownload noplaybackrate"
-                  disablePictureInPicture
-                  disableRemotePlayback
-                  playsInline
-                  preload="auto"
-                  autoPlay
-                  crossOrigin="use-credentials"
-                  onContextMenu={(e) => e.preventDefault()}
-                  onDragStart={(e) => e.preventDefault()}
-                  onError={(e) => {
-                    if (module?.Video && e.currentTarget.src !== module.Video) {
-                      e.currentTarget.src = module.Video;
-                    }
-                  }}
-                />
-
-                {/* Anti-Piracy Watermark */}
-                {user && (
-                  <div className="absolute top-3 right-4 pointer-events-none select-none z-20 opacity-30 group-hover:opacity-60 transition-opacity text-[11px] font-mono text-white/80 bg-black/40 px-2 py-0.5 rounded border border-white/10 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                    <span>{user.email || user.name || "ZeroEducators"}</span>
-                  </div>
-                )}
-              </div>
+                }}
+              />
             ) : (
               <div className="text-center flex flex-col items-center justify-center p-12 animate-in fade-in duration-500 bg-white w-full h-full">
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 ring-1 ring-slate-100 shadow-sm">
