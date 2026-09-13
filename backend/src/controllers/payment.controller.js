@@ -7,6 +7,7 @@ import { Course } from "../models/course.model.js";
 import { Exam } from "../models/quiz/exam.model.js";
 import { Order } from "../models/order.model.js";
 import { User } from "../models/user.model.js";
+import { Coupon } from "../models/coupon.model.js";
 import { ENV } from "../config/env.js";
 
 export const createCheckOutSession = async (req, res, next) => {
@@ -82,6 +83,88 @@ export const createCheckOutSession = async (req, res, next) => {
       orderAmount = Number(chosenPlan.price);
     }
 
+    const originalAmount = orderAmount;
+    let discountAmount = 0;
+    let appliedCoupon = null;
+
+    // Handle Coupon Code if provided
+    const couponCode = req.body.couponCode || products.couponCode;
+    if (couponCode && typeof couponCode === "string" && couponCode.trim() !== "") {
+      const cleanCode = couponCode.trim().toUpperCase();
+      appliedCoupon = await Coupon.findOne({ code: cleanCode });
+
+      if (!appliedCoupon) {
+        return res.status(404).json({
+          message: "Invalid coupon code",
+        });
+      }
+
+      const check = appliedCoupon.isValidFor({
+        userId: req.user._id,
+        courseId,
+        amount: originalAmount,
+      });
+
+      if (!check.valid) {
+        return res.status(400).json({
+          message: check.message,
+        });
+      }
+
+      const discountResult = appliedCoupon.calculateDiscount(originalAmount);
+      discountAmount = discountResult.discountAmount;
+      orderAmount = discountResult.finalAmount;
+    }
+
+    const durationLabel = chosenPlan?.duration || course.duration || "Standard";
+
+    // If coupon gives 100% discount (final amount = 0), enroll immediately!
+    if (orderAmount <= 0) {
+      const user = await User.findById(req.user._id);
+      const alreadyEnrolled = user?.purchasedCourse?.some(
+        (id) => id.toString() === courseId.toString()
+      );
+
+      if (!alreadyEnrolled) {
+        await User.findByIdAndUpdate(req.user._id, {
+          $addToSet: { purchasedCourse: courseId },
+        });
+
+        const couponOrder = new Order({
+          user: req.user._id,
+          course: courseId,
+          totalAmount: 0,
+          originalAmount,
+          discountAmount,
+          couponCode: appliedCoupon?.code,
+          couponId: appliedCoupon?._id,
+          planDuration: durationLabel,
+          paymentId: `COUPON_FREE_${Date.now()}`,
+          orderId: `COUPON_ORDER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+          paymentGateway: "coupon_free",
+        });
+        await couponOrder.save();
+
+        if (appliedCoupon) {
+          appliedCoupon.usedCount = (appliedCoupon.usedCount || 0) + 1;
+          appliedCoupon.usedBy.push({
+            userId: req.user._id,
+            orderId: couponOrder.orderId,
+          });
+          await appliedCoupon.save();
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        isFree: true,
+        courseId,
+        message: alreadyEnrolled
+          ? "You are already enrolled in this course!"
+          : "Coupon applied! Course unlocked for free!",
+      });
+    }
+
     // Fetch user details for Cashfree customer_details
     const user = await User.findById(req.user._id);
     const orderId = `order_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
@@ -94,8 +177,6 @@ export const createCheckOutSession = async (req, res, next) => {
     if (phone.length < 10) {
       phone = "9999999999";
     }
-
-    const durationLabel = chosenPlan?.duration || course.duration || "Standard";
 
     const order = await createCashfreeOrder({
       orderId,
@@ -110,7 +191,7 @@ export const createCheckOutSession = async (req, res, next) => {
       orderMeta: {
         return_url: `${ENV.CLIENT_URL}/SinglePurchasedCourse/${courseId}`,
       },
-      orderNote: `Course purchase: ${course.title} [${durationLabel}] (ID: ${courseId})`,
+      orderNote: `Course purchase: ${course.title} [${durationLabel}] (ID: ${courseId}) [COUPON:${appliedCoupon ? appliedCoupon.code : "NONE"}]`,
     });
 
     return res.status(201).json({
@@ -122,6 +203,9 @@ export const createCheckOutSession = async (req, res, next) => {
         orderCurrency: order.order_currency,
         courseId: courseId,
         planDuration: durationLabel,
+        couponCode: appliedCoupon?.code || null,
+        discountAmount,
+        originalAmount,
       },
     });
   } catch (error) {
@@ -195,10 +279,51 @@ export const checkoutSuccess = async (req, res, next) => {
       }
     }
 
+    // Extract and record coupon usage if applied
+    let couponCode = req.body.couponCode;
+    if (!couponCode && cfOrder.order_note) {
+      const couponMatch = cfOrder.order_note.match(/\[COUPON:(.*?)\]/);
+      if (couponMatch && couponMatch[1] !== "NONE") {
+        couponCode = couponMatch[1];
+      }
+    }
+
+    let couponObj = null;
+    let discountAmount = 0;
+    let originalAmount = Number(cfOrder.order_amount);
+
+    if (couponCode && typeof couponCode === "string" && couponCode.trim() !== "") {
+      couponObj = await Coupon.findOne({ code: couponCode.trim().toUpperCase() });
+      if (couponObj) {
+        couponObj.usedCount = (couponObj.usedCount || 0) + 1;
+        couponObj.usedBy.push({
+          userId,
+          orderId,
+          usedAt: new Date(),
+        });
+        await couponObj.save();
+
+        if (couponObj.discountType === "flat") {
+          discountAmount = Number(couponObj.discountAmount);
+          originalAmount = Number(cfOrder.order_amount) + discountAmount;
+        } else if (couponObj.discountType === "percentage") {
+          const discountPct = Number(couponObj.discountAmount);
+          if (discountPct < 100) {
+            originalAmount = Math.round(Number(cfOrder.order_amount) / (1 - discountPct / 100));
+            discountAmount = originalAmount - Number(cfOrder.order_amount);
+          }
+        }
+      }
+    }
+
     const newOrder = new Order({
       user: userId,
       course: courseId,
       totalAmount: cfOrder.order_amount,
+      originalAmount: originalAmount || cfOrder.order_amount,
+      discountAmount: discountAmount || 0,
+      couponCode: couponObj?.code || "",
+      couponId: couponObj?._id || null,
       planDuration: planDuration || "",
       orderId: orderId,
       paymentId: paymentId,

@@ -25,6 +25,7 @@ import QualifiedMentors from "@/pages/Admin/qualifiedMentors";
 import EbookCreate from "@/pages/Admin/ebook";
 import AllEbooks from "@/pages/User/eBooks.jsx/All.eBook";
 import EbookQuestionPractice from "@/pages/User/eBooks.jsx/eBook.ui";
+import CouponManagement from "@/pages/Admin/CouponManagement";
 // UserLayout wraps routes that SHOULD have the top Navbar
 
 const MainRoutes = () => {
@@ -130,6 +131,14 @@ const MainRoutes = () => {
           element={
             <ProtectedRoutes>
               <DashboardProducts />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="coupons"
+          element={
+            <ProtectedRoutes>
+              <CouponManagement />
             </ProtectedRoutes>
           }
         />

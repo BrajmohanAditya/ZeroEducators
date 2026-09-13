@@ -1,17 +1,34 @@
-import { Loader2, ShieldCheck, BookOpen, Clock, FileText } from "lucide-react";
-import React from "react";
+import {
+  Loader2,
+  ShieldCheck,
+  BookOpen,
+  Clock,
+  FileText,
+  Tag,
+  X,
+  Sparkles,
+  CheckCircle2,
+} from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useGetSingleCourseHook } from "@/hooks/course.hook";
 import { usePaymentHook } from "@/hooks/payment.hook";
+import { useValidateCouponHook } from "@/hooks/coupon.hook";
+import { toast } from "sonner";
 
 const SingleCourse = () => {
   const { id } = useParams();
   const { data, isLoading } = useGetSingleCourseHook(id);
   const { mutate, isPending } = usePaymentHook();
+  const { mutate: validateCoupon, isPending: isValidatingCoupon } = useValidateCouponHook();
   const course = data?.course;
 
   const hasPlans = Boolean(course?.pricingPlans && course.pricingPlans.length > 0 && !course?.isFree);
   const [selectedPlanIndex, setSelectedPlanIndex] = React.useState(0);
+
+  // Coupon states
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discountAmount, finalAmount }
 
   const activePlan = hasPlans ? course.pricingPlans[selectedPlanIndex] : null;
   const activePrice = activePlan ? activePlan.price : course?.amount;
@@ -65,18 +82,64 @@ const SingleCourse = () => {
     course?.topics?.length ||
     0;
 
+  // When selected plan changes, reset applied coupon so user can re-apply for new price
+  useEffect(() => {
+    if (appliedCoupon) {
+      setAppliedCoupon(null);
+      toast.info("Pricing plan changed. Please re-apply your coupon code.");
+    }
+  }, [selectedPlanIndex]);
+
+  const handleApplyCoupon = (e) => {
+    e.preventDefault();
+    if (!couponInput.trim()) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+
+    validateCoupon(
+      {
+        code: couponInput.trim().toUpperCase(),
+        courseId: course._id,
+        planId: activePlan?._id,
+        planDuration: activeDuration,
+      },
+      {
+        onSuccess: (data) => {
+          setAppliedCoupon({
+            code: data.coupon.code,
+            discountAmount: data.discountAmount,
+            finalAmount: data.finalAmount,
+          });
+        },
+      }
+    );
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    toast.info("Coupon removed");
+  };
+
+  const finalPayablePrice = appliedCoupon ? appliedCoupon.finalAmount : activePrice;
+  const isCourseFree = course?.isFree || Number(activePrice) === 0;
+  const isFinalFree = isCourseFree || (appliedCoupon && appliedCoupon.finalAmount === 0);
+
   const purchaseHandler = () => {
     mutate({
       products: {
         _id: course._id,
         name: course.title,
-        price: activePrice,
+        price: finalPayablePrice,
         image: course.thumbnail,
         planId: activePlan?._id,
         planDuration: activeDuration,
+        couponCode: appliedCoupon?.code,
       },
       planId: activePlan?._id,
       planDuration: activeDuration,
+      couponCode: appliedCoupon?.code,
     });
   };
 
@@ -87,8 +150,6 @@ const SingleCourse = () => {
       </div>
     );
   }
-
-  const isCourseFree = course?.isFree || Number(activePrice) === 0;
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-50 flex items-center justify-center px-4 py-8">
@@ -186,46 +247,128 @@ const SingleCourse = () => {
             </div>
           )}
 
+          {/* Coupon Code Box (only for paid courses) */}
+          {!isCourseFree && (
+            <div className="pt-3 border-t border-slate-100">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-emerald-900 flex items-center gap-1.5 font-mono">
+                        {appliedCoupon.code}
+                        <span className="text-[10px] font-black text-emerald-700 bg-emerald-200/60 px-1.5 py-0.5 rounded">
+                          APPLIED
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-emerald-700 font-semibold">
+                        You save ₹{appliedCoupon.discountAmount}!
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleApplyCoupon} className="space-y-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Tag className="w-3.5 h-3.5 text-blue-600" /> Have a Coupon Code?
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="ENTER CODE"
+                      value={couponInput}
+                      onChange={(e) =>
+                        setCouponInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))
+                      }
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isValidatingCoupon || !couponInput.trim()}
+                      className="px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1 shrink-0"
+                    >
+                      {isValidatingCoupon ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        "Apply"
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
           {/* Price + CTA */}
           <div className="pt-3 border-t border-slate-100">
-            <div className="mb-4 flex items-baseline">
+            <div className="mb-4">
               {isCourseFree ? (
-                <>
+                <div className="flex items-baseline">
                   <span className="text-3xl font-black text-emerald-600">FREE</span>
                   <span className="ml-2.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
                     100% OFF
                   </span>
-                </>
+                </div>
+              ) : appliedCoupon ? (
+                <div>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-3xl font-black text-slate-900">
+                      {isFinalFree ? "FREE" : `₹${finalPayablePrice}`}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-400 line-through">
+                      ₹{activePrice}
+                    </span>
+                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                      -₹{appliedCoupon.discountAmount} OFF
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-600 font-bold mt-1">
+                    Coupon discount applied on this course!
+                  </p>
+                </div>
               ) : (
-                <>
+                <div className="flex items-baseline">
                   <span className="text-3xl font-black text-slate-900">₹{activePrice}</span>
-                  <span className="ml-3 text-slate-400 line-through">₹{Math.round(activePrice * 1.3)}</span>
+                  <span className="ml-3 text-slate-400 line-through">
+                    ₹{Math.round(activePrice * 1.3)}
+                  </span>
                   {activePlan && (
                     <span className="ml-2.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
                       {activePlan.duration}
                     </span>
                   )}
-                </>
+                </div>
               )}
             </div>
+
             <button
               disabled={isPending}
               onClick={purchaseHandler}
               className={`w-full flex items-center justify-center gap-2 py-3.5 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
-                isCourseFree
+                isFinalFree
                   ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
                   : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/25"
               }`}
             >
               {isPending ? (
                 <Loader2 className="animate-spin w-5 h-5" />
-              ) : isCourseFree ? (
+              ) : isFinalFree ? (
                 <>
-                  <ShieldCheck className="w-5 h-5" /> Enroll for Free
+                  <ShieldCheck className="w-5 h-5" />
+                  {appliedCoupon ? "Enroll for Free (Coupon Applied)" : "Enroll for Free"}
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="w-5 h-5" /> Enroll for ₹{activePrice}
+                  <ShieldCheck className="w-5 h-5" /> Enroll for ₹{finalPayablePrice}
                 </>
               )}
             </button>

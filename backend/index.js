@@ -17,6 +17,7 @@ import successBoardRoute from "./src/routes/success.board.route.js";
 import qualifiedMentorRoute from "./src/routes/qualifiedMentors.js";
 import ebookRoute from "./src/routes/ebook.route.js";
 import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
+import couponRoute from "./src/routes/coupon.route.js";
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api", userRoute);
 app.use("/api/course", courseRoute);
 app.use("/api/module", moduleRoute);
 app.use("/api/payment", paymentRoute);
+app.use("/api/coupon", couponRoute);
 app.use("/api/hero", heroRoutes);
 app.use("/api/exam", examRoute);
 app.use("/api/quiz", quizRoute);

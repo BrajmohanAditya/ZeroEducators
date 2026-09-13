@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Presentation,
   Book,
+  Ticket,
 } from "lucide-react";
 
 const DashboardSidebar = () => {
@@ -22,6 +23,11 @@ const DashboardSidebar = () => {
       to: "/admindashboard/dashboardProduct",
       label: "Courses",
       icon: ShoppingBag,
+    },
+    {
+      to: "/admindashboard/coupons",
+      label: "Coupons",
+      icon: Ticket,
     },
     {
       to: "/admindashboard/heroSection",
