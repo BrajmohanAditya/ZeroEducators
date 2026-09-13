@@ -17,8 +17,10 @@ import {
   addVideoToTopic,
   deleteVideoFromTopic,
   addSubject,
+  updateSubject,
   deleteSubject,
   addChapter,
+  updateChapter,
   deleteChapter,
   addPdfToChapter,
   deletePdfFromChapter,
@@ -109,11 +111,13 @@ courseRoute.delete("/:courseId/topic/:topicId/video/:videoId", isLoggedIn, isAdm
 
 // Subject Routes
 courseRoute.post("/:courseId/subject", isLoggedIn, isAdmin, addSubject);
+courseRoute.put("/:courseId/subject/:subjectId", isLoggedIn, isAdmin, updateSubject);
 courseRoute.delete("/:courseId/subject/:subjectId", isLoggedIn, isAdmin, deleteSubject);
 courseRoute.put("/:courseId/reorder-subjects", isLoggedIn, isAdmin, reorderSubjects);
 
 // Chapter Routes
 courseRoute.post("/:courseId/subject/:subjectId/chapter", isLoggedIn, isAdmin, addChapter);
+courseRoute.put("/:courseId/subject/:subjectId/chapter/:chapterId", isLoggedIn, isAdmin, updateChapter);
 courseRoute.delete("/:courseId/subject/:subjectId/chapter/:chapterId", isLoggedIn, isAdmin, deleteChapter);
 courseRoute.put("/:courseId/subject/:subjectId/reorder-chapters", isLoggedIn, isAdmin, reorderChapters);
 

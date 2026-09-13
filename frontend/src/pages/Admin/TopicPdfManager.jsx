@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   useGetSingleCourseHook,
   useAddSubjectHook,
+  useUpdateSubjectHook,
   useDeleteSubjectHook,
   useAddChapterHook,
+  useUpdateChapterHook,
   useDeleteChapterHook,
   useAddPdfToChapterHook,
   useDeletePdfFromChapterHook,
@@ -18,6 +20,7 @@ import {
 import {
   ArrowLeft,
   Plus,
+  Edit,
   Trash2,
   FileText,
   Video,
@@ -67,10 +70,12 @@ const TopicPdfManager = () => {
 
   // Subject mutations
   const { mutate: addSubject, isPending: isAddingSubject } = useAddSubjectHook(courseId);
+  const { mutate: updateSubject, isPending: isUpdatingSubject } = useUpdateSubjectHook(courseId);
   const { mutate: deleteSubject, isPending: isDeletingSubject } = useDeleteSubjectHook(courseId);
 
   // Chapter mutations
   const { mutate: addChapter, isPending: isAddingChapter } = useAddChapterHook(courseId);
+  const { mutate: updateChapter, isPending: isUpdatingChapter } = useUpdateChapterHook(courseId);
   const { mutate: deleteChapter, isPending: isDeletingChapter } = useDeleteChapterHook(courseId);
 
   // PDF inside Chapter mutations
@@ -152,9 +157,17 @@ const TopicPdfManager = () => {
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [subjectName, setSubjectName] = useState("");
 
+  // Edit Subject Modal State
+  const [editingSubject, setEditingSubject] = useState(null); // { subjectId, subjectName }
+  const [editSubjectName, setEditSubjectName] = useState("");
+
   // Chapter Modal State
   const [activeSubjectForChapter, setActiveSubjectForChapter] = useState(null);
   const [chapterName, setChapterName] = useState("");
+
+  // Edit Chapter Modal State
+  const [editingChapter, setEditingChapter] = useState(null); // { subjectId, chapterId, chapterName }
+  const [editChapterName, setEditChapterName] = useState("");
 
   // PDF Upload Modal State
   const [activeChapterForPdfUpload, setActiveChapterForPdfUpload] = useState(null);
@@ -279,6 +292,30 @@ const TopicPdfManager = () => {
     );
   };
 
+  // Handle Edit Subject
+  const handleEditSubjectSubmit = (e) => {
+    e.preventDefault();
+    if (!editSubjectName.trim()) {
+      toast.error("Please enter a subject name");
+      return;
+    }
+    if (!editingSubject) return;
+
+    updateSubject(
+      {
+        courseId,
+        subjectId: editingSubject.subjectId,
+        subjectName: editSubjectName.trim(),
+      },
+      {
+        onSuccess: () => {
+          setEditingSubject(null);
+          setEditSubjectName("");
+        },
+      }
+    );
+  };
+
   // Handle Add Chapter
   const handleAddChapterSubmit = (e) => {
     e.preventDefault();
@@ -304,6 +341,31 @@ const TopicPdfManager = () => {
           }
           setChapterName("");
           setActiveSubjectForChapter(null);
+        },
+      }
+    );
+  };
+
+  // Handle Edit Chapter (Rename Module)
+  const handleEditChapterSubmit = (e) => {
+    e.preventDefault();
+    if (!editChapterName.trim()) {
+      toast.error("Please enter a chapter name");
+      return;
+    }
+    if (!editingChapter) return;
+
+    updateChapter(
+      {
+        courseId,
+        subjectId: editingChapter.subjectId,
+        chapterId: editingChapter.chapterId,
+        chapterName: editChapterName.trim(),
+      },
+      {
+        onSuccess: () => {
+          setEditingChapter(null);
+          setEditChapterName("");
         },
       }
     );
@@ -837,9 +899,26 @@ const TopicPdfManager = () => {
                           Subject {sIdx + 1}
                         </span>
                       </div>
-                      <h2 className="text-lg sm:text-xl font-black text-white mt-1">
-                        {subject.subjectName}
-                      </h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <h2 className="text-lg sm:text-xl font-black text-white">
+                          {subject.subjectName}
+                        </h2>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSubject({
+                              subjectId: subject._id,
+                              subjectName: subject.subjectName,
+                            });
+                            setEditSubjectName(subject.subjectName);
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-300 hover:bg-white/10 rounded-md transition cursor-pointer"
+                          title="Edit Subject Name"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
                         <span>{subjectChapters.length} Chapters</span>
                         <span>•</span>
@@ -878,6 +957,22 @@ const TopicPdfManager = () => {
                       title="Add Chapter to this Subject"
                     >
                       <Plus className="w-4 h-4" /> Add Chapter
+                    </button>
+
+                    {/* Edit Subject Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSubject({
+                          subjectId: subject._id,
+                          subjectName: subject.subjectName,
+                        });
+                        setEditSubjectName(subject.subjectName);
+                      }}
+                      className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 rounded-xl transition cursor-pointer"
+                      title="Edit Subject Name"
+                    >
+                      <Edit className="w-4 h-4" />
                     </button>
 
                     {/* Delete Subject Button */}
@@ -963,9 +1058,27 @@ const TopicPdfManager = () => {
                                   </div>
                                 </div>
                                 <div>
-                                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                                    {chapter.chapterName}
-                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                                      {chapter.chapterName}
+                                    </h3>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingChapter({
+                                          subjectId: subject._id,
+                                          chapterId: chapter._id,
+                                          chapterName: chapter.chapterName,
+                                        });
+                                        setEditChapterName(chapter.chapterName);
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition cursor-pointer"
+                                      title="Edit Module / Chapter Name"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                   <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                                     <span className="inline-flex items-center gap-1 font-medium">
                                       <Video className="w-3.5 h-3.5 text-blue-600" />
@@ -1009,6 +1122,23 @@ const TopicPdfManager = () => {
                                   title="Upload PDF notes to this chapter"
                                 >
                                   <Plus className="w-3.5 h-3.5" /> Add PDF
+                                </button>
+
+                                {/* Edit Chapter / Module Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingChapter({
+                                      subjectId: subject._id,
+                                      chapterId: chapter._id,
+                                      chapterName: chapter.chapterName,
+                                    });
+                                    setEditChapterName(chapter.chapterName);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                  title="Edit Module / Chapter Name"
+                                >
+                                  <Edit className="w-4 h-4" />
                                 </button>
 
                                 {/* Delete Chapter Button */}
@@ -1392,6 +1522,124 @@ const TopicPdfManager = () => {
               >
                 {isAddingChapter && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Chapter
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Edit Subject Name */}
+      <Dialog
+        open={Boolean(editingSubject)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingSubject(null);
+            setEditSubjectName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" /> Edit Subject
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Update the title or name of this subject.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubjectSubmit} className="space-y-4 mt-3 text-left">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Subject Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Retail Banking and Wealth Management"
+                value={editSubjectName}
+                onChange={(e) => setEditSubjectName(e.target.value)}
+                required
+                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSubject(null);
+                  setEditSubjectName("");
+                }}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingSubject}
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
+              >
+                {isUpdatingSubject && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Edit Chapter / Module Name */}
+      <Dialog
+        open={Boolean(editingChapter)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingChapter(null);
+            setEditChapterName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" /> Edit Module / Chapter
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Rename this module or chapter.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditChapterSubmit} className="space-y-4 mt-3 text-left">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Module / Chapter Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. MODULE A UNIT 1"
+                value={editChapterName}
+                onChange={(e) => setEditChapterName(e.target.value)}
+                required
+                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingChapter(null);
+                  setEditChapterName("");
+                }}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingChapter}
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
+              >
+                {isUpdatingChapter && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Changes
               </button>
             </div>
           </form>

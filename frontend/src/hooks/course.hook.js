@@ -13,8 +13,10 @@ import {
   addVideoToTopicApi,
   deleteVideoFromTopicApi,
   addSubjectApi,
+  updateSubjectApi,
   deleteSubjectApi,
   addChapterApi,
+  updateChapterApi,
   deleteChapterApi,
   addPdfToChapterApi,
   deletePdfFromChapterApi,
@@ -237,6 +239,22 @@ export const useDeleteSubjectHook = (courseId) => {
   });
 };
 
+export const useUpdateSubjectHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateSubjectApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Subject updated successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to update subject");
+    },
+  });
+};
+
 export const useAddChapterHook = (courseId) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -249,6 +267,22 @@ export const useAddChapterHook = (courseId) => {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to add chapter");
+    },
+  });
+};
+
+export const useUpdateChapterHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateChapterApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Chapter updated successfully");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to update chapter");
     },
   });
 };

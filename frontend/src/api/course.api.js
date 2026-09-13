@@ -173,9 +173,38 @@ export const deleteSubjectApi = async ({ courseId, subjectId }) => {
   return res.data;
 };
 
+export const updateSubjectApi = async ({ courseId, subjectId, subjectName }) => {
+  const res = await axios.put(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}`,
+    { subjectName },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
 export const addChapterApi = async ({ courseId, subjectId, chapterName }) => {
   const res = await axios.post(
     `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter`,
+    { chapterName },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const updateChapterApi = async ({
+  courseId,
+  subjectId,
+  chapterId,
+  chapterName,
+}) => {
+  const res = await axios.put(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}`,
     { chapterName },
     {
       headers: { "Content-Type": "application/json" },

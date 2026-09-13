@@ -185,10 +185,10 @@ const SecureVideoPlayer = ({
         )}
       </button>
 
-      {/* ── MAIN FLOATING WATERMARK (Always on top, even in Fullscreen mode) ── */}
+      {/* ── MAIN FLOATING WATERMARK (Light Black, Always on top) ── */}
       {user && (
         <div
-          className={`absolute pointer-events-none select-none z-50 font-mono text-[12px] sm:text-[13px] flex flex-col gap-0.5 tracking-wider font-bold text-red-500 transition-opacity duration-700 ease-in-out ${
+          className={`absolute pointer-events-none select-none z-50 font-mono text-[12px] sm:text-[13px] flex flex-col gap-0.5 tracking-wider font-semibold text-neutral-700 transition-opacity duration-700 ease-in-out ${
             visible ? "opacity-100" : "opacity-0"
           }`}
           style={{
@@ -196,14 +196,14 @@ const SecureVideoPlayer = ({
             left: coords.left,
           }}
         >
-          {/* Line 1: Email in Crystal Clear Red */}
+          {/* Line 1: Email in Light Black */}
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-red-500 shrink-0 stroke-[2.5]" />
+            <ShieldCheck className="w-3.5 h-3.5 text-neutral-700 shrink-0 stroke-[2.2]" />
             <span className="truncate max-w-[260px]">{studentIdentifier}</span>
           </div>
 
-          {/* Line 2: IP in Crystal Clear Red */}
-          <div className="text-[11px] font-black tracking-widest pl-5">
+          {/* Line 2: IP in Light Black */}
+          <div className="text-[11px] font-bold tracking-widest pl-5">
             IP: {ipAddress}
           </div>
         </div>

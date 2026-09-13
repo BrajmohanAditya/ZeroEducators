@@ -873,6 +873,39 @@ export const deleteSubject = async (req, res, next) => {
   }
 };
 
+// Update Subject Name (Rename)
+export const updateSubject = async (req, res, next) => {
+  try {
+    const { courseId, subjectId } = req.params;
+    const { subjectName } = req.body;
+
+    if (!subjectName || subjectName.trim() === "") {
+      return res.status(400).json({ success: false, message: "Subject name is required" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const subject = course.subjects.id(subjectId);
+    if (!subject) {
+      return res.status(404).json({ success: false, message: "Subject not found" });
+    }
+
+    subject.subjectName = subjectName.trim();
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Subject name updated successfully",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Add Chapter to a Subject
 export const addChapter = async (req, res, next) => {
   try {
@@ -963,6 +996,44 @@ export const deleteChapter = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: "Chapter and its contents deleted successfully",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update Chapter Name (Rename Module)
+export const updateChapter = async (req, res, next) => {
+  try {
+    const { courseId, subjectId, chapterId } = req.params;
+    const { chapterName } = req.body;
+
+    if (!chapterName || chapterName.trim() === "") {
+      return res.status(400).json({ success: false, message: "Chapter name is required" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    const subject = course.subjects.id(subjectId);
+    if (!subject) {
+      return res.status(404).json({ success: false, message: "Subject not found" });
+    }
+
+    const chapter = subject.chapters.id(chapterId);
+    if (!chapter) {
+      return res.status(404).json({ success: false, message: "Chapter not found" });
+    }
+
+    chapter.chapterName = chapterName.trim();
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Chapter name updated successfully",
       course,
     });
   } catch (error) {
