@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 
 /**
  * SecureVideoPlayer
@@ -26,6 +26,9 @@ const SecureVideoPlayer = ({
   // Floating watermark coordinates & opacity state
   const [coords, setCoords] = useState({ top: "20%", left: "15%" });
   const [visible, setVisible] = useState(true);
+
+  // Buffering indicator state
+  const [isBuffering, setIsBuffering] = useState(false);
 
   // 1. Fetch User Public IP Address reliably
   useEffect(() => {
@@ -155,17 +158,34 @@ const SecureVideoPlayer = ({
         src={src}
         poster={poster}
         controls
-        controlsList="nodownload noplaybackrate nofullscreen"
+        controlsList="nodownload nofullscreen"
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="auto"
+        preload="metadata"
         autoPlay
         crossOrigin="use-credentials"
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
-        onError={onError}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => setIsBuffering(false)}
+        onCanPlay={() => setIsBuffering(false)}
+        onPause={() => setIsBuffering(false)}
+        onError={(e) => {
+          setIsBuffering(false);
+          if (typeof onError === "function") onError(e);
+        }}
       />
+
+      {/* ── Centered Buffering Spinner Overlay ── */}
+      {isBuffering && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 bg-black/25 backdrop-blur-[2px] transition-all animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-black/75 border border-white/10 shadow-lg text-white/90 text-sm font-medium">
+            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+            <span>Buffering...</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Dedicated Fullscreen Toggle Button (Overlays onto custom container so watermark never hides) ── */}
       <button

@@ -278,6 +278,7 @@ const SinglePurchasedCourse = () => {
                   user={user}
                   onError={(e) => {
                     if (module?.Video && e.currentTarget.src !== module.Video) {
+                      e.currentTarget.removeAttribute("crossorigin");
                       e.currentTarget.src = module.Video;
                     }
                   }}

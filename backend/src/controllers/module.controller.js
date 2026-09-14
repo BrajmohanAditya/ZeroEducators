@@ -2,7 +2,7 @@ import { Course } from "../models/course.model.js";
 import { Modules } from "../models/module.model.js";
 import { User } from "../models/user.model.js";
 import { uploadToZata as uploadToB2, s3Client } from "../config/zata.js";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { ENV } from "../config/env.js";
 import fs from "fs";
 
@@ -129,6 +129,10 @@ export const createModule = async (req, res) => {
   }
 };
 
+// Cache video metadata (size, mime type) to avoid redundant S3 HeadObject roundtrips
+const videoMetadataCache = new Map();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 export const streamModuleVideo = async (req, res) => {
   try {
     const { moduleId } = req.params;
@@ -168,34 +172,105 @@ export const streamModuleVideo = async (req, res) => {
       }
     }
 
-    const range = req.headers.range || "bytes=0-";
+    // 1. Get cached video metadata or query S3 HeadObject
+    let metadata = videoMetadataCache.get(videoId);
+    if (!metadata || Date.now() - metadata.cachedAt > CACHE_TTL_MS) {
+      try {
+        const headCommand = new HeadObjectCommand({
+          Bucket: ENV.ZATA_BUCKET_NAME,
+          Key: videoId,
+        });
+        const headRes = await s3Client.send(headCommand);
+        metadata = {
+          contentLength: Number(headRes.ContentLength) || 0,
+          contentType: headRes.ContentType || "video/mp4",
+          cachedAt: Date.now(),
+        };
+        videoMetadataCache.set(videoId, metadata);
+      } catch (headErr) {
+        console.warn("[Stream Module] HeadObject fallback:", headErr?.message);
+      }
+    }
+
+    const totalSize = metadata?.contentLength || 0;
+    const contentType = metadata?.contentType || "video/mp4";
+
+    // 2. Chunk Slicing: 2.5MB per chunk (delivers fast startup and prevents buffering)
+    const CHUNK_SIZE = 2.5 * 1024 * 1024; // 2.5MB
+    const rangeHeader = req.headers.range;
+
+    let start = 0;
+    let end = totalSize > 0 ? totalSize - 1 : undefined;
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      start = parseInt(parts[0], 10);
+      if (isNaN(start)) start = 0;
+
+      if (parts[1]) {
+        end = parseInt(parts[1], 10);
+      } else if (totalSize > 0) {
+        // Open-ended range (e.g. bytes=0-): cap end byte to start + CHUNK_SIZE
+        end = Math.min(start + CHUNK_SIZE - 1, totalSize - 1);
+      }
+    } else if (totalSize > 0) {
+      end = Math.min(CHUNK_SIZE - 1, totalSize - 1);
+    }
+
+    // Validate range limits
+    if (totalSize > 0 && (start >= totalSize || (end !== undefined && (end >= totalSize || start > end)))) {
+      res.setHeader("Content-Range", `bytes */${totalSize}`);
+      return res.status(416).json({ message: "Requested range not satisfiable" });
+    }
+
+    const s3Range = end !== undefined ? `bytes=${start}-${end}` : rangeHeader || "bytes=0-";
+
     const command = new GetObjectCommand({
       Bucket: ENV.ZATA_BUCKET_NAME,
       Key: videoId,
-      Range: range,
+      Range: s3Range,
     });
 
     const s3Response = await s3Client.send(command);
 
-    // Set streaming and security headers to prevent downloading and buffering
+    // 3. Set headers for HTTP 206 Partial Content
+    const chunkSize = end !== undefined ? end - start + 1 : s3Response.ContentLength;
     const headers = {
-      "Content-Type": s3Response.ContentType || "video/mp4",
+      "Content-Type": contentType,
       "Accept-Ranges": "bytes",
       "Content-Disposition": "inline",
       "Cache-Control": "private, max-age=86400, no-transform",
       "X-Content-Type-Options": "nosniff",
     };
 
-    if (s3Response.ContentRange) {
+    if (totalSize > 0 && end !== undefined) {
+      headers["Content-Range"] = `bytes ${start}-${end}/${totalSize}`;
+      headers["Content-Length"] = chunkSize;
+      res.writeHead(206, headers);
+    } else if (s3Response.ContentRange) {
       headers["Content-Range"] = s3Response.ContentRange;
-      headers["Content-Length"] = s3Response.ContentLength;
+      if (s3Response.ContentLength) headers["Content-Length"] = s3Response.ContentLength;
       res.writeHead(206, headers);
     } else {
-      if (s3Response.ContentLength) {
-        headers["Content-Length"] = s3Response.ContentLength;
-      }
+      if (s3Response.ContentLength) headers["Content-Length"] = s3Response.ContentLength;
       res.writeHead(200, headers);
     }
+
+    // 4. Socket Disconnect Cleanup: Stop S3 stream immediately when client seeks or navigates away
+    let isClientClosed = false;
+    res.on("close", () => {
+      isClientClosed = true;
+      if (s3Response?.Body && typeof s3Response.Body.destroy === "function") {
+        s3Response.Body.destroy();
+      }
+    });
+
+    s3Response.Body.on("error", (streamErr) => {
+      if (!isClientClosed && !res.headersSent) {
+        console.error("S3 stream pipe error:", streamErr);
+        res.status(500).json({ message: "Streaming error" });
+      }
+    });
 
     s3Response.Body.pipe(res);
   } catch (error) {
