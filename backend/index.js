@@ -18,6 +18,7 @@ import qualifiedMentorRoute from "./src/routes/qualifiedMentors.js";
 import ebookRoute from "./src/routes/ebook.route.js";
 import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
 import couponRoute from "./src/routes/coupon.route.js";
+import videoInteractionRoute from "./src/routes/videoInteraction.route.js";
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use("/api/course", courseRoute);
 app.use("/api/module", moduleRoute);
 app.use("/api/payment", paymentRoute);
 app.use("/api/coupon", couponRoute);
+app.use("/api/video-interaction", videoInteractionRoute);
 app.use("/api/hero", heroRoutes);
 app.use("/api/exam", examRoute);
 app.use("/api/quiz", quizRoute);

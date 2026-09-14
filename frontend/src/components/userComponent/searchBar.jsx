@@ -12,7 +12,12 @@ const SearchBar = () => {
   const { data } = useGetCourseHook()
   const { data: purchasedData } = useGetAllPurchasedCourseHook()
 
-  const allCourses = useMemo(() => data?.courses || [], [data?.courses])
+  const allCourses = useMemo(() => {
+    if (!data?.courses) return [];
+    return [...data.courses].sort((a, b) =>
+      (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" })
+    );
+  }, [data?.courses]);
 
   const filteredCourses = useMemo(() => {
     if (!searchInput.trim()) return allCourses

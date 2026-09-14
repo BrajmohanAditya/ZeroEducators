@@ -20,6 +20,7 @@ const Footer = () => {
     { label: "Free Quizzes", to: "/quizeDetail?type=Free" },
     { label: "Premium Tests", to: "/quizeDetail?type=Paid" },
     { label: "Success Stories", to: "/#success-stories" },
+    { label: "Terms & Conditions", to: "/terms-and-conditions" },
   ];
 
   const examLinks = [
@@ -831,28 +832,57 @@ const Footer = () => {
             </p>
           </div>
           <div style={{ display: "flex", gap: "24px" }}>
-            {["Privacy Policy", "Terms of Service", "Refund Policy"].map(
-              (item) => (
-                <a
-                  key={item}
-                  href="#"
-                  style={{
-                    fontSize: "12px",
-                    color: "#64748b",
-                    textDecoration: "none",
-                    transition: "color 0.2s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "#d4af37")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "#64748b")
-                  }
-                >
-                  {item}
-                </a>
-              ),
-            )}
+            <Link
+              to="/terms-and-conditions"
+              style={{
+                fontSize: "12px",
+                color: "#64748b",
+                textDecoration: "none",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "#d4af37")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "#64748b")
+              }
+            >
+              Terms & Conditions
+            </Link>
+            <Link
+              to="/terms-and-conditions#refund-policy"
+              style={{
+                fontSize: "12px",
+                color: "#64748b",
+                textDecoration: "none",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "#d4af37")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "#64748b")
+              }
+            >
+              No-Refund Policy
+            </Link>
+            <Link
+              to="/terms-and-conditions"
+              style={{
+                fontSize: "12px",
+                color: "#64748b",
+                textDecoration: "none",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "#d4af37")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "#64748b")
+              }
+            >
+              Privacy Policy
+            </Link>
           </div>
         </div>
       </div>

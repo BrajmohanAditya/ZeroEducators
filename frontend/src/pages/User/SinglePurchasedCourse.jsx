@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import SecurePdfViewer from "@/components/common/SecurePdfViewer";
 import SecureVideoPlayer from "@/components/common/SecureVideoPlayer";
+import VideoInteractionSection from "@/components/common/VideoInteractionSection";
 import { useGetSinglePurchasedCourseHook } from "@/hooks/course.hook";
 import { useUserStore } from "@/store/user.store";
 
@@ -220,7 +221,7 @@ const SinglePurchasedCourse = () => {
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* ── Left Content (Video Player OR PDF Viewer) ── */}
-      <div className="w-full lg:w-2/3 flex flex-col bg-slate-50 p-2 sm:p-4 lg:p-8 relative overflow-hidden shrink-0">
+      <div className="w-full lg:w-2/3 flex flex-col bg-slate-50 p-2 sm:p-4 lg:p-8 relative overflow-y-auto custom-scrollbar">
         {/* Soft background glows */}
         <div className="absolute top-0 left-1/4 w-3/4 h-3/4 bg-blue-400/10 blur-[120px] pointer-events-none rounded-full"></div>
         <div className="absolute bottom-0 right-1/4 w-3/4 h-3/4 bg-purple-400/10 blur-[120px] pointer-events-none rounded-full"></div>
@@ -260,36 +261,47 @@ const SinglePurchasedCourse = () => {
             )}
           </div>
         ) : (
-          /* ── Video Player Container (16:9 Aspect ratio on Mobile, Full on Desktop) ── */
-          <div
-            className="w-full aspect-video lg:aspect-auto lg:flex-1 flex items-center justify-center relative z-10 max-w-5xl mx-auto rounded-xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {module?.Video || module?.Video_id ? (
-              <SecureVideoPlayer
-                videoKey={module._id || module.Video_id}
-                src={
-                  module.moduleId || module._id
-                    ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
-                    : module.Video
-                }
-                user={user}
-                onError={(e) => {
-                  if (module?.Video && e.currentTarget.src !== module.Video) {
-                    e.currentTarget.src = module.Video;
+          <div className="flex-1 flex flex-col relative z-10 w-full max-w-5xl mx-auto">
+            {/* ── Video Player Container ── */}
+            <div
+              className="w-full aspect-video flex items-center justify-center relative rounded-xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5 shrink-0"
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {module?.Video || module?.Video_id ? (
+                <SecureVideoPlayer
+                  videoKey={module._id || module.Video_id}
+                  src={
+                    module.moduleId || module._id
+                      ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
+                      : module.Video
                   }
-                }}
-              />
-            ) : (
-              <div className="text-center flex flex-col items-center justify-center p-12 animate-in fade-in duration-500 bg-white w-full h-full">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 ring-1 ring-slate-100 shadow-sm">
-                  <PlayCircle className="w-12 h-12 text-emerald-500" />
+                  user={user}
+                  onError={(e) => {
+                    if (module?.Video && e.currentTarget.src !== module.Video) {
+                      e.currentTarget.src = module.Video;
+                    }
+                  }}
+                />
+              ) : (
+                <div className="text-center flex flex-col items-center justify-center p-12 animate-in fade-in duration-500 bg-white w-full h-full">
+                  <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 ring-1 ring-slate-100 shadow-sm">
+                    <PlayCircle className="w-12 h-12 text-emerald-500" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Ready to Learn?</h3>
+                  <p className="text-slate-500 max-w-sm text-sm">
+                    Select a video lecture from the course content sidebar on the right to start watching.
+                  </p>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Ready to Learn?</h3>
-                <p className="text-slate-500 max-w-sm text-sm">
-                  Select a video lecture from the course content sidebar on the right to start watching.
-                </p>
-              </div>
+              )}
+            </div>
+
+            {/* ── Video Interactions: Like and Comments ── */}
+            {module && (
+              <VideoInteractionSection
+                video={module}
+                courseId={id}
+                currentUser={user}
+              />
             )}
           </div>
         )}

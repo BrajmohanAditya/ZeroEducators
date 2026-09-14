@@ -113,7 +113,9 @@ export const getCourse = async (req, res) => {
   try {
     const { search } = req.query;
     if (!search || search.trim() === "") {
-      const allCourses = await Course.find({});
+      const allCourses = await Course.find({})
+        .collation({ locale: "en", strength: 2 })
+        .sort({ title: 1 });
       return res.status(200).json({
         success: true,
         courses: allCourses,
@@ -150,7 +152,10 @@ export const getCourse = async (req, res) => {
       ],
     };
 
-    const courses = await Course.find(mongoQuery).lean();
+    const courses = await Course.find(mongoQuery)
+      .collation({ locale: "en", strength: 2 })
+      .sort({ title: 1 })
+      .lean();
 
     const coursesWithEnrolled = await Promise.all(
       courses.map(async (c) => {

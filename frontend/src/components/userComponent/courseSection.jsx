@@ -40,7 +40,12 @@ const courseSection = () => {
     navigate(`/singleCourse/${id}`);
   };
 
-  const allCourses = useMemo(() => data?.courses || [], [data?.courses]);
+  const allCourses = useMemo(() => {
+    if (!data?.courses) return [];
+    return [...data.courses].sort((a, b) =>
+      (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" })
+    );
+  }, [data?.courses]);
 
   const filteredCourses = useMemo(() => {
     if (!searchQuery.trim()) return allCourses;
