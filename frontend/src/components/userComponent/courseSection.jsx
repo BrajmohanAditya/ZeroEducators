@@ -4,7 +4,7 @@ import {
   useGetAllPurchasedCourseHook,
 } from "../../hooks/course.hook.js";
 import { useNavigate } from "react-router-dom";
-import { Clock, Users, Star, ArrowRight, Zap, MessageSquare } from "lucide-react";
+import { Clock, Users, Star, Zap, MessageSquare } from "lucide-react";
 
 const courseSection = () => {
   const { data, error, isLoading } = useGetCourseHook();
@@ -115,11 +115,7 @@ const courseSection = () => {
                   </div>
 
                   {/* Buttons Section */}
-                  <div className="flex items-center gap-3">
-                    <button className="flex-1 cursor-pointer flex items-center justify-center gap-1 px-3 py-2.5 border-2 border-[#0a66c2] text-[#0a66c2] text-sm font-bold rounded-lg hover:bg-blue-50 transition-colors">
-                      Details <ArrowRight className="w-4 h-4" />
-                    </button>
-
+                  <div className="w-full">
                     {purchasedData?.purchasedCourse?.some(
                       (pc) => pc._id === item._id,
                     ) ? (
@@ -127,14 +123,14 @@ const courseSection = () => {
                         onClick={() =>
                           navigate(`/SinglePurchasedCourse/${item._id}`)
                         }
-                        className="flex-[1.2] cursor-pointer flex items-center justify-center gap-1 px-3 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                        className="w-full cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                       >
                         Continue
                       </button>
                     ) : (
                       <button
                         onClick={() => navigateSinglecourse(item._id)}
-                        className="flex-[1.2] cursor-pointer flex items-center justify-center gap-1 px-3 py-2.5 bg-[#0a66c2] text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        className="w-full cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#0a66c2] text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                       >
                         <Zap className="w-4 h-4 fill-current" /> Enroll Now
                       </button>
