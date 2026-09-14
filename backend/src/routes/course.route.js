@@ -35,6 +35,11 @@ import {
   reorderChapters,
   reorderSubjects,
   reorderTopics,
+  getVideoPresignedUrl,
+  initiateMultipartVideoUpload,
+  getMultipartVideoPartUrls,
+  completeMultipartVideoUpload,
+  abortMultipartVideoUpload,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -137,20 +142,32 @@ courseRoute.delete(
 );
 
 // Chapter Video Routes
+courseRoute.post("/video/presigned-url", isLoggedIn, isAdmin, getVideoPresignedUrl);
+
+// Multipart Video Direct Upload Routes
+courseRoute.post("/video/multipart/initiate", isLoggedIn, isAdmin, initiateMultipartVideoUpload);
+courseRoute.post("/video/multipart/part-urls", isLoggedIn, isAdmin, getMultipartVideoPartUrls);
+courseRoute.post("/video/multipart/complete", isLoggedIn, isAdmin, completeMultipartVideoUpload);
+courseRoute.post("/video/multipart/abort", isLoggedIn, isAdmin, abortMultipartVideoUpload);
+
 courseRoute.post(
   "/:courseId/subject/:subjectId/chapter/:chapterId/video",
   isLoggedIn,
   isAdmin,
   (req, res, next) => {
-    videoUpload.single("video")(req, res, (err) => {
-      if (err) {
-        console.error("Multer video upload error:", err);
-        return res.status(400).json({
-          message: formatUploadError(err),
-        });
-      }
-      next();
-    });
+    const contentType = req.headers["content-type"] || "";
+    if (contentType.includes("multipart/form-data")) {
+      return videoUpload.single("video")(req, res, (err) => {
+        if (err) {
+          console.error("Multer video upload error:", err);
+          return res.status(400).json({
+            message: formatUploadError(err),
+          });
+        }
+        next();
+      });
+    }
+    next();
   },
   addVideoToChapter
 );

@@ -262,12 +262,16 @@ export const addVideoToChapterApi = async ({
   subjectId,
   chapterId,
   formData,
+  data,
   onUploadProgress,
 }) => {
+  const payload = formData || data;
+  const isJson = !(payload instanceof FormData);
   const res = await axios.post(
     `${baseUrl}/course/${courseId}/subject/${subjectId}/chapter/${chapterId}/video`,
-    formData,
+    payload,
     {
+      headers: isJson ? { "Content-Type": "application/json" } : undefined,
       withCredentials: true,
       timeout: 0,
       maxContentLength: Infinity,
@@ -276,6 +280,91 @@ export const addVideoToChapterApi = async ({
     }
   );
   return res.data;
+};
+
+export const getVideoPresignedUrlApi = async ({ fileName, fileType, folder = "courseModule" }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/presigned-url`,
+    { fileName, fileType, folder },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const uploadDirectToS3Api = async ({
+  uploadUrl,
+  file,
+  fileType,
+  onUploadProgress,
+  signal,
+}) => {
+  const res = await axios.put(uploadUrl, file, {
+    headers: {
+      "Content-Type": fileType || file.type || "video/mp4",
+    },
+    withCredentials: false,
+    timeout: 0,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    onUploadProgress,
+    signal,
+  });
+  return res;
+};
+
+export const initiateMultipartVideoUploadApi = async ({
+  fileName,
+  fileType,
+  folder = "courseModule",
+}) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/multipart/initiate`,
+    { fileName, fileType, folder },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const getMultipartVideoPartUrlsApi = async ({ fileKey, uploadId, partNumbers }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/multipart/part-urls`,
+    { fileKey, uploadId, partNumbers },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const completeMultipartVideoUploadApi = async ({ fileKey, uploadId, parts }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/multipart/complete`,
+    { fileKey, uploadId, parts },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const abortMultipartVideoUploadApi = async ({ fileKey, uploadId }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/multipart/abort`,
+    { fileKey, uploadId },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+
+export const uploadPartToS3Api = async ({ presignedUrl, chunk, signal }) => {
+  const response = await fetch(presignedUrl, {
+    method: "PUT",
+    body: chunk,
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Part upload failed with HTTP status ${response.status}`);
+  }
+
+  const etag = response.headers.get("etag");
+  return etag;
 };
 
 export const deleteVideoFromChapterApi = async ({

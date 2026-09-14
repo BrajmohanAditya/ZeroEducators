@@ -53,8 +53,13 @@ import {
 } from "@/components/ui/dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
-import ReorderModal from "@/components/Admin/ReorderModal";
-import { getModuleUploadProgressApi } from "@/api/module.api";
+import {
+  initiateMultipartVideoUploadApi,
+  getMultipartVideoPartUrlsApi,
+  completeMultipartVideoUploadApi,
+  abortMultipartVideoUploadApi,
+  uploadPartToS3Api,
+} from "@/api/course.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -181,14 +186,12 @@ const TopicPdfManager = () => {
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [copiedVideoId, setCopiedVideoId] = useState(null);
-  const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'local' | 'cloud' | 'done'
-  const [localProgress, setLocalProgress] = useState(0);
-  const [localLoaded, setLocalLoaded] = useState(0);
-  const [localTotal, setLocalTotal] = useState(0);
-  const [cloudProgress, setCloudProgress] = useState(0);
-  const [cloudLoaded, setCloudLoaded] = useState(0);
-  const [cloudTotal, setCloudTotal] = useState(0);
-  const pollIntervalRef = useRef(null);
+  const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'direct' | 'saving' | 'done'
+  const [directProgress, setDirectProgress] = useState(0);
+  const [directLoaded, setDirectLoaded] = useState(0);
+  const [directTotal, setDirectTotal] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState("");
+  const [partInfo, setPartInfo] = useState({ current: 0, total: 0 });
   const wakeLockRef = useRef(null);
 
   const requestWakeLock = async () => {
@@ -261,16 +264,10 @@ const TopicPdfManager = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const cleanupPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    releaseWakeLock();
-  };
-
   useEffect(() => {
-    return () => cleanupPolling();
+    return () => {
+      releaseWakeLock();
+    };
   }, []);
 
   // Handle Add Subject
@@ -412,7 +409,7 @@ const TopicPdfManager = () => {
   };
 
   // Handle Upload or Link Video to Chapter
-  const handleUploadVideoSubmit = (e) => {
+  const handleUploadVideoSubmit = async (e) => {
     e.preventDefault();
     if (!videoTitle.trim()) {
       toast.error("Please enter a video title");
@@ -428,16 +425,15 @@ const TopicPdfManager = () => {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("title", videoTitle.trim());
-      formData.append("videoUrl", videoUrl.trim());
-
       addVideoToChapter(
         {
           courseId,
           subjectId: activeChapterForVideoUpload.subjectId,
           chapterId: activeChapterForVideoUpload.chapterId,
-          formData,
+          data: {
+            title: videoTitle.trim(),
+            videoUrl: videoUrl.trim(),
+          },
         },
         {
           onSuccess: () => {
@@ -467,130 +463,196 @@ const TopicPdfManager = () => {
       return;
     }
 
-    const uploadId = "up_chap_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
-    const formData = new FormData();
-    formData.append("title", videoTitle.trim());
-    formData.append("video", videoFile);
-    formData.append("uploadId", uploadId);
+    const currentChapter = { ...activeChapterForVideoUpload };
+    const currentTitle = videoTitle.trim();
+    const currentFile = videoFile;
+    const fileSize = currentFile.size || 0;
 
-    const fileSize = videoFile.size || 0;
-    setUploadPhase("local");
-    setLocalProgress(0);
-    setLocalLoaded(0);
-    setLocalTotal(fileSize);
-    setCloudProgress(0);
-    setCloudLoaded(0);
-    setCloudTotal(fileSize);
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk size
+    const totalParts = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE));
 
-    cleanupPolling();
+    setUploadPhase("direct");
+    setDirectProgress(0);
+    setDirectLoaded(0);
+    setDirectTotal(fileSize);
+    setUploadSpeed("");
+    setPartInfo({ current: 0, total: totalParts });
     requestWakeLock();
 
-    const startCloudPolling = () => {
-      setUploadPhase("cloud");
-      if (pollIntervalRef.current) return;
+    let currentUploadId = null;
+    let currentFileKey = null;
 
-      pollIntervalRef.current = setInterval(async () => {
+    try {
+      // Step 1: Request S3 Multipart Upload Initialization
+      const initRes = await initiateMultipartVideoUploadApi({
+        fileName: currentFile.name,
+        fileType: currentFile.type || "video/mp4",
+        folder: "courseModule",
+      });
+
+      if (!initRes?.data?.uploadId || !initRes?.data?.fileKey) {
+        throw new Error(initRes?.message || "Failed to initialize cloud upload");
+      }
+
+      const { uploadId, fileKey, publicUrl } = initRes.data;
+      currentUploadId = uploadId;
+      currentFileKey = fileKey;
+
+      // Step 2: Request presigned part URLs in batches of 25
+      const allPartNumbers = Array.from({ length: totalParts }, (_, i) => i + 1);
+      const partUrlsMap = new Map();
+      for (let i = 0; i < allPartNumbers.length; i += 25) {
+        const batch = allPartNumbers.slice(i, i + 25);
+        const urlsRes = await getMultipartVideoPartUrlsApi({
+          fileKey,
+          uploadId,
+          partNumbers: batch,
+        });
+        urlsRes.data.forEach((item) => partUrlsMap.set(item.partNumber, item.presignedUrl));
+      }
+
+      // Step 3: Concurrently upload 10MB chunks with auto-retry (2 parallel workers)
+      const completedParts = [];
+      let uploadedBytes = 0;
+      let lastTime = Date.now();
+      let lastLoaded = 0;
+
+      const queue = [...allPartNumbers];
+      let activeWorkers = 0;
+      const CONCURRENCY = 2;
+
+      const uploadChunkWithRetry = async (partNumber, attempt = 1) => {
+        const start = (partNumber - 1) * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileSize);
+        const chunk = currentFile.slice(start, end);
+        const presignedUrl = partUrlsMap.get(partNumber);
+
         try {
-          const res = await getModuleUploadProgressApi(uploadId);
-          if (res) {
-            if (res.loaded) setCloudLoaded(res.loaded);
-            if (res.total) setCloudTotal(res.total);
-            if (typeof res.percent === "number") {
-              setCloudProgress(res.percent);
-            }
+          const etag = await uploadPartToS3Api({
+            presignedUrl,
+            chunk,
+          });
 
-            if (res.status === "completed") {
-              cleanupPolling();
-              releaseWakeLock();
-              setUploadPhase("done");
-              setCloudProgress(100);
-              if (activeChapterForVideoUpload?.chapterId) {
-                setExpandedChapters((prev) => ({
-                  ...prev,
-                  [activeChapterForVideoUpload.chapterId]: true,
-                }));
-              }
-              queryClient.invalidateQueries(["getSingleCourse", courseId]);
-              queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
-              queryClient.invalidateQueries(["getCourse"]);
-              toast.success("Video uploaded to chapter successfully!");
-              setTimeout(() => {
-                setActiveChapterForVideoUpload(null);
-                setVideoTitle("");
-                setVideoFile(null);
-                setUploadPhase("idle");
-              }, 1200);
-            }
+          if (!etag) throw new Error(`Missing ETag for part ${partNumber}`);
+
+          completedParts.push({
+            PartNumber: partNumber,
+            ETag: etag.replace(/"/g, ""),
+          });
+
+          uploadedBytes += (end - start);
+          const percent = Math.min(100, Math.round((uploadedBytes * 100) / fileSize));
+          setDirectProgress(percent);
+          setDirectLoaded(uploadedBytes);
+          setPartInfo({ current: completedParts.length, total: totalParts });
+
+          const now = Date.now();
+          const diffSec = (now - lastTime) / 1000;
+          if (diffSec >= 0.5) {
+            const speed = (uploadedBytes - lastLoaded) / diffSec;
+            setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
+            lastLoaded = uploadedBytes;
+            lastTime = now;
           }
         } catch (err) {
-          console.error("Error polling cloud progress:", err);
+          if (attempt < 4) {
+            console.warn(`Part ${partNumber} retry attempt ${attempt}/3 in 1.5s...`, err);
+            await new Promise((r) => setTimeout(r, 1500));
+            return uploadChunkWithRetry(partNumber, attempt + 1);
+          }
+          throw new Error(`Part ${partNumber} failed after retries: ${err.message}`);
         }
-      }, 1000);
-    };
+      };
 
-    addVideoToChapter(
-      {
-        courseId,
-        subjectId: activeChapterForVideoUpload.subjectId,
-        chapterId: activeChapterForVideoUpload.chapterId,
-        formData,
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setLocalProgress(percentCompleted);
-            setLocalLoaded(progressEvent.loaded);
-            setLocalTotal(progressEvent.total);
+      await new Promise((resolve, reject) => {
+        let hasError = false;
 
-            if (percentCompleted >= 100) {
-              startCloudPolling();
-            }
+        const next = () => {
+          if (hasError) return;
+          if (queue.length === 0 && activeWorkers === 0) {
+            return resolve();
           }
+
+          while (activeWorkers < CONCURRENCY && queue.length > 0) {
+            const partNumber = queue.shift();
+            activeWorkers++;
+            uploadChunkWithRetry(partNumber)
+              .then(() => {
+                activeWorkers--;
+                next();
+              })
+              .catch((err) => {
+                hasError = true;
+                reject(err);
+              });
+          }
+        };
+
+        next();
+      });
+
+      // Step 4: Complete Multipart Upload (merge all chunks)
+      setUploadPhase("saving");
+      await completeMultipartVideoUploadApi({
+        fileKey,
+        uploadId,
+        parts: completedParts,
+      });
+
+      // Step 5: Save lecture metadata into course database
+      addVideoToChapter(
+        {
+          courseId,
+          subjectId: currentChapter.subjectId,
+          chapterId: currentChapter.chapterId,
+          data: {
+            title: currentTitle,
+            videoUrl: publicUrl,
+            videoId: fileKey,
+          },
         },
-      },
-      {
-        onSuccess: () => {
-          cleanupPolling();
-          releaseWakeLock();
-          setUploadPhase("done");
-          setCloudProgress(100);
-          if (activeChapterForVideoUpload?.chapterId) {
-            setExpandedChapters((prev) => ({
-              ...prev,
-              [activeChapterForVideoUpload.chapterId]: true,
-            }));
-          }
-          queryClient.invalidateQueries(["getSingleCourse", courseId]);
-          queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
-          queryClient.invalidateQueries(["getCourse"]);
-          setTimeout(() => {
-            setActiveChapterForVideoUpload(null);
-            setVideoTitle("");
-            setVideoFile(null);
+        {
+          onSuccess: () => {
+            releaseWakeLock();
+            setUploadPhase("done");
+            setDirectProgress(100);
+            if (currentChapter?.chapterId) {
+              setExpandedChapters((prev) => ({
+                ...prev,
+                [currentChapter.chapterId]: true,
+              }));
+            }
+            queryClient.invalidateQueries(["getSingleCourse", courseId]);
+            queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+            queryClient.invalidateQueries(["getCourse"]);
+            toast.success("Video uploaded and saved to chapter successfully!");
+            setTimeout(() => {
+              setActiveChapterForVideoUpload(null);
+              setVideoTitle("");
+              setVideoFile(null);
+              setUploadPhase("idle");
+            }, 1000);
+          },
+          onError: (err) => {
+            releaseWakeLock();
             setUploadPhase("idle");
-          }, 800);
-        },
-        onError: (err) => {
-          cleanupPolling();
-          releaseWakeLock();
-          setUploadPhase("idle");
-          let errorMsg = err?.response?.data?.message;
-          if (!errorMsg) {
-            if (err?.response?.status === 413) {
-              errorMsg = "Video file is too large (HTTP 413). The live server/proxy (Nginx or Cloudflare) rejected the file size.";
-            } else if (err?.response?.status === 504 || err?.response?.status === 408) {
-              errorMsg = "Upload timed out (HTTP 504). The mobile connection is too slow for this video size.";
-            } else if (err?.code === "ERR_NETWORK" || err?.message?.includes("Network Error")) {
-              errorMsg = "Network connection dropped during upload. Please ensure a stable Wi-Fi connection.";
-            } else {
-              errorMsg = err?.message || "Video upload failed. Please try again.";
-            }
-          }
-          toast.error(errorMsg, { duration: 6000 });
-        },
+            toast.error(err?.response?.data?.message || "Failed to register video in chapter");
+          },
+        }
+      );
+    } catch (directUploadErr) {
+      console.error("[Direct S3 Multipart Upload Failed]:", directUploadErr);
+      if (currentUploadId && currentFileKey) {
+        abortMultipartVideoUploadApi({ fileKey: currentFileKey, uploadId: currentUploadId }).catch(() => {});
       }
-    );
+      releaseWakeLock();
+      setUploadPhase("idle");
+      let errorMsg =
+        directUploadErr?.response?.data?.message ||
+        directUploadErr?.message ||
+        "Upload failed. Please check your connection and retry.";
+      toast.error(errorMsg, { duration: 7000 });
+    }
   };
 
   // Handle Confirm Delete
@@ -1650,12 +1712,12 @@ const TopicPdfManager = () => {
       <Dialog
         open={Boolean(activeChapterForVideoUpload)}
         onOpenChange={(open) => {
-          if (uploadPhase === "local" || uploadPhase === "cloud") {
+          if (uploadPhase === "direct" || uploadPhase === "saving") {
             toast.warning("Video upload in progress. Please wait until it completes.");
             return;
           }
           if (!open) {
-            cleanupPolling();
+            releaseWakeLock();
             setActiveChapterForVideoUpload(null);
             setVideoTitle("");
             setVideoFile(null);
@@ -1785,56 +1847,47 @@ const TopicPdfManager = () => {
 
             {/* Upload Progress Status Indicator (Only in File Mode) */}
             {videoAddMode === "file" && uploadPhase !== "idle" && (
-              <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/70 space-y-3">
-                {/* Phase 1: Browser to Server */}
-                <div className="space-y-1">
+              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 space-y-3">
+                <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-bold text-slate-700">
                     <span className="flex items-center gap-1.5">
-                      {localProgress >= 100 ? (
+                      {directProgress >= 100 ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       ) : (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                       )}
-                      1. Uploading to Server
+                      {uploadPhase === "saving"
+                        ? "Assembling & Finalizing..."
+                        : directProgress >= 100
+                        ? "Upload Complete!"
+                        : partInfo.total > 0
+                        ? `⚡ Direct Fast Upload (Part ${partInfo.current}/${partInfo.total})`
+                        : "⚡ Direct Fast Upload"}
                     </span>
-                    <span>
-                      {formatFileSize(localLoaded)} / {formatFileSize(localTotal)} ({localProgress}%)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {uploadSpeed && directProgress < 100 && (
+                        <span className="text-emerald-700 font-extrabold bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
+                          {uploadSpeed}
+                        </span>
+                      )}
+                      <span className="text-slate-600 font-semibold">
+                        {formatFileSize(directLoaded)} / {formatFileSize(directTotal)} ({directProgress}%)
+                      </span>
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${localProgress}%` }}
+                      className="bg-emerald-600 h-2.5 rounded-full transition-all duration-150"
+                      style={{ width: `${directProgress}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Phase 2: Server to S3 Cloud */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                    <span className="flex items-center gap-1.5">
-                      {cloudProgress >= 100 ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      ) : uploadPhase === "cloud" ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 rounded-full border border-slate-300" />
-                      )}
-                      2. Storing safely in Cloud (S3)
-                    </span>
-                    <span>
-                      {uploadPhase === "cloud" || cloudProgress > 0
-                        ? `${cloudProgress}%`
-                        : "Waiting..."}
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${cloudProgress}%` }}
-                    />
-                  </div>
-                </div>
+                {uploadPhase === "saving" && (
+                  <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> Finalizing lecture in course...
+                  </p>
+                )}
 
                 {uploadPhase === "done" && (
                   <p className="text-xs font-bold text-emerald-700 text-center flex items-center justify-center gap-1">
@@ -1847,9 +1900,9 @@ const TopicPdfManager = () => {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                disabled={uploadPhase === "local" || uploadPhase === "cloud" || isAddingVideo}
+                disabled={uploadPhase === "direct" || uploadPhase === "saving" || isAddingVideo}
                 onClick={() => {
-                  cleanupPolling();
+                  releaseWakeLock();
                   setActiveChapterForVideoUpload(null);
                   setVideoTitle("");
                   setVideoFile(null);
@@ -1881,16 +1934,25 @@ const TopicPdfManager = () => {
               ) : (
                 <button
                   type="submit"
-                  disabled={uploadPhase === "local" || uploadPhase === "cloud" || !videoFile || !videoTitle.trim()}
+                  disabled={
+                    uploadPhase === "direct" ||
+                    uploadPhase === "saving" ||
+                    !videoFile ||
+                    !videoTitle.trim()
+                  }
                   className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 >
-                  {uploadPhase === "local" || uploadPhase === "cloud" ? (
+                  {uploadPhase === "direct" ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading Video...
+                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading to Cloud...
+                    </>
+                  ) : uploadPhase === "saving" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Finalizing...
                     </>
                   ) : (
                     <>
-                      <UploadCloud className="w-4 h-4" /> Start Upload
+                      <UploadCloud className="w-4 h-4" /> Start Direct Upload
                     </>
                   )}
                 </button>

@@ -1,4 +1,13 @@
-import { uploadToZata as uploadToB2, deleteFromZata as deleteFromB2, s3Client } from "../config/zata.js";
+import {
+  uploadToZata as uploadToB2,
+  deleteFromZata as deleteFromB2,
+  s3Client,
+  getPresignedUploadUrl,
+  initiateMultipartUpload,
+  getMultipartPartUrls,
+  completeMultipartUpload,
+  abortMultipartUpload,
+} from "../config/zata.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import { ENV } from "../config/env.js";
@@ -1200,7 +1209,7 @@ export const addVideoToChapter = async (req, res, next) => {
 
       return res.status(201).json({
         success: true,
-        message: "Existing video linked to chapter successfully",
+        message: "Video added to chapter successfully",
         course,
         video: chapter.videos[chapter.videos.length - 1],
       });
@@ -2090,6 +2099,96 @@ export const reorderTopics = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getVideoPresignedUrl = async (req, res, next) => {
+  try {
+    const { fileName, fileType, folder } = req.body;
+    if (!fileName) {
+      return res.status(400).json({
+        success: false,
+        message: "fileName is required",
+      });
+    }
+
+    const result = await getPresignedUploadUrl(
+      fileName,
+      fileType || "video/mp4",
+      folder || "courseModule"
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error generating presigned video upload URL:", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Failed to generate presigned upload URL",
+    });
+  }
+};
+
+export const initiateMultipartVideoUpload = async (req, res, next) => {
+  try {
+    const { fileName, fileType, folder } = req.body;
+    if (!fileName) {
+      return res.status(400).json({ success: false, message: "fileName is required" });
+    }
+    const result = await initiateMultipartUpload(
+      fileName,
+      fileType || "video/mp4",
+      folder || "courseModule"
+    );
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error initiating multipart video upload:", error);
+    return res.status(500).json({ success: false, message: error?.message || "Failed to initiate multipart upload" });
+  }
+};
+
+export const getMultipartVideoPartUrls = async (req, res, next) => {
+  try {
+    const { fileKey, uploadId, partNumbers } = req.body;
+    if (!fileKey || !uploadId || !Array.isArray(partNumbers) || partNumbers.length === 0) {
+      return res.status(400).json({ success: false, message: "fileKey, uploadId and partNumbers array are required" });
+    }
+    const partUrls = await getMultipartPartUrls(fileKey, uploadId, partNumbers);
+    return res.status(200).json({ success: true, data: partUrls });
+  } catch (error) {
+    console.error("Error generating multipart part URLs:", error);
+    return res.status(500).json({ success: false, message: error?.message || "Failed to generate part URLs" });
+  }
+};
+
+export const completeMultipartVideoUpload = async (req, res, next) => {
+  try {
+    const { fileKey, uploadId, parts } = req.body;
+    if (!fileKey || !uploadId || !Array.isArray(parts) || parts.length === 0) {
+      return res.status(400).json({ success: false, message: "fileKey, uploadId and parts array are required" });
+    }
+    const result = await completeMultipartUpload(fileKey, uploadId, parts);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error completing multipart video upload:", error);
+    return res.status(500).json({ success: false, message: error?.message || "Failed to complete multipart upload" });
+  }
+};
+
+export const abortMultipartVideoUpload = async (req, res, next) => {
+  try {
+    const { fileKey, uploadId } = req.body;
+    if (!fileKey || !uploadId) {
+      return res.status(400).json({ success: false, message: "fileKey and uploadId are required" });
+    }
+    const result = await abortMultipartUpload(fileKey, uploadId);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error aborting multipart video upload:", error);
+    return res.status(500).json({ success: false, message: error?.message || "Failed to abort multipart upload" });
+  }
+};
+
 
 
 

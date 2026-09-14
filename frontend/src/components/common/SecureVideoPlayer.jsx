@@ -185,26 +185,22 @@ const SecureVideoPlayer = ({
         )}
       </button>
 
-      {/* ── MAIN FLOATING WATERMARK (Light Black, Always on top) ── */}
+      {/* ── MAIN FLOATING WATERMARK (Subtle Translucent Pill Badge) ── */}
       {user && (
         <div
-          className={`absolute pointer-events-none select-none z-50 font-mono text-[12px] sm:text-[13px] flex flex-col gap-0.5 tracking-wider font-semibold text-neutral-700 transition-opacity duration-700 ease-in-out ${
-            visible ? "opacity-100" : "opacity-0"
+          className={`absolute pointer-events-none select-none z-50 transition-opacity duration-700 ease-in-out ${
+            visible ? "opacity-45" : "opacity-0"
           }`}
           style={{
             top: coords.top,
             left: coords.left,
           }}
         >
-          {/* Line 1: Email in Light Black */}
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-neutral-700 shrink-0 stroke-[2.2]" />
-            <span className="truncate max-w-[260px]">{studentIdentifier}</span>
-          </div>
-
-          {/* Line 2: IP in Light Black */}
-          <div className="text-[11px] font-bold tracking-widest pl-5">
-            IP: {ipAddress}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/30 backdrop-blur-xs border border-white/10 shadow-xs text-xs font-sans whitespace-nowrap">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400/80 shrink-0 stroke-[2]" />
+            <span className="text-white/80 font-medium tracking-normal">{studentIdentifier}</span>
+            <span className="text-white/30">-</span>
+            <span className="text-teal-400/80 font-mono text-xs tracking-wider">IP: {ipAddress}</span>
           </div>
         </div>
       )}
