@@ -20,6 +20,10 @@ import {
   User,
   ShieldCheck,
   Sparkles,
+  Infinity as InfinityIcon,
+  Calendar,
+  Plus,
+  Minus,
 } from "lucide-react";
 import {
   useSearchUsersHook,
@@ -50,8 +54,9 @@ const GrantCourseAccessDialog = ({
   const [newStudentEmail, setNewStudentEmail] = useState("");
   const [newStudentMobile, setNewStudentMobile] = useState("");
 
-  // Plan duration
-  const [planDuration, setPlanDuration] = useState("Lifetime Access");
+  // Plan duration (manual month entry or lifetime)
+  const [validityType, setValidityType] = useState("months"); // 'months' | 'lifetime'
+  const [validityMonths, setValidityMonths] = useState(6);
 
   // Revoke state
   const [revokeConfirm, setRevokeConfirm] = useState(null);
@@ -97,6 +102,14 @@ const GrantCourseAccessDialog = ({
   const currentCourse =
     (allCourses && allCourses.find((c) => c._id === selectedCourseId)) || course;
 
+  const getFinalPlanDuration = () => {
+    if (validityType === "lifetime") {
+      return "Lifetime Access";
+    }
+    const months = Math.max(1, parseInt(validityMonths) || 1);
+    return `${months} ${months === 1 ? "Month" : "Months"} Access`;
+  };
+
   const handleGrantSubmit = (e) => {
     e.preventDefault();
 
@@ -104,6 +117,8 @@ const GrantCourseAccessDialog = ({
       toast.error("Please select a course");
       return;
     }
+
+    const finalPlanDuration = getFinalPlanDuration();
 
     if (enrollMode === "search") {
       if (!selectedUser) {
@@ -119,7 +134,7 @@ const GrantCourseAccessDialog = ({
         {
           courseId: selectedCourseId,
           userId: selectedUser._id,
-          planDuration,
+          planDuration: finalPlanDuration,
         },
         {
           onSuccess: () => {
@@ -141,7 +156,7 @@ const GrantCourseAccessDialog = ({
           name: newStudentName.trim(),
           email: newStudentEmail.trim().toLowerCase(),
           mobileNo: newStudentMobile.trim(),
-          planDuration,
+          planDuration: finalPlanDuration,
         },
         {
           onSuccess: () => {
@@ -443,27 +458,130 @@ const GrantCourseAccessDialog = ({
                 )}
 
                 {/* Plan Validity Duration */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    Access Validity / Plan Duration
-                  </label>
-                  <select
-                    value={planDuration}
-                    onChange={(e) => setPlanDuration(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="Lifetime Access">Lifetime Access (Recommended)</option>
-                    <option value="1 Year Access">1 Year Access</option>
-                    <option value="6 Months Access">6 Months Access</option>
-                    <option value="3 Months Access">3 Months Access</option>
-                    <option value="1 Month Access">1 Month Access</option>
-                    {currentCourse?.pricingPlans?.map((p, idx) => (
-                      <option key={idx} value={p.duration}>
-                        Plan: {p.duration} ({p.label || `₹${p.price}`})
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                      Access Validity / Plan Duration
+                    </label>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      {getFinalPlanDuration()}
+                    </span>
+                  </div>
+
+                  {/* Mode Selector: Custom Months vs Lifetime */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setValidityType("months")}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        validityType === "months"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      Custom Months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setValidityType("lifetime")}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        validityType === "lifetime"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <InfinityIcon className="w-3.5 h-3.5" />
+                      Lifetime Access
+                    </button>
+                  </div>
+
+                  {validityType === "months" ? (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                      {/* Manual input box with stepper */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Enter Validity (in Months):
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setValidityMonths((prev) => Math.max(1, (parseInt(prev) || 1) - 1))
+                            }
+                            className="w-9 h-9 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95 transition cursor-pointer shrink-0"
+                            title="Decrease 1 Month"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="120"
+                              value={validityMonths}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setValidityMonths(val === "" ? "" : Math.max(1, parseInt(val) || 1));
+                              }}
+                              placeholder="e.g. 6"
+                              className="w-full text-center py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setValidityMonths((prev) => Math.min(120, (parseInt(prev) || 0) + 1))
+                            }
+                            className="w-9 h-9 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95 transition cursor-pointer shrink-0"
+                            title="Increase 1 Month"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <span className="text-xs font-bold text-slate-600 px-3 py-2 bg-slate-200 rounded-lg shrink-0">
+                            Months
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Month Select Chips */}
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                          Quick Select:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[1, 2, 3, 6, 9, 12, 18, 24].map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setValidityMonths(m)}
+                              className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition cursor-pointer ${
+                                parseInt(validityMonths) === m
+                                  ? "bg-emerald-600 text-white shadow-sm"
+                                  : "bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300"
+                              }`}
+                            >
+                              {m} {m === 1 ? "Month" : "Months"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50/80 p-3.5 rounded-xl border border-emerald-200 flex items-start gap-2.5">
+                      <InfinityIcon className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-emerald-900">
+                          Permanent Lifetime Access
+                        </p>
+                        <p className="text-[11px] text-emerald-700 mt-0.5">
+                          The student will have unrestricted, permanent access to this course with no expiration date.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer Buttons */}
