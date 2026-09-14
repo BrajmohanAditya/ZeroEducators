@@ -10,6 +10,7 @@ import {
 } from "../config/zata.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
+import https from "https";
 import { ENV } from "../config/env.js";
 import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -2186,6 +2187,60 @@ export const abortMultipartVideoUpload = async (req, res, next) => {
   } catch (error) {
     console.error("Error aborting multipart video upload:", error);
     return res.status(500).json({ success: false, message: error?.message || "Failed to abort multipart upload" });
+  }
+};
+
+/**
+ * Stream a single 10MB chunk directly to S3 via in-memory network pipe (0 disk writes).
+ * This completely avoids browser CORS preflight restrictions on live domain without server load.
+ */
+export const streamMultipartVideoChunk = (req, res) => {
+  try {
+    const targetUrl = req.query.targetUrl;
+    if (!targetUrl || !targetUrl.includes("zata.ai")) {
+      return res.status(400).json({ success: false, message: "Invalid target URL" });
+    }
+
+    const parsed = new URL(targetUrl);
+    const proxyReq = https.request(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "PUT",
+        headers: {
+          "Content-Type": req.headers["content-type"] || "application/octet-stream",
+          "Content-Length": req.headers["content-length"],
+        },
+      },
+      (proxyRes) => {
+        let body = "";
+        proxyRes.on("data", (chunk) => {
+          body += chunk;
+        });
+        proxyRes.on("end", () => {
+          const etag = proxyRes.headers["etag"];
+          res.writeHead(proxyRes.statusCode || 200, {
+            "Content-Type": "application/json",
+            ETag: etag || "",
+          });
+          res.end(JSON.stringify({ success: true, etag }));
+        });
+      }
+    );
+
+    proxyReq.on("error", (err) => {
+      console.error("[Stream Chunk Proxy Error]:", err);
+      if (!res.headersSent) {
+        res.status(502).json({ success: false, message: err.message });
+      }
+    });
+
+    req.pipe(proxyReq);
+  } catch (err) {
+    console.error("[Stream Chunk Error]:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 };
 

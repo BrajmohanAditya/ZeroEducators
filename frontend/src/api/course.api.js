@@ -353,17 +353,31 @@ export const abortMultipartVideoUploadApi = async ({ fileKey, uploadId }) => {
 };
 
 export const uploadPartToS3Api = async ({ presignedUrl, chunk, signal }) => {
-  const response = await fetch(presignedUrl, {
+  // Stream 10MB chunk via in-memory network pipe (0 disk writes).
+  // This completely eliminates cross-origin preflight errors and duplicate CORS header warnings in browser console.
+  const proxyUrl = `${baseUrl}/course/video/multipart/stream-chunk?targetUrl=${encodeURIComponent(
+    presignedUrl
+  )}`;
+
+  const proxyRes = await fetch(proxyUrl, {
     method: "PUT",
+    headers: {
+      "Content-Type": "application/octet-stream",
+    },
     body: chunk,
     signal,
+    credentials: "include",
   });
 
-  if (!response.ok) {
-    throw new Error(`Part upload failed with HTTP status ${response.status}`);
+  if (!proxyRes.ok) {
+    throw new Error(`Chunk upload failed with status ${proxyRes.status}`);
   }
 
-  const etag = response.headers.get("etag");
+  const data = await proxyRes.json();
+  const etag = data?.etag || proxyRes.headers.get("etag");
+  if (!etag) {
+    throw new Error("Missing chunk ETag from storage");
+  }
   return etag;
 };
 

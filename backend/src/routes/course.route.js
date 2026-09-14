@@ -40,6 +40,7 @@ import {
   getMultipartVideoPartUrls,
   completeMultipartVideoUpload,
   abortMultipartVideoUpload,
+  streamMultipartVideoChunk,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -149,6 +150,7 @@ courseRoute.post("/video/multipart/initiate", isLoggedIn, isAdmin, initiateMulti
 courseRoute.post("/video/multipart/part-urls", isLoggedIn, isAdmin, getMultipartVideoPartUrls);
 courseRoute.post("/video/multipart/complete", isLoggedIn, isAdmin, completeMultipartVideoUpload);
 courseRoute.post("/video/multipart/abort", isLoggedIn, isAdmin, abortMultipartVideoUpload);
+courseRoute.put("/video/multipart/stream-chunk", isLoggedIn, isAdmin, streamMultipartVideoChunk);
 
 courseRoute.post(
   "/:courseId/subject/:subjectId/chapter/:chapterId/video",
