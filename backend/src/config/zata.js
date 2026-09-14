@@ -25,20 +25,39 @@ export const s3Client = new S3Client({
 });
 
 /**
- * Clear any custom bucket CORS rules so Zata's gateway Nginx proxy handles CORS cleanly
- * without duplicating Access-Control-Allow-Origin headers ('*, http://localhost:5173')
+ * Configure explicit CORS on Zata S3 Bucket for our specific domains
+ * This allows both live domain (zeroeducators.com) and localhost without wildcard collisions
  */
-export const cleanBucketCors = async () => {
+export const configureBucketCors = async () => {
   try {
-    const { DeleteBucketCorsCommand } = await import("@aws-sdk/client-s3");
-    await s3Client.send(new DeleteBucketCorsCommand({ Bucket: ENV.ZATA_BUCKET_NAME }));
-  } catch (_) {
-    // Ignore if no CORS config exists
+    const { PutBucketCorsCommand } = await import("@aws-sdk/client-s3");
+    const corsCommand = new PutBucketCorsCommand({
+      Bucket: ENV.ZATA_BUCKET_NAME,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedHeaders: ["*"],
+            AllowedMethods: ["PUT", "POST", "GET", "HEAD"],
+            AllowedOrigins: [
+              "https://zeroeducators.com",
+              "https://www.zeroeducators.com",
+              "http://localhost:5173",
+              "http://localhost:3000",
+            ],
+            ExposeHeaders: ["ETag", "x-amz-request-id"],
+            MaxAgeSeconds: 3600,
+          },
+        ],
+      },
+    });
+    await s3Client.send(corsCommand);
+  } catch (err) {
+    console.warn("[Zata S3] CORS rule notice:", err?.message || err);
   }
 };
 
-// Ensure clean CORS on boot
-cleanBucketCors().catch(() => {});
+// Ensure specific domain CORS is set on boot
+configureBucketCors().catch(() => {});
 
 /**
  * Generate a pre-signed URL for direct browser-to-S3 upload
