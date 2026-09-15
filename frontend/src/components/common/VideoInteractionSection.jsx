@@ -9,12 +9,14 @@ import {
   ShieldCheck,
   User,
   CornerDownRight,
+  Star,
 } from "lucide-react";
 import {
   useGetVideoInteractionsHook,
   useToggleVideoLikeHook,
   useAddVideoCommentHook,
   useDeleteVideoCommentHook,
+  useRateVideoHook,
 } from "../../hooks/videoInteraction.hook.js";
 import { toast } from "sonner";
 
@@ -39,11 +41,13 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
   const videoId = video?._id || video?.Video_id;
   const [commentText, setCommentText] = useState("");
   const [isDeletingId, setIsDeletingId] = useState(null);
+  const [hoverRating, setHoverRating] = useState(0);
 
   const { data, isLoading } = useGetVideoInteractionsHook(videoId);
   const { mutate: toggleLike, isPending: isLiking } = useToggleVideoLikeHook(videoId);
   const { mutate: addComment, isPending: isPosting } = useAddVideoCommentHook(videoId);
   const { mutate: deleteComment } = useDeleteVideoCommentHook(videoId);
+  const { mutate: submitRating, isPending: isRating } = useRateVideoHook(videoId);
 
   if (!videoId) return null;
 
@@ -51,6 +55,9 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
   const isLiked = data?.isLiked ?? false;
   const comments = data?.comments || [];
   const commentsCount = data?.commentsCount ?? comments.length;
+  const averageRating = data?.averageRating ?? 0;
+  const totalRatings = data?.totalRatings ?? 0;
+  const userRating = data?.userRating ?? null;
 
   const handleLike = () => {
     if (!currentUser) {
@@ -58,6 +65,18 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
       return;
     }
     toggleLike({ videoId, courseId });
+  };
+
+  const handleRatingClick = (ratingValue) => {
+    if (!currentUser) {
+      toast.error("Please log in to rate this video");
+      return;
+    }
+    submitRating({
+      videoId,
+      courseId,
+      rating: ratingValue,
+    });
   };
 
   const handlePostComment = (e) => {
@@ -107,13 +126,66 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
           </h2>
         </div>
 
-        {/* Like and Stats Row */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Rating, Like, and Comments Action Group */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+          {/* Star Rating Widget */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-slate-800 shadow-2xs">
+            {/* Interactive Stars */}
+            <div className="flex items-center gap-0.5" onMouseLeave={() => setHoverRating(0)}>
+              {[1, 2, 3, 4, 5].map((starIndex) => {
+                const isFilled =
+                  hoverRating > 0
+                    ? starIndex <= hoverRating
+                    : userRating
+                    ? starIndex <= userRating
+                    : starIndex <= Math.round(averageRating);
+
+                return (
+                  <button
+                    key={starIndex}
+                    type="button"
+                    disabled={isRating}
+                    onMouseEnter={() => setHoverRating(starIndex)}
+                    onClick={() => handleRatingClick(starIndex)}
+                    title={`Rate ${starIndex} out of 5 stars`}
+                    className="p-0.5 text-slate-300 hover:scale-125 transition-transform duration-150 cursor-pointer disabled:opacity-50"
+                  >
+                    <Star
+                      className={`w-4 h-4 transition-colors duration-150 ${
+                        isFilled
+                          ? "text-amber-400 fill-amber-400 drop-shadow-xs"
+                          : "text-slate-300 hover:text-amber-300"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Score & Count / Status */}
+            <div className="flex items-center gap-1.5 text-xs font-bold pl-1.5 border-l border-amber-200/90">
+              <span className="text-amber-900 font-extrabold">
+                {averageRating > 0 ? averageRating.toFixed(1) : "Rate"}
+              </span>
+              {totalRatings > 0 ? (
+                <span className="text-[11px] text-amber-700 font-semibold">
+                  ({totalRatings})
+                </span>
+              ) : null}
+              {userRating && (
+                <span className="hidden md:inline text-[10px] uppercase tracking-wider font-extrabold text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded">
+                  Rated {userRating}★
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Like Button */}
           <button
             type="button"
             onClick={handleLike}
             disabled={isLiking}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer shadow-2xs active:scale-95 ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer shadow-2xs active:scale-95 ${
               isLiked
                 ? "bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60"
@@ -135,7 +207,8 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
             </span>
           </button>
 
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200/60 text-slate-600 text-xs sm:text-sm font-semibold">
+          {/* Comments count */}
+          <div className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200/60 text-slate-600 text-xs sm:text-sm font-semibold">
             <MessageSquare className="w-4 h-4 text-slate-400" />
             <span>{commentsCount}</span>
             <span className="hidden sm:inline text-slate-400">Comments</span>

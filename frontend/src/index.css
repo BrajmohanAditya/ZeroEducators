@@ -179,4 +179,16 @@
     display: none !important;
   }
 }
+
+/* Hide browser native video 3-dots overflow and playback rate buttons */
+video::-webkit-media-controls-overflow-button,
+video::-webkit-media-controls-playback-rate-button,
+video::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 

@@ -4,6 +4,7 @@ import {
   toggleVideoLikeApi,
   addVideoCommentApi,
   deleteVideoCommentApi,
+  rateVideoApi,
 } from "../api/videoInteraction.api.js";
 import { toast } from "sonner";
 
@@ -95,6 +96,58 @@ export const useDeleteVideoCommentHook = (videoId) => {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to delete comment");
+    },
+  });
+};
+
+/**
+ * Hook to submit or update video rating
+ */
+export const useRateVideoHook = (videoId) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: rateVideoApi,
+    onMutate: async (newRatingPayload) => {
+      await queryClient.cancelQueries({ queryKey: ["videoInteractions", videoId] });
+      const previousData = queryClient.getQueryData(["videoInteractions", videoId]);
+
+      if (previousData) {
+        const prevTotal = previousData.totalRatings || 0;
+        const prevAvg = previousData.averageRating || 0;
+        const hadRated = previousData.userRating != null;
+        const newRatingVal = newRatingPayload.rating;
+
+        let updatedTotal = hadRated ? prevTotal : prevTotal + 1;
+        let updatedSum = hadRated
+          ? prevAvg * prevTotal - previousData.userRating + newRatingVal
+          : prevAvg * prevTotal + newRatingVal;
+        let updatedAvg = updatedTotal > 0 ? Number((updatedSum / updatedTotal).toFixed(1)) : newRatingVal;
+
+        queryClient.setQueryData(["videoInteractions", videoId], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            userRating: newRatingVal,
+            averageRating: updatedAvg,
+            totalRatings: updatedTotal,
+          };
+        });
+      }
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["videoInteractions", videoId], context.previousData);
+      }
+      toast.error(err.response?.data?.message || "Failed to submit rating");
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || "Rating submitted successfully!");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["videoInteractions", videoId] });
     },
   });
 };

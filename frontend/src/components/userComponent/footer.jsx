@@ -561,11 +561,7 @@ const Footer = () => {
                     lineHeight: 1.7,
                   }}
                 >
-                  3rd Floor, Rai Complex, E Boring Canal Rd,
-                  <br />
-                  Near Panchmukhi Mandir,
-                  <br />
-                  Kidwaipuri, Patna, Bihar 800001
+                  Jodhpur, Rajasthan, India
                 </span>
               </li>
 
@@ -627,7 +623,7 @@ const Footer = () => {
                   <Mail size={14} style={{ color: "#60a5fa" }} />
                 </div>
                 <a
-                  href="mailto:contact@zeroeducators.com"
+                  href="mailto:Mszero2infinity@gmail.com"
                   style={{
                     fontSize: "13px",
                     color: "#94a3b8",
@@ -642,7 +638,7 @@ const Footer = () => {
                     (e.currentTarget.style.color = "#94a3b8")
                   }
                 >
-                  contact@zeroeducators.com
+                  Mszero2infinity@gmail.com
                 </a>
               </li>
 

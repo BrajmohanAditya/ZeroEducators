@@ -45,3 +45,15 @@ export const deleteVideoCommentApi = async (commentId) => {
   });
   return res.data;
 };
+
+/**
+ * Submit or update rating for a video
+ */
+export const rateVideoApi = async ({ videoId, courseId, rating, review }) => {
+  const res = await axios.post(
+    `${baseUrl}/video-interaction/${videoId}/rating`,
+    { courseId, rating, review },
+    { withCredentials: true }
+  );
+  return res.data;
+};

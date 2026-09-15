@@ -54,9 +54,52 @@ const GrantCourseAccessDialog = ({
   const [newStudentEmail, setNewStudentEmail] = useState("");
   const [newStudentMobile, setNewStudentMobile] = useState("");
 
-  // Plan duration (manual month entry or lifetime)
-  const [validityType, setValidityType] = useState("months"); // 'months' | 'lifetime'
+  // Plan duration (calendar date, manual month entry, or lifetime)
+  const [validityType, setValidityType] = useState("date"); // 'date' | 'months' | 'lifetime'
   const [validityMonths, setValidityMonths] = useState(6);
+  const [expiryDate, setExpiryDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 6);
+    return d.toISOString().split("T")[0];
+  });
+
+  // Calendar date helpers
+  const getTodayDateString = () => {
+    return new Date().toISOString().split("T")[0];
+  };
+
+  const formatSelectedDate = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const getDateDifferenceSummary = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return "";
+    const target = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return "Today / Expired";
+    if (diffDays < 30) return `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
+    const months = Math.round(diffDays / 30.4375);
+    return `~${months} ${months === 1 ? "Month" : "Months"} (${diffDays} days)`;
+  };
+
+  const setDateFromMonths = (monthsToAdd) => {
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth() + monthsToAdd, now.getDate());
+    setExpiryDate(target.toISOString().split("T")[0]);
+  };
 
   // Revoke state
   const [revokeConfirm, setRevokeConfirm] = useState(null);
@@ -106,6 +149,10 @@ const GrantCourseAccessDialog = ({
     if (validityType === "lifetime") {
       return "Lifetime Access";
     }
+    if (validityType === "date") {
+      if (!expiryDate) return "Custom Date";
+      return `Valid till ${formatSelectedDate(expiryDate)}`;
+    }
     const months = Math.max(1, parseInt(validityMonths) || 1);
     return `${months} ${months === 1 ? "Month" : "Months"} Access`;
   };
@@ -115,6 +162,11 @@ const GrantCourseAccessDialog = ({
 
     if (!selectedCourseId) {
       toast.error("Please select a course");
+      return;
+    }
+
+    if (validityType === "date" && !expiryDate) {
+      toast.error("Please choose an expiry date from calendar");
       return;
     }
 
@@ -469,35 +521,127 @@ const GrantCourseAccessDialog = ({
                     </span>
                   </div>
 
-                  {/* Mode Selector: Custom Months vs Lifetime */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Mode Selector: Calendar Date vs Custom Months vs Lifetime */}
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setValidityType("date")}
+                      className={`py-2 px-2 sm:px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        validityType === "date"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Select Date</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setValidityType("months")}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                      className={`py-2 px-2 sm:px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         validityType === "months"
                           ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      <Calendar className="w-3.5 h-3.5" />
-                      Custom Months
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Custom Months</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setValidityType("lifetime")}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                      className={`py-2 px-2 sm:px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         validityType === "lifetime"
                           ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      <InfinityIcon className="w-3.5 h-3.5" />
-                      Lifetime Access
+                      <InfinityIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Lifetime</span>
                     </button>
                   </div>
 
-                  {validityType === "months" ? (
+                  {validityType === "date" ? (
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                            Select Expiry Date:
+                          </label>
+                          {expiryDate && (
+                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                              {getDateDifferenceSummary(expiryDate)}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="date"
+                          min={getTodayDateString()}
+                          value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)}
+                          className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer"
+                        />
+                        {expiryDate && (
+                          <p className="text-[11px] text-slate-600 mt-1.5 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            Access valid till:{" "}
+                            <span className="font-bold text-slate-900">
+                              {formatSelectedDate(expiryDate)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                          Quick Presets:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setDateFromMonths(1)}
+                            className="px-2.5 py-1 text-xs rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition cursor-pointer"
+                          >
+                            1 Month
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDateFromMonths(3)}
+                            className="px-2.5 py-1 text-xs rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition cursor-pointer"
+                          >
+                            3 Months
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDateFromMonths(6)}
+                            className="px-2.5 py-1 text-xs rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition cursor-pointer"
+                          >
+                            6 Months
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDateFromMonths(12)}
+                            className="px-2.5 py-1 text-xs rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition cursor-pointer"
+                          >
+                            1 Year
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const now = new Date();
+                              const end = new Date(now.getFullYear(), 11, 31);
+                              setExpiryDate(end.toISOString().split("T")[0]);
+                            }}
+                            className="px-2.5 py-1 text-xs rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition cursor-pointer"
+                          >
+                            End of Year (31 Dec)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : validityType === "months" ? (
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
                       {/* Manual input box with stepper */}
                       <div>

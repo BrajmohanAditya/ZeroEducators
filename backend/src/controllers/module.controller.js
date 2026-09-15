@@ -188,7 +188,12 @@ export const streamModuleVideo = async (req, res) => {
         };
         videoMetadataCache.set(videoId, metadata);
       } catch (headErr) {
-        console.warn("[Stream Module] HeadObject fallback:", headErr?.message);
+        if (headErr.name === "NoSuchKey" || headErr.Code === "NoSuchKey") {
+          if (module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+            return res.redirect(module.Video);
+          }
+        }
+        console.warn("[Stream Module] HeadObject notice:", headErr?.message || headErr?.name);
       }
     }
 
@@ -274,8 +279,14 @@ export const streamModuleVideo = async (req, res) => {
 
     s3Response.Body.pipe(res);
   } catch (error) {
+    if (error.name === "NoSuchKey" || error.Code === "NoSuchKey") {
+      if (module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+        return res.redirect(module.Video);
+      }
+      return res.status(404).json({ message: "Video file not found in storage bucket" });
+    }
     if (!res.headersSent) {
-      console.error("Video stream error:", error);
+      console.error("Video stream error:", error.message || error);
       res.status(500).json({ message: "Failed to stream video" });
     }
   }

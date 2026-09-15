@@ -1,5 +1,6 @@
 import { VideoLike } from "../models/videoLike.model.js";
 import { VideoComment } from "../models/videoComment.model.js";
+import { VideoRating } from "../models/videoRating.model.js";
 import jwt from "jsonwebtoken";
 import { ENV } from "../config/env.js";
 
@@ -17,7 +18,7 @@ const getOptionalUserId = (req) => {
 
 /**
  * GET /api/video-interaction/:videoId
- * Returns like count, user's like status, and comments list
+ * Returns like count, user's like status, comments list, and rating stats
  */
 export const getVideoInteractions = async (req, res) => {
   try {
@@ -28,15 +29,23 @@ export const getVideoInteractions = async (req, res) => {
 
     const currentUserId = req.user?._id || getOptionalUserId(req);
 
-    // Parallel fetch: like count, user like check, comments list
-    const [likeCount, userLike, comments] = await Promise.all([
+    // Parallel fetch: like count, user like check, comments list, ratings list, user rating
+    const [likeCount, userLike, comments, allRatings, userRatingDoc] = await Promise.all([
       VideoLike.countDocuments({ videoId }),
       currentUserId ? VideoLike.exists({ videoId, user: currentUserId }) : null,
       VideoComment.find({ videoId })
         .populate("user", "name email role")
         .sort({ createdAt: -1 })
         .lean(),
+      VideoRating.find({ videoId }).select("rating").lean(),
+      currentUserId ? VideoRating.findOne({ videoId, user: currentUserId }).select("rating review").lean() : null,
     ]);
+
+    const totalRatings = allRatings.length;
+    const averageRating =
+      totalRatings > 0
+        ? Number((allRatings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings).toFixed(1))
+        : 0;
 
     return res.status(200).json({
       success: true,
@@ -44,6 +53,9 @@ export const getVideoInteractions = async (req, res) => {
       isLiked: Boolean(userLike),
       commentsCount: comments.length,
       comments,
+      averageRating,
+      totalRatings,
+      userRating: userRatingDoc ? userRatingDoc.rating : null,
     });
   } catch (error) {
     console.error("Error in getVideoInteractions:", error);
@@ -165,5 +177,57 @@ export const deleteVideoComment = async (req, res) => {
   } catch (error) {
     console.error("Error in deleteVideoComment:", error);
     return res.status(500).json({ success: false, message: "Failed to delete comment" });
+  }
+};
+
+/**
+ * POST /api/video-interaction/:videoId/rating
+ * Submit or update rating for current logged in user
+ */
+export const rateVideo = async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const { courseId, rating, review } = req.body;
+    const userId = req.user._id;
+
+    if (!videoId || !courseId) {
+      return res.status(400).json({ success: false, message: "Video ID and Course ID are required" });
+    }
+
+    const numericRating = Number(rating);
+    if (!numericRating || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({ success: false, message: "Rating must be a number between 1 and 5" });
+    }
+
+    const updatedRating = await VideoRating.findOneAndUpdate(
+      { videoId, user: userId },
+      {
+        courseId,
+        videoId,
+        user: userId,
+        rating: Math.round(numericRating),
+        review: typeof review === "string" ? review.trim() : "",
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
+
+    // Compute updated aggregates
+    const allRatings = await VideoRating.find({ videoId }).select("rating").lean();
+    const totalRatings = allRatings.length;
+    const averageRating =
+      totalRatings > 0
+        ? Number((allRatings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings).toFixed(1))
+        : 0;
+
+    return res.status(200).json({
+      success: true,
+      message: "Rating submitted successfully",
+      userRating: updatedRating.rating,
+      averageRating,
+      totalRatings,
+    });
+  } catch (error) {
+    console.error("Error in rateVideo:", error);
+    return res.status(500).json({ success: false, message: "Failed to submit rating" });
   }
 };
