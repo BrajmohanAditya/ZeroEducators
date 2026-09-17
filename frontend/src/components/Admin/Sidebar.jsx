@@ -18,7 +18,7 @@ const DashboardSidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const navItems = [
     { to: "/", label: "Home", icon: Home },
-    { to: "/", label: "Analytics", icon: BarChart3 },
+    { to: "/admindashboard", label: "Analytics", icon: BarChart3, end: true },
     {
       to: "/admindashboard/dashboardProduct",
       label: "Courses",
@@ -126,6 +126,7 @@ const DashboardSidebar = () => {
             <NavLink
               key={index}
               to={item.to}
+              end={item.end || false}
               className={({ isActive }) =>
                 `group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer
               ${

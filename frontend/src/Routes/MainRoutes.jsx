@@ -27,6 +27,7 @@ import AllEbooks from "@/pages/User/eBooks.jsx/All.eBook";
 import EbookQuestionPractice from "@/pages/User/eBooks.jsx/eBook.ui";
 import CouponManagement from "@/pages/Admin/CouponManagement";
 import TermsAndConditions from "@/pages/User/TermsAndConditions";
+import AnalyticsDashboard from "@/pages/Admin/AnalyticsDashboard";
 // UserLayout wraps routes that SHOULD have the top Navbar
 
 const MainRoutes = () => {
@@ -130,6 +131,23 @@ const MainRoutes = () => {
           </ProtectedRoutes>
         }
       >
+        {/* Default / Index route: Analytics Dashboard */}
+        <Route
+          index
+          element={
+            <ProtectedRoutes>
+              <AnalyticsDashboard />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="analytics"
+          element={
+            <ProtectedRoutes>
+              <AnalyticsDashboard />
+            </ProtectedRoutes>
+          }
+        />
         <Route
           path="dashboardProduct"
           element={

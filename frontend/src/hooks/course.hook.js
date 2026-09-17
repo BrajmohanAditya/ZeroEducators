@@ -62,6 +62,7 @@ export const useGetSingleCourseHook = (id) => {
   return useQuery({
     queryFn: () => getSingleCourseApi(id),
     queryKey: ["getSingleCourse", id],
+    enabled: Boolean(id),
   });
 };
 
@@ -69,6 +70,7 @@ export const useGetSinglePurchasedCourseHook = (courseId) => {
   return useQuery({
     queryFn: () => getSinglePurchaseCourseApi(courseId),
     queryKey: ["getSinglePurchaseCourse", courseId],
+    enabled: Boolean(courseId),
   });
 };
 

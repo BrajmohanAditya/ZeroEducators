@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
+import ReorderModal from "@/components/Admin/ReorderModal";
 import {
   initiateMultipartVideoUploadApi,
   getMultipartVideoPartUrlsApi,

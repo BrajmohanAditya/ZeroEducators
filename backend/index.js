@@ -19,6 +19,7 @@ import ebookRoute from "./src/routes/ebook.route.js";
 import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
 import couponRoute from "./src/routes/coupon.route.js";
 import videoInteractionRoute from "./src/routes/videoInteraction.route.js";
+import analyticsRoute from "./src/routes/analytics.route.js";
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/successBoard", successBoardRoute);
 app.use("/api/mentor", qualifiedMentorRoute);
 app.use("/api/ebook", ebookRoute);
 app.use("/api/ebookQuestion", ebookQuestionRoute);
+app.use("/api/analytics", analyticsRoute);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");

@@ -364,11 +364,13 @@ const DashboardProducts = () => {
       )}
 
       {/* Copy Course Dialog */}
-      <CopyCourseDialog
-        isOpen={copyDialogState.isOpen}
-        onClose={() => setCopyDialogState({ isOpen: false, course: null })}
-        initialCourse={copyDialogState.course}
-      />
+      {copyDialogState.isOpen && (
+        <CopyCourseDialog
+          isOpen={copyDialogState.isOpen}
+          onClose={() => setCopyDialogState({ isOpen: false, course: null })}
+          initialCourse={copyDialogState.course}
+        />
+      )}
 
       <DeleteAlertbox
         isOpen={!!deleteConfirm}
