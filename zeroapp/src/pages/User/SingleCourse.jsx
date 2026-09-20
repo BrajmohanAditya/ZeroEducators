@@ -23,8 +23,10 @@ import {
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { enrollCourseApi, validateCouponApi } from '../../config/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => {
+  const insets = useSafeAreaInsets();
   const currentCourse = course || {};
 
   // Pricing Plans
@@ -234,9 +236,17 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
   return (
     <View style={styles.container}>
       {/* Top Header with Back Button */}
-      <View style={styles.topBar}>
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingTop: insets.top > 0 ? insets.top + 8 : 16,
+            paddingBottom: 14,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <ArrowLeft size={20} color="#0f172a" />
+          <ArrowLeft size={22} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle} numberOfLines={1}>
           Course Details
@@ -245,7 +255,10 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
       >
         {/* Main Card Container (Matching Frontend mobile card) */}
         <View style={styles.cardContainer}>
