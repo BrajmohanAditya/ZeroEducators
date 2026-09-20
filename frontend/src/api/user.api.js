@@ -83,3 +83,38 @@ export const googleLoginApi = async (payload) => {
     return res.data;
 };
 
+export const changePasswordApi = async (payload) => {
+    // payload should contain { currentPassword, newPassword }
+    const res = await axios.post(`${baseUrl}/change-password`, payload, {
+        headers: {
+            "Content-Type": "application/json",
+        },
+        withCredentials: true,
+    });
+    return res.data;
+};
+
+export const forgotPasswordApi = async (payload) => {
+    // payload should contain { email }
+    const res = await axios.post(`${baseUrl}/forgot-password`, payload, {
+        headers: {
+            "Content-Type": "application/json",
+        },
+        withCredentials: true,
+    });
+    return res.data;
+};
+
+export const resetPasswordWithOtpApi = async (payload) => {
+    // payload should contain { email, otp, newPassword }
+    const res = await axios.post(`${baseUrl}/reset-password`, payload, {
+        headers: {
+            "Content-Type": "application/json",
+        },
+        withCredentials: true,
+    });
+    return res.data;
+};
+
+
+

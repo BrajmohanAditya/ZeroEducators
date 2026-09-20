@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Popover,
@@ -55,11 +55,6 @@ const Navbar = () => {
             },
           ]
         : []),
-      {
-        label: "Profile",
-        icon: User,
-        onClick: () => navigate("/#"),
-      },
       {
         label: "Your Courses",
         icon: BookOpen,

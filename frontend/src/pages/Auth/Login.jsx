@@ -1,13 +1,15 @@
 import { userLoginHook, userGoogleLoginHook } from "@/hooks/User.hook";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Loader2, GraduationCap } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import Divider from "@/components/userComponent/Divider";
+import ForgotPasswordModal from "@/components/userComponent/ForgotPasswordModal";
 
 const Login = () => {
-  const { register, handleSubmit } = useForm();
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const { register, handleSubmit, watch } = useForm();
   const { mutate, isPending } = userLoginHook();
   const { mutate: googleMutate } = userGoogleLoginHook();
 
@@ -93,6 +95,17 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Forgot Password Link */}
+          <div className="flex justify-end -mt-2">
+            <button
+              type="button"
+              onClick={() => setIsForgotOpen(true)}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+            >
+              Forgot Password?
+            </button>
+          </div>
+
           {/* Submit */}
           <button
             type="submit"
@@ -118,6 +131,12 @@ const Login = () => {
           </Link>
         </p>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={isForgotOpen}
+        onClose={() => setIsForgotOpen(false)}
+        defaultEmail={watch("email") || ""}
+      />
     </div>
   );
 };

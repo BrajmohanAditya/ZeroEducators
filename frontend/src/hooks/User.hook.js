@@ -6,6 +6,9 @@ import {
   logOutApi,
   verifyOtpApi,
   googleLoginApi,
+  changePasswordApi,
+  forgotPasswordApi,
+  resetPasswordWithOtpApi,
 } from "../api/user.api";
 import { toast } from "sonner";
 import { useUserStore } from "../store/user.store";
@@ -110,3 +113,49 @@ export const userGoogleLoginHook = () => {
     },
   });
 };
+
+export const useChangePasswordHook = () => {
+  return useMutation({
+    mutationFn: changePasswordApi,
+    onSuccess: (data) => {
+      toast.success(data?.message || "Password changed successfully!");
+    },
+    onError: (error) => {
+      const message =
+        error.response?.data?.message ||
+        "Failed to change password. Please try again.";
+      toast.error(message);
+    },
+  });
+};
+
+export const useForgotPasswordHook = () => {
+  return useMutation({
+    mutationFn: forgotPasswordApi,
+    onSuccess: (data) => {
+      toast.success(data?.message || "OTP has been sent to your email!");
+    },
+    onError: (error) => {
+      const message =
+        error.response?.data?.message ||
+        "Failed to send reset OTP. Please check your email.";
+      toast.error(message);
+    },
+  });
+};
+
+export const useResetPasswordWithOtpHook = () => {
+  return useMutation({
+    mutationFn: resetPasswordWithOtpApi,
+    onSuccess: (data) => {
+      toast.success(data?.message || "Password reset successfully! Please login.");
+    },
+    onError: (error) => {
+      const message =
+        error.response?.data?.message ||
+        "Failed to reset password. Please check your OTP.";
+      toast.error(message);
+    },
+  });
+};
+

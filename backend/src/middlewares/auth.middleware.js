@@ -27,8 +27,22 @@ export const isLoggedIn = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.log(error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    // Clear the expired or invalid cookie so the browser doesn't keep sending it
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
+    if (error.name === "TokenExpiredError") {
+      return res
+        .status(401)
+        .json({ message: "Session expired, please login again", success: false });
+    }
+
+    return res
+      .status(401)
+      .json({ message: "Unauthorized - Invalid token", success: false });
   }
 };
 
