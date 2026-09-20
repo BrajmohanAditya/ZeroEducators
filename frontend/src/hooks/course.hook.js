@@ -33,6 +33,7 @@ import {
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useUserStore } from "../store/user.store";
 
 
 export const useCreateCourseHook = () => {
@@ -75,11 +76,14 @@ export const useGetSinglePurchasedCourseHook = (courseId) => {
 };
 
 export const useGetAllPurchasedCourseHook = () => {
+  const user = useUserStore((state) => state.user);
   return useQuery({
     queryFn: getAllPurchasedCourseApi,
     queryKey: ["getAllPurchasedCourseApi"],
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
+    enabled: Boolean(user),
+    retry: false,
   });
 };
 

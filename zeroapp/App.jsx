@@ -65,7 +65,9 @@ export function App() {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <SingleCourse
           course={screenParams?.course}
+          user={currentUser}
           onBack={() => navigate('Home')}
+          onNavigate={navigate}
           onEnroll={(course) => {
             if (!currentUser) {
               navigate('Login');

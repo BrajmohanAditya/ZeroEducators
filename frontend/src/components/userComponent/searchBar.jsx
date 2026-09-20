@@ -143,6 +143,10 @@ const SearchBar = () => {
                       <img
                         src={course.thumbnail}
                         alt={course.title}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/logo3rd.png";
+                        }}
                         className='w-full h-full object-cover group-hover:scale-105 transition-transform'
                       />
                     </div>

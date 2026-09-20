@@ -121,6 +121,38 @@ export const liveRegisterApi = async (payload) => {
   return data;
 };
 
+export const enrollCourseApi = async (payload) => {
+  const res = await fetch(`${BASE_URL}/payment/checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Enrollment failed');
+  }
+  return data;
+};
+
+export const validateCouponApi = async (payload) => {
+  const res = await fetch(`${BASE_URL}/coupon/validate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Invalid coupon code');
+  }
+  return data;
+};
+
 export default {
   BASE_URL,
   fetchLiveCourses,
@@ -129,4 +161,7 @@ export default {
   fetchLiveQuizzes,
   liveLoginApi,
   liveRegisterApi,
+  enrollCourseApi,
+  validateCouponApi,
 };
+

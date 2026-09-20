@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScrollView,
   View,
@@ -6,39 +6,237 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Linking,
 } from 'react-native';
 import {
-  Star,
+  ArrowLeft,
   Clock,
   BookOpen,
   FileText,
   ShieldCheck,
-  CheckCircle2,
   Sparkles,
-  ArrowLeft,
+  Tag,
+  Check,
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
+import { enrollCourseApi, validateCouponApi } from '../../config/api';
 
-export const SingleCourse = ({ course, onBack, onEnroll }) => {
+export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => {
   const currentCourse = course || {};
 
-  const highlights = [
-    '200+ Live & Recorded Interactive Classes',
-    '80+ Downloadable PDF Study Notes',
-    '50+ Full-Length & Sectional Mock Tests',
-    'Special Doubt Clearing Sessions by Mentors',
-    'Previous Year Questions (PYQs) Analysis',
-    'Course Valid on Mobile App and Web Portal',
-  ];
+  // Pricing Plans
+  const hasPlans = Boolean(
+    currentCourse?.pricingPlans &&
+      currentCourse.pricingPlans.length > 0 &&
+      !currentCourse?.isFree
+  );
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
+
+  // Coupon States
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discountAmount, finalAmount }
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  // Enrollment State
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const activePlan = hasPlans ? currentCourse.pricingPlans[selectedPlanIndex] : null;
+  const activePrice = activePlan ? Number(activePlan.price) : Number(currentCourse?.amount || 0);
+  const activeDuration = activePlan
+    ? activePlan.duration
+    : currentCourse?.duration
+    ? currentCourse.duration
+    : 'Lifetime Access';
+
+  // Calculate Course Content Stats
+  const totalPdfs = useMemo(() => {
+    const subjectPdfs =
+      currentCourse?.subjects?.reduce(
+        (acc, s) =>
+          acc +
+          (s.chapters?.reduce((cAcc, c) => cAcc + (c.pdfs?.length || 0), 0) || 0),
+        0
+      ) || 0;
+    const topicPdfs =
+      currentCourse?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
+    return subjectPdfs + topicPdfs;
+  }, [currentCourse?.subjects, currentCourse?.topics]);
+
+  const totalSubjectVideos = useMemo(() => {
+    return (
+      currentCourse?.subjects?.reduce(
+        (acc, s) =>
+          acc +
+          (s.chapters?.reduce((cAcc, c) => cAcc + (c.videos?.length || 0), 0) || 0),
+        0
+      ) || 0
+    );
+  }, [currentCourse?.subjects]);
+
+  const totalTopicVideos = useMemo(() => {
+    return (
+      currentCourse?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0
+    );
+  }, [currentCourse?.topics]);
+
+  const totalVideos =
+    totalSubjectVideos + totalTopicVideos > 0
+      ? totalSubjectVideos + totalTopicVideos
+      : currentCourse?.modules?.length || 0;
+
+  const totalSubjectsCount = currentCourse?.subjects?.length || 0;
+  const totalChaptersCount =
+    currentCourse?.subjects?.reduce((acc, s) => acc + (s.chapters?.length || 0), 0) ||
+    currentCourse?.topics?.length ||
+    0;
+
+  // Reset coupon when switching validity plan
+  useEffect(() => {
+    if (appliedCoupon) {
+      setAppliedCoupon(null);
+      Alert.alert('Plan Changed', 'Pricing plan changed. Please re-apply your coupon code.');
+    }
+  }, [selectedPlanIndex]);
+
+  const isCourseFree = currentCourse?.isFree || Number(activePrice) === 0;
+  const finalPayablePrice = appliedCoupon ? appliedCoupon.finalAmount : activePrice;
+  const isFinalFree = isCourseFree || (appliedCoupon && appliedCoupon.finalAmount === 0);
+
+  // Apply Coupon Handler
+  const handleApplyCoupon = async () => {
+    const cleanCode = couponInput.trim().toUpperCase();
+    if (!cleanCode) {
+      Alert.alert('Coupon Required', 'Please enter a coupon code.');
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      const data = await validateCouponApi({
+        code: cleanCode,
+        courseId: currentCourse._id,
+        planId: activePlan?._id,
+        planDuration: activeDuration,
+      });
+
+      setAppliedCoupon({
+        code: data?.coupon?.code || cleanCode,
+        discountAmount: data?.discountAmount || 0,
+        finalAmount: data?.finalAmount !== undefined ? data.finalAmount : activePrice,
+      });
+      Alert.alert('Success 🎉', `Coupon applied! You save ₹${data?.discountAmount || 0}`);
+    } catch (err) {
+      Alert.alert('Invalid Coupon', err?.message || 'Could not apply this coupon code.');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+  };
+
+  // Main Enrollment Handler
+  const handleEnrollPress = async () => {
+    if (!user) {
+      Alert.alert(
+        'Login Required',
+        'Please log in to enroll in this course.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Login Now',
+            onPress: () => {
+              if (onNavigate) onNavigate('Login');
+              else if (onEnroll) onEnroll(currentCourse);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    setIsEnrolling(true);
+    try {
+      const payload = {
+        products: {
+          _id: currentCourse._id,
+          name: currentCourse.title,
+          price: finalPayablePrice,
+          image: currentCourse.thumbnail,
+          planId: activePlan?._id,
+          planDuration: activeDuration,
+          couponCode: appliedCoupon?.code,
+        },
+        planId: activePlan?._id,
+        planDuration: activeDuration,
+        couponCode: appliedCoupon?.code,
+      };
+
+      const data = await enrollCourseApi(payload);
+
+      // 1. Free Course / 100% Coupon
+      if (data?.isFree) {
+        setIsEnrolling(false);
+        Alert.alert(
+          'Enrolled Successfully 🎉',
+          data?.message || 'You have been enrolled in this course!',
+          [
+            {
+              text: 'Start Learning',
+              onPress: () => {
+                if (onEnroll) onEnroll(currentCourse);
+                else if (onNavigate) onNavigate('CoursePlayer', { course: currentCourse });
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // 2. Paid Course via Cashfree
+      if (data?.order?.paymentSessionId) {
+        const paymentSessionId = data.order.paymentSessionId;
+        const checkoutUrl = `https://payments.cashfree.com/order/#/${paymentSessionId}`;
+
+        Alert.alert(
+          'Complete Payment',
+          `Order created for ₹${finalPayablePrice}. Proceed to secure payment.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Pay Now',
+              onPress: async () => {
+                try {
+                  await Linking.openURL(checkoutUrl);
+                } catch (e) {
+                  Alert.alert('Error', 'Could not open payment gateway.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Notice', data?.message || 'Order initiated.');
+      }
+    } catch (err) {
+      Alert.alert('Enrollment Error', err?.message || 'Could not complete enrollment.');
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Top Header with Back Arrow */}
+      {/* Top Header with Back Button */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <ArrowLeft size={20} color={colors.textPrimary} />
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+          <ArrowLeft size={20} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle} numberOfLines={1}>
           Course Details
@@ -49,82 +247,249 @@ export const SingleCourse = ({ course, onBack, onEnroll }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Course Thumbnail Banner */}
-        <View style={styles.imageContainer}>
-          {currentCourse.thumbnail ? (
-            <Image
-              source={{ uri: currentCourse.thumbnail }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.imagePlaceholder} />
-          )}
-          <View style={styles.badgeOverlay}>
-            <Text style={styles.badgeOverlayText}>
-              {currentCourse.badge || 'Banking Foundation'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.detailsCard}>
-          {/* Rating & Duration Row */}
-          <View style={styles.metaRow}>
-            <View style={styles.ratingBadge}>
-              <Star size={14} color="#f59e0b" fill="#f59e0b" />
-              <Text style={styles.ratingText}>
-                {currentCourse.rating || '4.9'} ({currentCourse.studentsCount || '3.4k'} ratings)
-              </Text>
-            </View>
-            <View style={styles.validityBadge}>
-              <Clock size={13} color={colors.primary} />
-              <Text style={styles.validityText}>
-                {currentCourse.duration || '1 Year'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Title & Description */}
-          <Text style={styles.title}>{currentCourse.title}</Text>
-          <Text style={styles.description}>{currentCourse.description}</Text>
-
-          {/* What You Will Get */}
-          <View style={styles.featuresSection}>
-            <View style={styles.sectionHeadingRow}>
-              <Sparkles size={16} color={colors.primary} />
-              <Text style={styles.sectionHeading}>What This Course Includes</Text>
-            </View>
-
-            {highlights.map((item, index) => (
-              <View key={index} style={styles.featureItem}>
-                <CheckCircle2 size={16} color={colors.success} />
-                <Text style={styles.featureText}>{item}</Text>
+        {/* Main Card Container (Matching Frontend mobile card) */}
+        <View style={styles.cardContainer}>
+          {/* Thumbnail Banner */}
+          <View style={styles.thumbnailWrapper}>
+            {currentCourse.thumbnail && !imgError ? (
+              <Image
+                source={{ uri: currentCourse.thumbnail }}
+                style={styles.thumbnailImage}
+                resizeMode="cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <View style={styles.thumbnailFallback}>
+                <BookOpen size={48} color="#d4af37" />
+                <Text style={styles.fallbackTitle} numberOfLines={2}>
+                  {currentCourse.title || 'Zero Educators Course'}
+                </Text>
               </View>
-            ))}
+            )}
+          </View>
+
+          {/* Details Content */}
+          <View style={styles.detailsContent}>
+            {/* Title */}
+            <Text style={styles.title}>{currentCourse.title}</Text>
+
+            {/* Meta Row (Subjects, Chapters, PDFs/Videos, Duration) */}
+            <View style={styles.metaRow}>
+              {currentCourse?.courseType === 'pdf' ? (
+                <View style={styles.metaItem}>
+                  <FileText size={15} color="#9333ea" />
+                  <Text style={styles.metaText} numberOfLines={1}>
+                    {totalSubjectsCount > 0
+                      ? `${totalSubjectsCount} Subjects • `
+                      : totalChaptersCount > 0
+                      ? `${totalChaptersCount} Chapters • `
+                      : ''}
+                    {totalPdfs} {totalPdfs === 1 ? 'PDF' : 'PDFs'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.metaItem}>
+                  <BookOpen size={15} color="#3b82f6" />
+                  <Text style={styles.metaText} numberOfLines={1}>
+                    {totalSubjectsCount > 0
+                      ? `${totalSubjectsCount} Subjects • `
+                      : totalChaptersCount > 0
+                      ? `${totalChaptersCount} Chapters • `
+                      : ''}
+                    {totalVideos} {totalVideos === 1 ? 'Video' : 'Videos'}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.metaItem}>
+                <Clock size={15} color="#10b981" />
+                <Text style={styles.metaText}>{activeDuration}</Text>
+              </View>
+            </View>
+
+            {/* Choose Validity & Plan (Multi-Plan Selector) */}
+            {hasPlans && currentCourse.pricingPlans.length > 1 && (
+              <View style={styles.planSection}>
+                <Text style={styles.sectionLabel}>CHOOSE VALIDITY & PLAN:</Text>
+                <View style={styles.planGrid}>
+                  {currentCourse.pricingPlans.map((plan, idx) => {
+                    const isSelected = idx === selectedPlanIndex;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.8}
+                        onPress={() => setSelectedPlanIndex(idx)}
+                        style={[
+                          styles.planCard,
+                          isSelected && styles.planCardActive,
+                        ]}
+                      >
+                        <View style={styles.planHeaderRow}>
+                          <Text
+                            style={[
+                              styles.planDuration,
+                              isSelected && styles.planDurationActive,
+                            ]}
+                          >
+                            {plan.duration}
+                          </Text>
+                          <View
+                            style={[
+                              styles.radioOuter,
+                              isSelected && styles.radioOuterActive,
+                            ]}
+                          >
+                            {isSelected && <View style={styles.radioInner} />}
+                          </View>
+                        </View>
+                        <Text style={styles.planPrice}>₹{plan.price}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Coupon Code Section (Only for paid courses) */}
+            {!isCourseFree && (
+              <View style={styles.couponSection}>
+                {appliedCoupon ? (
+                  <View style={styles.appliedCouponCard}>
+                    <View style={styles.appliedLeft}>
+                      <View style={styles.sparkleBox}>
+                        <Sparkles size={16} color="#047857" />
+                      </View>
+                      <View>
+                        <View style={styles.codeBadgeRow}>
+                          <Text style={styles.appliedCodeText}>
+                            {appliedCoupon.code}
+                          </Text>
+                          <View style={styles.appliedBadge}>
+                            <Text style={styles.appliedBadgeText}>APPLIED</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.savingsText}>
+                          You save ₹{appliedCoupon.discountAmount}!
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleRemoveCoupon}
+                      style={styles.removeCouponBtn}
+                    >
+                      <Text style={styles.removeCouponText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.couponInputGroup}>
+                    <View style={styles.couponHeaderRow}>
+                      <Tag size={13} color="#2563eb" />
+                      <Text style={styles.sectionLabel}>HAVE A COUPON CODE?</Text>
+                    </View>
+                    <View style={styles.inputRow}>
+                      <TextInput
+                        value={couponInput}
+                        onChangeText={(txt) =>
+                          setCouponInput(txt.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))
+                        }
+                        placeholder="ENTER CODE"
+                        placeholderTextColor="#94a3b8"
+                        autoCapitalize="characters"
+                        style={styles.couponTextInput}
+                      />
+                      <TouchableOpacity
+                        onPress={handleApplyCoupon}
+                        disabled={isValidatingCoupon || !couponInput.trim()}
+                        style={[
+                          styles.applyBtn,
+                          (!couponInput.trim() || isValidatingCoupon) &&
+                            styles.applyBtnDisabled,
+                        ]}
+                      >
+                        {isValidatingCoupon ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text style={styles.applyBtnText}>Apply</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Price & Summary */}
+            <View style={styles.priceSection}>
+              {isCourseFree ? (
+                <View style={styles.priceRow}>
+                  <Text style={styles.freePriceText}>FREE</Text>
+                  <View style={styles.freeBadge}>
+                    <Text style={styles.freeBadgeText}>100% OFF</Text>
+                  </View>
+                </View>
+              ) : appliedCoupon ? (
+                <View>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.mainPriceText}>
+                      {isFinalFree ? 'FREE' : `₹${finalPayablePrice}`}
+                    </Text>
+                    <Text style={styles.strikethroughPrice}>₹{activePrice}</Text>
+                    <View style={styles.discountBadge}>
+                      <Text style={styles.discountBadgeText}>
+                        -₹{appliedCoupon.discountAmount} OFF
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.couponNote}>
+                    Coupon discount applied on this course!
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.priceRow}>
+                  <Text style={styles.mainPriceText}>₹{activePrice}</Text>
+                  <Text style={styles.strikethroughPrice}>
+                    ₹{Math.round(activePrice * 1.3)}
+                  </Text>
+                  {activePlan && (
+                    <View style={styles.planDurationBadge}>
+                      <Text style={styles.planDurationBadgeText}>
+                        {activePlan.duration}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Enroll CTA Button */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              disabled={isEnrolling}
+              onPress={handleEnrollPress}
+              style={[
+                styles.enrollBtn,
+                isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid,
+                isEnrolling && { opacity: 0.7 },
+              ]}
+            >
+              {isEnrolling ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <View style={styles.btnContentRow}>
+                  <ShieldCheck size={20} color="#ffffff" />
+                  <Text style={styles.enrollBtnText}>
+                    {isFinalFree
+                      ? appliedCoupon
+                        ? 'Enroll for Free (Coupon Applied)'
+                        : 'Enroll for Free'
+                      : `Enroll for ₹${finalPayablePrice}`}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
-
-      {/* Bottom Sticky Purchase Bar */}
-      <View style={styles.bottomBar}>
-        <View>
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>₹{currentCourse.price || 1999}</Text>
-            {currentCourse.originalPrice && (
-              <Text style={styles.originalPrice}>₹{currentCourse.originalPrice}</Text>
-            )}
-          </View>
-          <Text style={styles.taxText}>Special Discount Applied</Text>
-        </View>
-
-        <Button
-          size="lg"
-          onPress={() => onEnroll && onEnroll(currentCourse)}
-          style={styles.enrollButton}
-        >
-          Enroll Now
-        </Button>
-      </View>
     </View>
   );
 };
@@ -132,175 +497,358 @@ export const SingleCourse = ({ course, onBack, onEnroll }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#f8fafc', // bg-slate-50
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#e2e8f0',
   },
   backBtn: {
     padding: 6,
-    marginRight: 12,
+    marginRight: 10,
   },
   topBarTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: '#0f172a',
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    padding: 16,
+    paddingBottom: 40,
   },
-  imageContainer: {
+  cardContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  thumbnailWrapper: {
     width: '100%',
-    height: 210,
-    position: 'relative',
-    backgroundColor: '#e2e8f0',
+    height: 200,
+    backgroundColor: '#f1f5f9',
+    overflow: 'hidden',
   },
-  image: {
+  thumbnailImage: {
     width: '100%',
     height: '100%',
   },
-  badgeOverlay: {
-    position: 'absolute',
-    bottom: 14,
-    left: 14,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
+  thumbnailFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#073b75',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  badgeOverlayText: {
+  fallbackTitle: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
   },
-  detailsCard: {
-    backgroundColor: '#ffffff',
-    margin: 16,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.sm,
+  detailsContent: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0f172a',
+    lineHeight: 28,
+    marginBottom: 12,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: 16,
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
-  ratingBadge: {
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    gap: 5,
   },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#92400e',
-    marginLeft: 4,
-  },
-  validityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  validityText: {
-    fontSize: 12,
+  metaText: {
+    fontSize: 13,
+    color: '#475569',
     fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 4,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    lineHeight: 26,
+  planSection: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#64748b',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
-  description: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  featuresSection: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    paddingTop: 16,
-  },
-  sectionHeadingRow: {
+  planGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    gap: 10,
   },
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginLeft: 6,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  featureText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginLeft: 8,
+  planCard: {
     flex: 1,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
     backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  },
+  planCardActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
+  },
+  planHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    ...shadows.lg,
+    marginBottom: 4,
+  },
+  planDuration: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  planDurationActive: {
+    color: '#1e40af',
+  },
+  radioOuter: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#2563eb',
+  },
+  radioInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ffffff',
+  },
+  planPrice: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  couponSection: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    marginBottom: 16,
+  },
+  couponHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  couponInputGroup: {
+    gap: 6,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  couponTextInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: 1,
+  },
+  applyBtn: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  applyBtnDisabled: {
+    opacity: 0.5,
+  },
+  applyBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  appliedCouponCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: 14,
+    padding: 12,
+  },
+  appliedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  sparkleBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#d1fae5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  appliedCodeText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#064e3b',
+    letterSpacing: 0.5,
+  },
+  appliedBadge: {
+    backgroundColor: '#a7f3d0',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  appliedBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#065f46',
+  },
+  savingsText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    marginTop: 2,
+  },
+  removeCouponBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  removeCouponText: {
+    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  priceSection: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    marginBottom: 16,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  price: {
-    fontSize: 22,
+  freePriceText: {
+    fontSize: 28,
     fontWeight: '900',
-    color: colors.textPrimary,
+    color: '#059669',
   },
-  originalPrice: {
-    fontSize: 14,
-    color: colors.textLight,
-    textDecorationLine: 'line-through',
-    marginLeft: 6,
+  freeBadge: {
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  taxText: {
+  freeBadgeText: {
     fontSize: 11,
-    color: colors.success,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '800',
+    color: '#065f46',
   },
-  enrollButton: {
-    paddingHorizontal: 28,
+  mainPriceText: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  strikethroughPrice: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+  },
+  discountBadge: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  discountBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#059669',
+  },
+  planDurationBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  planDurationBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  couponNote: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+    marginTop: 3,
+  },
+  enrollBtn: {
+    width: '100%',
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
+  },
+  enrollBtnFree: {
+    backgroundColor: '#059669',
+  },
+  enrollBtnPaid: {
+    backgroundColor: '#2563eb',
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  enrollBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
 

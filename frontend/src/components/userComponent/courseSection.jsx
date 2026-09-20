@@ -262,10 +262,14 @@ const courseSection = () => {
                           duration-300 overflow-hidden w-full"
               >
                 {/* Thumbnail 16, 9*/}
-                <div className="relative mb-6 rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                <div className="relative mb-6 rounded-xl overflow-hidden bg-gradient-to-br from-[#073b75] to-[#0b5cb8] aspect-video flex items-center justify-center">
                   <img
                     src={item.thumbnail}
                     alt={item.title}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "/logo3rd.png";
+                    }}
                     className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
