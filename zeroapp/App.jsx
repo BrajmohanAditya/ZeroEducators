@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { StatusBar, BackHandler, ToastAndroid, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import UserLayout from './src/layout/userLayout';
@@ -9,12 +9,11 @@ import SingleCourse from './src/pages/User/SingleCourse';
 import YourAllPurchasedCourse from './src/pages/User/yourAllPurchasedCourse';
 import SinglePurchasedCourse from './src/pages/User/SinglePurchasedCourse';
 import AllEbooks from './src/pages/User/eBooks/All.eBook';
-import QuizeDetail from './src/pages/User/quize/quize.detail';
-import QuizeInterface from './src/pages/User/quize/quize.interface';
 import Login from './src/pages/Auth/Login';
 import Register from './src/pages/Auth/Register';
 import StudyMaterial from './src/pages/User/study.material';
 import { fetchLiveCourses } from './src/config/api';
+import { getUserSession, clearUserSession } from './src/utils/storage';
 
 export function App() {
   const [activeTab, setActiveTab] = useState('Home');
@@ -23,11 +22,94 @@ export function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [liveCourses, setLiveCourses] = useState([]);
 
+  // Hardware Back button & navigation history
+  const exitToastRef = useRef(null);
+  const [history, setHistory] = useState([{ screen: 'Home', params: null, tab: 'Home' }]);
+
+  const goBack = () => {
+    if (history.length > 1) {
+      const nextHistory = history.slice(0, -1);
+      const prev = nextHistory[nextHistory.length - 1];
+      setHistory(nextHistory);
+      setCurrentScreen(prev.screen);
+      setScreenParams(prev.params);
+      if (prev.tab) setActiveTab(prev.tab);
+      return true;
+    } else if (currentScreen !== 'Home') {
+      setHistory([{ screen: 'Home', params: null, tab: 'Home' }]);
+      setCurrentScreen('Home');
+      setScreenParams(null);
+      setActiveTab('Home');
+      return true;
+    }
+    return false;
+  };
+
+  const navigate = (screenName, params = null) => {
+    setScreenParams(params);
+    setCurrentScreen(screenName);
+
+    // Sync tab if matching
+    const targetTab = ['Home', 'Courses', 'eBooks', 'Profile'].includes(screenName)
+      ? screenName
+      : activeTab;
+    if (['Home', 'Courses', 'eBooks', 'Profile'].includes(screenName)) {
+      setActiveTab(screenName);
+    }
+
+    setHistory((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.screen === screenName && JSON.stringify(last.params) === JSON.stringify(params)) {
+        return prev;
+      }
+      return [...prev, { screen: screenName, params, tab: targetTab }];
+    });
+  };
+
   useEffect(() => {
+    const onBackPress = () => {
+      if (history.length > 1 || currentScreen !== 'Home') {
+        goBack();
+        return true;
+      }
+
+      if (Platform.OS === 'android') {
+        const now = Date.now();
+        if (exitToastRef.current && now - exitToastRef.current < 2000) {
+          BackHandler.exitApp();
+          return true;
+        }
+        exitToastRef.current = now;
+        ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [history, currentScreen]);
+
+  useEffect(() => {
+    // Restore user session on app launch from AsyncStorage
+    getUserSession().then((session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+      }
+    }).catch((err) => {
+      console.log('Error restoring user session:', err);
+    });
+
     fetchLiveCourses().then((data) => {
       if (data && data.length > 0) setLiveCourses(data);
     });
   }, []);
+
+  const handleLogout = async () => {
+    await clearUserSession();
+    setCurrentUser(null);
+    navigate('Home');
+  };
 
   const isCoursePurchased = (course) => {
     if (!currentUser || !course?._id) return false;
@@ -62,16 +144,6 @@ export function App() {
     }
   };
 
-  const navigate = (screenName, params = null) => {
-    setScreenParams(params);
-    setCurrentScreen(screenName);
-
-    // Sync tab if matching
-    if (['Home', 'Courses', 'eBooks', 'Quizzes', 'Profile'].includes(screenName)) {
-      setActiveTab(screenName);
-    }
-  };
-
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
     if (tabName === 'Profile') {
@@ -85,19 +157,6 @@ export function App() {
     }
   };
 
-  // Full screen views (without bottom navbar / layout)
-  if (currentScreen === 'QuizInterface') {
-    return (
-      <SafeAreaProvider>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <QuizeInterface
-          quiz={screenParams?.quiz}
-          onExit={() => navigate('Quizzes')}
-          onSubmitSuccess={() => navigate('Quizzes')}
-        />
-      </SafeAreaProvider>
-    );
-  }
 
   if (currentScreen === 'SingleCourse') {
     return (
@@ -106,7 +165,7 @@ export function App() {
         <SingleCourse
           course={screenParams?.course}
           user={currentUser}
-          onBack={() => navigate('Home')}
+          onBack={goBack}
           onNavigate={navigate}
           onEnroll={(course) => {
             if (!currentUser) {
@@ -126,7 +185,8 @@ export function App() {
         <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
         <SinglePurchasedCourse
           course={screenParams?.course}
-          onBack={() => navigate('MyCourses')}
+          user={currentUser}
+          onBack={goBack}
         />
       </SafeAreaProvider>
     );
@@ -138,6 +198,7 @@ export function App() {
         <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
         <Login
           onNavigate={(target) => navigate(target)}
+          onBack={goBack}
           onLoginSuccess={(user) => {
             setCurrentUser(user);
             navigate('Home');
@@ -153,6 +214,7 @@ export function App() {
         <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
         <Register
           onNavigate={(target) => navigate(target)}
+          onBack={goBack}
           onRegisterSuccess={(user) => {
             setCurrentUser(user);
             navigate('Home');
@@ -171,7 +233,7 @@ export function App() {
         onTabChange={handleTabChange}
         user={currentUser}
         onNavigate={navigate}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
         onSearchPress={() => navigate('Courses')}
       >
         {currentScreen === 'Home' && (
@@ -210,8 +272,10 @@ export function App() {
         )}
 
         {currentScreen === 'Quizzes' && (
-          <QuizeDetail
-            onStartQuiz={(quiz) => navigate('QuizInterface', { quiz })}
+          <CourseSection
+            courses={liveCourses}
+            user={currentUser}
+            onCoursePress={handleCoursePress}
           />
         )}
       </UserLayout>

@@ -8,14 +8,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Mail, Lock, GraduationCap, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, GraduationCap, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 
 import { liveLoginApi } from '../../config/api';
+import { saveUserSession } from '../../utils/storage';
 
-export const Login = ({ onNavigate, onLoginSuccess }) => {
+export const Login = ({ onNavigate, onLoginSuccess, onBack }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,8 +33,11 @@ export const Login = ({ onNavigate, onLoginSuccess }) => {
     try {
       const data = await liveLoginApi(email.trim(), password);
       setLoading(false);
+      const userObj = data?.user || { email, name: email.split('@')[0] };
+      const token = data?.token || data?.jwt || null;
+      await saveUserSession(userObj, token);
       if (onLoginSuccess) {
-        onLoginSuccess(data?.user || { email, name: email.split('@')[0] });
+        onLoginSuccess(userObj, token);
       }
       if (onNavigate) {
         onNavigate('Home');
@@ -58,6 +62,18 @@ export const Login = ({ onNavigate, onLoginSuccess }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (onBack) onBack();
+              else if (onNavigate) onNavigate('Home');
+            }}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="#475569" />
+          </TouchableOpacity>
+
           {/* Brand Icon Header */}
           <View style={styles.iconCircle}>
             <GraduationCap size={32} color="#ffffff" />
@@ -133,7 +149,20 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    position: 'relative',
     ...shadows.lg,
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   iconCircle: {
     width: 60,

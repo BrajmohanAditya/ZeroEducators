@@ -112,7 +112,7 @@ export const Navbar = ({
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search courses, tests, topics..."
+              placeholder="Search courses, study notes..."
               placeholderTextColor="#94a3b8"
               style={styles.textInput}
               autoFocus

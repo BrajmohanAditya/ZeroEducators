@@ -8,12 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { User, Mail, Lock, Phone, GraduationCap } from 'lucide-react-native';
+import { User, Mail, Lock, Phone, GraduationCap, ArrowLeft } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
+import { saveUserSession } from '../../utils/storage';
 
-export const Register = ({ onNavigate, onRegisterSuccess }) => {
+export const Register = ({ onNavigate, onRegisterSuccess, onBack }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -21,7 +22,7 @@ export const Register = ({ onNavigate, onRegisterSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!name || !email || !password) {
       setError('Please fill in all required fields');
       return;
@@ -29,10 +30,12 @@ export const Register = ({ onNavigate, onRegisterSuccess }) => {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setLoading(false);
+      const userObj = { name, email, phone };
+      await saveUserSession(userObj);
       if (onRegisterSuccess) {
-        onRegisterSuccess({ name, email, phone });
+        onRegisterSuccess(userObj);
       }
       if (onNavigate) {
         onNavigate('VerifyOtp', { email });
@@ -50,6 +53,18 @@ export const Register = ({ onNavigate, onRegisterSuccess }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (onBack) onBack();
+              else if (onNavigate) onNavigate('Home');
+            }}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color="#475569" />
+          </TouchableOpacity>
+
           <View style={styles.iconCircle}>
             <GraduationCap size={28} color="#ffffff" />
           </View>
@@ -138,7 +153,20 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    position: 'relative',
     ...shadows.lg,
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   iconCircle: {
     width: 52,

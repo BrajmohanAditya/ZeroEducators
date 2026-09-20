@@ -99,8 +99,9 @@ export const Home = ({
           }}
         />
 
-        {/* 4. Footer */}
+        {/* 4. Footer matching web frontend */}
         <Footer
+          onNavigate={onNavigate}
           onLinkPress={(policy) => {
             if (onNavigate) onNavigate('Terms');
           }}

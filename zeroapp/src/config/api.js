@@ -22,6 +22,23 @@ export const fetchLiveCourses = async (search = '') => {
   }
 };
 
+export const fetchLiveSingleCourse = async (courseId) => {
+  if (!courseId) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/course/getSingleCourse/${courseId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    const data = await res.json();
+    return data?.course || null;
+  } catch (err) {
+    console.warn('[Live API] Error fetching single course:', err?.message || err);
+    return null;
+  }
+};
+
 export const fetchLiveHeroSection = async () => {
   try {
     const res = await fetch(`${BASE_URL}/hero`, {

@@ -302,7 +302,7 @@ export const CourseSection = ({
                 </View>
 
                 {/* Price and Action Row */}
-                <View style={styles.actionRow}>
+                <View style={styles.cardFooter}>
                   <View style={styles.priceContainer}>
                     <Text style={styles.priceLabel}>
                       {purchased
@@ -311,13 +311,13 @@ export const CourseSection = ({
                         ? 'Course Fee'
                         : 'Starting at'}
                     </Text>
-                    <View style={styles.priceRow}>
+                    <View style={styles.priceValuesRow}>
                       {purchased ? (
                         <Text style={[styles.amountText, { color: '#059669', fontSize: 16 }]}>
                           Active Access
                         </Text>
                       ) : item.isFree || Number(item.amount) === 0 ? (
-                        <Text style={styles.freeText}>FREE</Text>
+                        <Text style={styles.freePrice}>FREE</Text>
                       ) : (
                         <>
                           <Text style={styles.amountText}>
@@ -570,8 +570,9 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 6,
   },
-  courseList: {
-    gap: 18,
+  courseFeed: {
+    gap: 22,
+    paddingBottom: 12,
   },
   // Main Course Card
   courseCard: {
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    padding: 14,
+    padding: 16,
     ...shadows.sm,
   },
   thumbnailContainer: {
@@ -645,24 +646,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
-    paddingTop: 12,
+    paddingTop: 14,
+    marginTop: 4,
   },
-  priceContainer: {},
+  priceContainer: {
+    marginBottom: 10,
+  },
   priceLabel: {
     fontSize: 11,
     color: '#64748b',
-    marginBottom: 2,
-    fontWeight: '500',
+    marginBottom: 3,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   priceValuesRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 8,
   },
   freePrice: {
     fontSize: 18,
@@ -670,29 +673,32 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   amountText: {
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0f172a',
   },
   originalAmountText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#94a3b8',
     textDecorationLine: 'line-through',
+    fontWeight: '600',
   },
   enrollBtn: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: '#0a66c2', // LinkedIn / brand Blue from web frontend
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 12,
     ...shadows.sm,
   },
   enrollBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     color: '#ffffff',
+    letterSpacing: 0.2,
   },
 });
 

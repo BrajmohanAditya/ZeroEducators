@@ -83929,6 +83929,81 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       _useState0 = (0, _slicedToArray2.default)(_useState9, 2),
       liveCourses = _useState0[0],
       setLiveCourses = _useState0[1];
+
+    // Hardware Back button & navigation history
+    var exitToastRef = (0, _react.useRef)(null);
+    var _useState1 = (0, _react.useState)([{
+        screen: 'Home',
+        params: null,
+        tab: 'Home'
+      }]),
+      _useState10 = (0, _slicedToArray2.default)(_useState1, 2),
+      history = _useState10[0],
+      setHistory = _useState10[1];
+    var goBack = () => {
+      if (history.length > 1) {
+        var nextHistory = history.slice(0, -1);
+        var prev = nextHistory[nextHistory.length - 1];
+        setHistory(nextHistory);
+        setCurrentScreen(prev.screen);
+        setScreenParams(prev.params);
+        if (prev.tab) setActiveTab(prev.tab);
+        return true;
+      } else if (currentScreen !== 'Home') {
+        setHistory([{
+          screen: 'Home',
+          params: null,
+          tab: 'Home'
+        }]);
+        setCurrentScreen('Home');
+        setScreenParams(null);
+        setActiveTab('Home');
+        return true;
+      }
+      return false;
+    };
+    var navigate = (screenName, params = null) => {
+      setScreenParams(params);
+      setCurrentScreen(screenName);
+
+      // Sync tab if matching
+      var targetTab = ['Home', 'Courses', 'eBooks', 'Quizzes', 'Profile'].includes(screenName) ? screenName : activeTab;
+      if (['Home', 'Courses', 'eBooks', 'Quizzes', 'Profile'].includes(screenName)) {
+        setActiveTab(screenName);
+      }
+      setHistory(prev => {
+        var last = prev[prev.length - 1];
+        if (last && last.screen === screenName && JSON.stringify(last.params) === JSON.stringify(params)) {
+          return prev;
+        }
+        return [...prev, {
+          screen: screenName,
+          params,
+          tab: targetTab
+        }];
+      });
+    };
+    (0, _react.useEffect)(() => {
+      var onBackPress = () => {
+        if (history.length > 1 || currentScreen !== 'Home') {
+          goBack();
+          return true;
+        }
+        if ("android" === 'android') {
+          var now = Date.now();
+          if (exitToastRef.current && now - exitToastRef.current < 2000) {
+            _reactNative.BackHandler.exitApp();
+            return true;
+          }
+          exitToastRef.current = now;
+          _reactNative.ToastAndroid.show('Press back again to exit', _reactNative.ToastAndroid.SHORT);
+          return true;
+        }
+        return false;
+      };
+      var sub = _reactNative.BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [history, currentScreen]);
     (0, _react.useEffect)(() => {
       (0, require(_dependencyMap[17], "./src/config/api").fetchLiveCourses)().then(data => {
         if (data && data.length > 0) setLiveCourses(data);
@@ -83961,15 +84036,6 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
         });
       }
     };
-    var navigate = (screenName, params = null) => {
-      setScreenParams(params);
-      setCurrentScreen(screenName);
-
-      // Sync tab if matching
-      if (['Home', 'Courses', 'eBooks', 'Quizzes', 'Profile'].includes(screenName)) {
-        setActiveTab(screenName);
-      }
-    };
     var handleTabChange = tabName => {
       setActiveTab(tabName);
       if (tabName === 'Profile') {
@@ -83991,8 +84057,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           backgroundColor: "#ffffff"
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_quize2.default, {
           quiz: screenParams?.quiz,
-          onExit: () => navigate('Quizzes'),
-          onSubmitSuccess: () => navigate('Quizzes')
+          onExit: goBack,
+          onSubmitSuccess: goBack
         })]
       });
     }
@@ -84004,7 +84070,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_SingleCourse.default, {
           course: screenParams?.course,
           user: currentUser,
-          onBack: () => navigate('Home'),
+          onBack: goBack,
           onNavigate: navigate,
           onEnroll: course => {
             if (!currentUser) {
@@ -84025,7 +84091,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           backgroundColor: "#0f172a"
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_SinglePurchasedCourse.default, {
           course: screenParams?.course,
-          onBack: () => navigate('MyCourses')
+          user: currentUser,
+          onBack: goBack
         })]
       });
     }
@@ -84036,6 +84103,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           backgroundColor: "#eef2ff"
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_Login.default, {
           onNavigate: target => navigate(target),
+          onBack: goBack,
           onLoginSuccess: user => {
             setCurrentUser(user);
             navigate('Home');
@@ -84050,6 +84118,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           backgroundColor: "#eef2ff"
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_Register.default, {
           onNavigate: target => navigate(target),
+          onBack: goBack,
           onRegisterSuccess: user => {
             setCurrentUser(user);
             navigate('Home');
@@ -201376,7 +201445,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.validateCouponApi = exports.liveRegisterApi = exports.liveLoginApi = exports.fetchLiveQuizzes = exports.fetchLiveHeroSection = exports.fetchLiveExams = exports.fetchLiveEbooks = exports.fetchLiveCourses = exports.enrollCourseApi = exports.default = exports.BASE_URL = void 0;
+  exports.validateCouponApi = exports.liveRegisterApi = exports.liveLoginApi = exports.fetchLiveSingleCourse = exports.fetchLiveQuizzes = exports.fetchLiveHeroSection = exports.fetchLiveExams = exports.fetchLiveEbooks = exports.fetchLiveCourses = exports.enrollCourseApi = exports.default = exports.BASE_URL = void 0;
   var _asyncToGenerator2 = _interopRequireDefault(require(_dependencyMap[1], "@babel/runtime/helpers/asyncToGenerator"));
   // Live AWS Deployed Backend
   var BASE_URL = exports.BASE_URL = 'https://zeroeducators.com/api';
@@ -201404,8 +201473,29 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       return _ref.apply(this, arguments);
     };
   }();
+  var fetchLiveSingleCourse = exports.fetchLiveSingleCourse = /*#__PURE__*/function () {
+    var _ref2 = (0, _asyncToGenerator2.default)(function* (courseId) {
+      if (!courseId) return null;
+      try {
+        var res = yield fetch(`${BASE_URL}/course/getSingleCourse/${courseId}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        var data = yield res.json();
+        return data?.course || null;
+      } catch (err) {
+        console.warn('[Live API] Error fetching single course:', err?.message || err);
+        return null;
+      }
+    });
+    return function fetchLiveSingleCourse(_x) {
+      return _ref2.apply(this, arguments);
+    };
+  }();
   var fetchLiveHeroSection = exports.fetchLiveHeroSection = /*#__PURE__*/function () {
-    var _ref2 = (0, _asyncToGenerator2.default)(function* () {
+    var _ref3 = (0, _asyncToGenerator2.default)(function* () {
       try {
         var res = yield fetch(`${BASE_URL}/hero`, {
           method: 'GET',
@@ -201421,11 +201511,11 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
     });
     return function fetchLiveHeroSection() {
-      return _ref2.apply(this, arguments);
+      return _ref3.apply(this, arguments);
     };
   }();
   var fetchLiveExams = exports.fetchLiveExams = /*#__PURE__*/function () {
-    var _ref3 = (0, _asyncToGenerator2.default)(function* (params = {}) {
+    var _ref4 = (0, _asyncToGenerator2.default)(function* (params = {}) {
       try {
         var url = `${BASE_URL}/exam/all`;
         var queryParts = [];
@@ -201446,11 +201536,11 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
     });
     return function fetchLiveExams() {
-      return _ref3.apply(this, arguments);
+      return _ref4.apply(this, arguments);
     };
   }();
   var fetchLiveQuizzes = exports.fetchLiveQuizzes = /*#__PURE__*/function () {
-    var _ref4 = (0, _asyncToGenerator2.default)(function* (quizType = '') {
+    var _ref5 = (0, _asyncToGenerator2.default)(function* (quizType = '') {
       try {
         var url = `${BASE_URL}/quiz/getQuizzes`;
         if (quizType) url += `?quizType=${encodeURIComponent(quizType)}`;
@@ -201468,11 +201558,11 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
     });
     return function fetchLiveQuizzes() {
-      return _ref4.apply(this, arguments);
+      return _ref5.apply(this, arguments);
     };
   }();
   var fetchLiveEbooks = exports.fetchLiveEbooks = /*#__PURE__*/function () {
-    var _ref5 = (0, _asyncToGenerator2.default)(function* () {
+    var _ref6 = (0, _asyncToGenerator2.default)(function* () {
       try {
         var res = yield fetch(`${BASE_URL}/ebook/all`, {
           method: 'GET',
@@ -201488,11 +201578,11 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
     });
     return function fetchLiveEbooks() {
-      return _ref5.apply(this, arguments);
+      return _ref6.apply(this, arguments);
     };
   }();
   var liveLoginApi = exports.liveLoginApi = /*#__PURE__*/function () {
-    var _ref6 = (0, _asyncToGenerator2.default)(function* (email, password) {
+    var _ref7 = (0, _asyncToGenerator2.default)(function* (email, password) {
       var res = yield fetch(`${BASE_URL}/login`, {
         method: 'POST',
         headers: {
@@ -201510,12 +201600,12 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
       return data;
     });
-    return function liveLoginApi(_x, _x2) {
-      return _ref6.apply(this, arguments);
+    return function liveLoginApi(_x2, _x3) {
+      return _ref7.apply(this, arguments);
     };
   }();
   var liveRegisterApi = exports.liveRegisterApi = /*#__PURE__*/function () {
-    var _ref7 = (0, _asyncToGenerator2.default)(function* (payload) {
+    var _ref8 = (0, _asyncToGenerator2.default)(function* (payload) {
       var res = yield fetch(`${BASE_URL}/register`, {
         method: 'POST',
         headers: {
@@ -201530,12 +201620,12 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
       return data;
     });
-    return function liveRegisterApi(_x3) {
-      return _ref7.apply(this, arguments);
+    return function liveRegisterApi(_x4) {
+      return _ref8.apply(this, arguments);
     };
   }();
   var enrollCourseApi = exports.enrollCourseApi = /*#__PURE__*/function () {
-    var _ref8 = (0, _asyncToGenerator2.default)(function* (payload) {
+    var _ref9 = (0, _asyncToGenerator2.default)(function* (payload) {
       var res = yield fetch(`${BASE_URL}/payment/checkout`, {
         method: 'POST',
         headers: {
@@ -201550,12 +201640,12 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
       return data;
     });
-    return function enrollCourseApi(_x4) {
-      return _ref8.apply(this, arguments);
+    return function enrollCourseApi(_x5) {
+      return _ref9.apply(this, arguments);
     };
   }();
   var validateCouponApi = exports.validateCouponApi = /*#__PURE__*/function () {
-    var _ref9 = (0, _asyncToGenerator2.default)(function* (payload) {
+    var _ref0 = (0, _asyncToGenerator2.default)(function* (payload) {
       var res = yield fetch(`${BASE_URL}/coupon/validate`, {
         method: 'POST',
         headers: {
@@ -201570,8 +201660,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       }
       return data;
     });
-    return function validateCouponApi(_x5) {
-      return _ref9.apply(this, arguments);
+    return function validateCouponApi(_x6) {
+      return _ref0.apply(this, arguments);
     };
   }();
   var _default = exports.default = {
@@ -203851,200 +203941,759 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     value: true
   });
   exports.default = exports.SinglePurchasedCourse = void 0;
-  var _slicedToArray2 = _interopRequireDefault(require(_dependencyMap[1], "@babel/runtime/helpers/slicedToArray"));
-  var _react = _interopRequireWildcard(require(_dependencyMap[2], "react"));
-  var _reactNative = require(_dependencyMap[3], "react-native");
-  var _jsxRuntime = require(_dependencyMap[4], "react/jsx-runtime");
+  var _asyncToGenerator2 = _interopRequireDefault(require(_dependencyMap[1], "@babel/runtime/helpers/asyncToGenerator"));
+  var _slicedToArray2 = _interopRequireDefault(require(_dependencyMap[2], "@babel/runtime/helpers/slicedToArray"));
+  var _react = _interopRequireWildcard(require(_dependencyMap[3], "react"));
+  var _reactNative = require(_dependencyMap[4], "react-native");
+  var _jsxRuntime = require(_dependencyMap[5], "react/jsx-runtime");
   var _jsxFileName = "D:\\ZeroEducators\\zeroapp\\src\\pages\\User\\SinglePurchasedCourse.jsx";
   function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (var _t in e) "default" !== _t && {}.hasOwnProperty.call(e, _t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, _t)) && (i.get || i.set) ? o(f, _t, i) : f[_t] = e[_t]); return f; })(e, t); }
   var _Dimensions$get = _reactNative.Dimensions.get('window'),
     width = _Dimensions$get.width;
-  var sampleCurriculum = [{
-    id: 'ch-1',
-    title: 'Chapter 01: Speed Math & Calculation Shortcuts',
-    lectures: [{
-      id: 'l-1',
-      title: '1. Fast Multiplication & Vedic Math',
-      duration: '45 mins',
-      completed: true
+
+  // Default working video stream URL from Zata S3 CDN
+  var DEFAULT_STREAM_URL = 'https://idr01.zata.ai/zerozeroeducators/courseModule/1789614399439-1.mp4';
+
+  // Default curriculum mirroring the user's banking course (from web screenshot)
+  var fallbackSubjects = [{
+    _id: 'sub-1',
+    subjectName: 'RETAIL BANKING AND WEALTH MANAGEMENT',
+    chapters: [{
+      _id: 'ch-101',
+      chapterName: 'Module A: Retail Banking & Products',
+      videos: [{
+        _id: 'v-101',
+        title: 'Customer requirement',
+        duration: '16:25',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-102',
+        title: 'Retail Banking Overview & Structure',
+        duration: '38:40',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-103',
+        title: 'Branch Profitability & Cost Control',
+        duration: '45:10',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: [{
+        _id: 'p-101',
+        title: 'Retail Banking Products & Guidelines.pdf',
+        pages: '14 Pages'
+      }]
     }, {
-      id: 'l-2',
-      title: '2. Square Roots & Cube Roots in 5 Seconds',
-      duration: '38 mins',
-      completed: true
-    }, {
-      id: 'l-3',
-      title: '3. Fraction to Percentage Conversion',
-      duration: '52 mins',
-      completed: false
-    }],
-    notes: [{
-      id: 'n-1',
-      title: 'Speed Math Formula Revision Sheet.pdf',
-      pages: '12 Pages'
+      _id: 'ch-102',
+      chapterName: 'Module B: Retail Lending & Credit Cards',
+      videos: [{
+        _id: 'v-104',
+        title: 'Home Loans & Mortgage Lending Criteria',
+        duration: '51:20',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-105',
+        title: 'Credit Cards, Debit Cards & ATM Frauds',
+        duration: '40:05',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: [{
+        _id: 'p-102',
+        title: 'Retail Lending Risk Management Note.pdf',
+        pages: '18 Pages'
+      }]
     }]
   }, {
-    id: 'ch-2',
-    title: 'Chapter 02: Quadratic Equations for SBI PO',
-    lectures: [{
-      id: 'l-4',
-      title: '1. Sign Method & Direct Root Finding',
-      duration: '50 mins',
-      completed: false
+    _id: 'sub-2',
+    subjectName: 'INDIAN ECONOMY & INDIAN FINANCIAL SYSTEM',
+    chapters: [{
+      _id: 'ch-201',
+      chapterName: 'Module A: Overview of Indian Economy',
+      videos: [{
+        _id: 'v-201',
+        title: 'Evolution of Indian Economy & Sectors',
+        duration: '48:30',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-202',
+        title: 'National Income & GDP Calculation',
+        duration: '35:15',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: []
     }, {
-      id: 'l-5',
-      title: '2. High Level Root Comparison for Mains',
-      duration: '62 mins',
-      completed: false
-    }],
-    notes: [{
-      id: 'n-2',
-      title: 'Quadratic Equations 100 Practice Qs.pdf',
-      pages: '18 Pages'
+      _id: 'ch-202',
+      chapterName: 'Module B: Economic Planning & Monetary Policy',
+      videos: [{
+        _id: 'v-203',
+        title: 'RBI Monetary Policy & Repo Rate Mechanism',
+        duration: '54:10',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: []
+    }]
+  }, {
+    _id: 'sub-3',
+    subjectName: 'ACCOUNTING AND FINANCIAL MANAGEMENT',
+    chapters: [{
+      _id: 'ch-301',
+      chapterName: 'Module A: Accounting Principles & Standards',
+      videos: [{
+        _id: 'v-301',
+        title: 'Golden Rules of Accounting & Journal Entries',
+        duration: '50:40',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-302',
+        title: 'Trial Balance, P&L Account & Balance Sheet',
+        duration: '62:00',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: []
+    }]
+  }, {
+    _id: 'sub-4',
+    subjectName: 'PRINCIPLES AND PRACTICES OF BANKING',
+    chapters: [{
+      _id: 'ch-401',
+      chapterName: 'Module A: General Banking Operations',
+      videos: [{
+        _id: 'v-401',
+        title: 'KYC, AML & Customer Onboarding Norms',
+        duration: '44:20',
+        Video: DEFAULT_STREAM_URL
+      }, {
+        _id: 'v-402',
+        title: 'Negotiable Instruments Act & Cheque Clearing',
+        duration: '39:50',
+        Video: DEFAULT_STREAM_URL
+      }],
+      pdfs: []
     }]
   }];
   var SinglePurchasedCourse = ({
     course,
+    user,
     onBack
   }) => {
-    var _useState = (0, _react.useState)(sampleCurriculum[0].lectures[0]),
+    var insets = (0, require(_dependencyMap[6], "react-native-safe-area-context").useSafeAreaInsets)();
+    var _useState = (0, _react.useState)(course || {}),
       _useState2 = (0, _slicedToArray2.default)(_useState, 2),
-      activeLecture = _useState2[0],
-      setActiveLecture = _useState2[1];
-    var _useState3 = (0, _react.useState)({
-        'ch-1': true
-      }),
+      courseData = _useState2[0],
+      setCourseData = _useState2[1];
+    var _useState3 = (0, _react.useState)(null),
       _useState4 = (0, _slicedToArray2.default)(_useState3, 2),
-      expandedChapters = _useState4[0],
-      setExpandedChapters = _useState4[1];
-    var toggleChapter = id => {
-      setExpandedChapters({
-        ...expandedChapters,
-        [id]: !expandedChapters[id]
+      activeLecture = _useState4[0],
+      setActiveLecture = _useState4[1];
+    var _useState5 = (0, _react.useState)(true),
+      _useState6 = (0, _slicedToArray2.default)(_useState5, 2),
+      isPlaying = _useState6[0],
+      setIsPlaying = _useState6[1];
+
+    // Accordion toggle states
+    var _useState7 = (0, _react.useState)({}),
+      _useState8 = (0, _slicedToArray2.default)(_useState7, 2),
+      openSubjects = _useState8[0],
+      setOpenSubjects = _useState8[1];
+    var _useState9 = (0, _react.useState)({}),
+      _useState0 = (0, _slicedToArray2.default)(_useState9, 2),
+      openChapters = _useState0[0],
+      setOpenChapters = _useState0[1];
+
+    // Video Interaction States (Like, Rating, Comments)
+    var _useState1 = (0, _react.useState)(14),
+      _useState10 = (0, _slicedToArray2.default)(_useState1, 2),
+      likeCount = _useState10[0],
+      setLikeCount = _useState10[1];
+    var _useState11 = (0, _react.useState)(false),
+      _useState12 = (0, _slicedToArray2.default)(_useState11, 2),
+      isLiked = _useState12[0],
+      setIsLiked = _useState12[1];
+    var _useState13 = (0, _react.useState)(5),
+      _useState14 = (0, _slicedToArray2.default)(_useState13, 2),
+      userRating = _useState14[0],
+      setUserRating = _useState14[1];
+    var _useState15 = (0, _react.useState)(0),
+      _useState16 = (0, _slicedToArray2.default)(_useState15, 2),
+      hoverRating = _useState16[0],
+      setHoverRating = _useState16[1];
+    var _useState17 = (0, _react.useState)(''),
+      _useState18 = (0, _slicedToArray2.default)(_useState17, 2),
+      commentInput = _useState18[0],
+      setCommentInput = _useState18[1];
+    var _useState19 = (0, _react.useState)([{
+        id: 'c1',
+        author: 'Mohit Kumar',
+        initial: 'M',
+        text: 'Great lecture! The explanation of customer requirements under retail banking was crystal clear.',
+        timeAgo: '2h ago'
+      }, {
+        id: 'c2',
+        author: 'Priya Sharma',
+        initial: 'P',
+        text: 'Thank you maam! Can we get the chapter practice MCQs PDF for revision?',
+        timeAgo: '1d ago'
+      }]),
+      _useState20 = (0, _slicedToArray2.default)(_useState19, 2),
+      commentsList = _useState20[0],
+      setCommentsList = _useState20[1];
+
+    // Fetch full course data with subjects if needed
+    (0, _react.useEffect)(() => {
+      if (course?._id && (!course.subjects || course.subjects.length === 0)) {
+        (0, require(_dependencyMap[7], "../../config/api").fetchLiveSingleCourse)(course._id).then(fullCourse => {
+          if (fullCourse && fullCourse.subjects && fullCourse.subjects.length > 0) {
+            setCourseData(fullCourse);
+          }
+        });
+      }
+    }, [course]);
+
+    // Determine subjects list
+    var subjects = (0, _react.useMemo)(() => {
+      if (courseData?.subjects && courseData.subjects.length > 0) {
+        return courseData.subjects;
+      }
+      return fallbackSubjects;
+    }, [courseData]);
+
+    // Compute total counts
+    var totalStats = (0, _react.useMemo)(() => {
+      var videos = 0;
+      var pdfs = 0;
+      subjects.forEach(sub => {
+        (sub.chapters || []).forEach(ch => {
+          videos += (ch.videos || []).length;
+          pdfs += (ch.pdfs || []).length;
+        });
       });
+      return {
+        videos: videos || 57,
+        pdfs: pdfs || 14
+      };
+    }, [subjects]);
+
+    // Set initial active lecture and open first subject/chapter
+    (0, _react.useEffect)(() => {
+      if (subjects.length > 0 && !activeLecture) {
+        var firstSub = subjects[0];
+        var firstCh = firstSub.chapters?.[0];
+        var firstVid = firstCh?.videos?.[0];
+        if (firstVid) {
+          setActiveLecture(firstVid);
+        } else {
+          setActiveLecture({
+            _id: 'v-default',
+            title: 'Customer requirement',
+            duration: '16:25',
+            Video: DEFAULT_STREAM_URL
+          });
+        }
+        setOpenSubjects({
+          [firstSub._id]: true
+        });
+        if (firstCh?._id) {
+          setOpenChapters({
+            [firstCh._id]: true
+          });
+        }
+      }
+    }, [subjects]);
+
+    // Get valid streaming video URL
+    var getVideoUrl = lecture => {
+      if (lecture?.Video && typeof lecture.Video === 'string' && lecture.Video.startsWith('http')) {
+        return lecture.Video;
+      }
+      if (lecture?.videoUrl && typeof lecture.videoUrl === 'string' && lecture.videoUrl.startsWith('http')) {
+        return lecture.videoUrl;
+      }
+      if (lecture?.moduleId) {
+        return `https://zeroeducators.com/api/module/stream/${lecture.moduleId}`;
+      }
+      if (lecture?._id && String(lecture._id).length === 24) {
+        return `https://zeroeducators.com/api/module/stream/${lecture._id}`;
+      }
+      return DEFAULT_STREAM_URL;
     };
+
+    // Launch and play video immediately
+    var handlePlayVideo = /*#__PURE__*/function () {
+      var _ref = (0, _asyncToGenerator2.default)(function* (lecture) {
+        var target = lecture || activeLecture;
+        var url = getVideoUrl(target);
+        try {
+          yield _reactNative.Linking.openURL(url);
+        } catch (err) {
+          console.log('Error opening video URL:', err);
+          _reactNative.Alert.alert('Playback Notice', 'Could not open video player on your device.');
+        }
+      });
+      return function handlePlayVideo(_x) {
+        return _ref.apply(this, arguments);
+      };
+    }();
+
+    // Open PDF notes
+    var handleOpenPdf = /*#__PURE__*/function () {
+      var _ref2 = (0, _asyncToGenerator2.default)(function* (pdf) {
+        var url = pdf?.pdfUrl || pdf?.url || (pdf?._id ? `https://zeroeducators.com/api/module/stream/${pdf._id}` : null);
+        if (url && url.startsWith('http')) {
+          try {
+            yield _reactNative.Linking.openURL(url);
+          } catch (e) {
+            _reactNative.Alert.alert('PDF Viewer', 'Could not open PDF document.');
+          }
+        } else {
+          _reactNative.Alert.alert('Study Notes PDF', `Opening ${pdf?.title || 'Chapter Study Note'}...`);
+        }
+      });
+      return function handleOpenPdf(_x2) {
+        return _ref2.apply(this, arguments);
+      };
+    }();
+    var toggleSubject = subId => {
+      setOpenSubjects(prev => ({
+        ...prev,
+        [subId]: !prev[subId]
+      }));
+    };
+    var toggleChapter = chId => {
+      setOpenChapters(prev => ({
+        ...prev,
+        [chId]: !prev[chId]
+      }));
+    };
+    var handleToggleLike = () => {
+      if (isLiked) {
+        setIsLiked(false);
+        setLikeCount(prev => Math.max(0, prev - 1));
+      } else {
+        setIsLiked(true);
+        setLikeCount(prev => prev + 1);
+      }
+    };
+    var handlePostComment = () => {
+      var text = commentInput.trim();
+      if (!text) {
+        _reactNative.Alert.alert('Empty Comment', 'Please enter a message to discuss.');
+        return;
+      }
+      var newComment = {
+        id: String(Date.now()),
+        author: user?.name || user?.email?.split('@')[0] || 'You',
+        initial: (user?.name || user?.email || 'U').charAt(0).toUpperCase(),
+        text,
+        timeAgo: 'Just now'
+      };
+      setCommentsList([newComment, ...commentsList]);
+      setCommentInput('');
+      _reactNative.Alert.alert('Comment Posted 🎉', 'Your question/comment has been posted.');
+    };
+    var userInitial = (user?.name || user?.email || 'M').charAt(0).toUpperCase();
     return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
       style: styles.container,
       children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-        style: styles.topBar,
+        style: [styles.topHeader, {
+          paddingTop: insets.top > 0 ? insets.top + 6 : 14
+        }],
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+          activeOpacity: 0.7,
           onPress: onBack,
-          style: styles.backBtn,
-          children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").ArrowLeft, {
+          style: styles.backButton,
+          children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ArrowLeft, {
             size: 20,
-            color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary
+            color: "#0f172a"
           })
-        }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-          style: styles.topBarTitle,
-          numberOfLines: 1,
-          children: course?.title || 'SBI PO Foundation Batch 2026'
-        })]
-      }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-        style: styles.playerContainer,
-        children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-          style: styles.playerPlaceholder,
-          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-            style: styles.playIconCircle,
-            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").Play, {
-              size: 28,
-              color: "#ffffff",
-              fill: "#ffffff"
-            })
-          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-            style: styles.playingTitle,
-            numberOfLines: 1,
-            children: activeLecture.title
-          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-            style: styles.playerSecurityBadge,
-            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-              style: styles.securityText,
-              children: "DRM SECURE STREAMING \u2022 1080P"
-            })
-          })]
-        })
-      }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.ScrollView, {
-        style: styles.scrollArea,
-        contentContainerStyle: styles.scrollContent,
-        showsVerticalScrollIndicator: false,
-        children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-          style: styles.curriculumHeader,
+        }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+          style: styles.headerTitleBox,
           children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-            style: styles.sectionTitle,
-            children: "Course Curriculum"
+            style: styles.headerBranding,
+            children: "ZEROEDUCATORS"
           }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-            style: styles.sectionSubtitle,
-            children: "Watch recorded lectures and download PDF notes"
+            style: styles.headerSubtitle,
+            numberOfLines: 1,
+            children: courseData?.title || 'Banking Foundation Batch'
           })]
-        }), sampleCurriculum.map(chapter => {
-          var isExpanded = expandedChapters[chapter.id];
-          return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-            style: styles.chapterCard,
-            children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-              activeOpacity: 0.8,
-              onPress: () => toggleChapter(chapter.id),
-              style: styles.chapterHeader,
-              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                style: styles.chapterTitle,
-                children: chapter.title
-              }), isExpanded ? /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").ChevronUp, {
-                size: 20,
-                color: require(_dependencyMap[6], "../../theme/colors").colors.textSecondary
-              }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").ChevronDown, {
-                size: 20,
-                color: require(_dependencyMap[6], "../../theme/colors").colors.textSecondary
+        }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+          style: styles.userAvatarCircle,
+          children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+            style: styles.userAvatarText,
+            children: userInitial
+          })
+        })]
+      }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.ScrollView, {
+        showsVerticalScrollIndicator: false,
+        contentContainerStyle: [styles.scrollContainer, {
+          paddingBottom: Math.max(insets.bottom, 20) + 30
+        }],
+        children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+          style: styles.playerWrapper,
+          children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+            activeOpacity: 0.92,
+            onPress: () => handlePlayVideo(activeLecture),
+            style: styles.playerScreen,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.playerVisualArea,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.instructorHalo,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                  style: styles.bigPlayCircle,
+                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Play, {
+                    size: 32,
+                    color: "#ffffff",
+                    fill: "#ffffff",
+                    style: {
+                      marginLeft: 4
+                    }
+                  })
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                style: styles.playerActiveTitle,
+                numberOfLines: 2,
+                children: activeLecture?.title || 'Customer requirement'
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.playNowActionBadge,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Play, {
+                  size: 12,
+                  color: "#10b981",
+                  fill: "#10b981"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.playNowActionText,
+                  children: "TAP TO PLAY VIDEO (1080P)"
+                })]
               })]
-            }), isExpanded && /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-              style: styles.chapterBody,
-              children: [chapter.lectures.map(lec => {
-                var isSelected = activeLecture.id === lec.id;
-                return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-                  activeOpacity: 0.75,
-                  onPress: () => setActiveLecture(lec),
-                  style: [styles.lectureRow, isSelected && styles.lectureRowActive],
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.playerControlsBar,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                onPress: () => handlePlayVideo(activeLecture),
+                style: styles.controlIconBtn,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Play, {
+                  size: 18,
+                  color: "#ffffff",
+                  fill: "#ffffff"
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                onPress: () => handlePlayVideo(activeLecture),
+                style: styles.playBarBadge,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.playBarBadgeText,
+                  children: "Play Video"
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                style: styles.timeText,
+                children: activeLecture?.duration || '16:25'
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: {
+                  flex: 1
+                }
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                onPress: () => handlePlayVideo(activeLecture),
+                style: styles.fullscreenBtn,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Maximize2, {
+                  size: 16,
+                  color: "#ffffff"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.fullscreenBtnText,
+                  children: "Fullscreen"
+                })]
+              })]
+            })]
+          })
+        }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+          style: styles.discussionCard,
+          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+            style: styles.discussionBadgeRow,
+            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+              style: styles.lecturePill,
+              children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                style: styles.lecturePillText,
+                children: "LECTURE DISCUSSION"
+              })
+            })
+          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+            style: styles.lectureMainTitle,
+            children: activeLecture?.title || 'Customer requirement'
+          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+            style: styles.actionRow,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.ratingBox,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.starsRow,
+                children: [1, 2, 3, 4, 5].map(s => /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                  activeOpacity: 0.7,
+                  onPress: () => setUserRating(s),
+                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Star, {
+                    size: 14,
+                    color: s <= userRating ? '#f59e0b' : '#cbd5e1',
+                    fill: s <= userRating ? '#f59e0b' : 'transparent'
+                  })
+                }, s))
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                activeOpacity: 0.8,
+                onPress: () => _reactNative.Alert.alert('Thank You', `You rated this lecture ${userRating} stars!`),
+                style: styles.rateBtn,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.rateBtnText,
+                  children: "Rate"
+                })
+              })]
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+              activeOpacity: 0.8,
+              onPress: handleToggleLike,
+              style: [styles.socialBtn, isLiked && styles.socialBtnActive],
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ThumbsUp, {
+                size: 14,
+                color: isLiked ? '#2563eb' : '#475569',
+                fill: isLiked ? '#2563eb' : 'transparent'
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                style: [styles.socialBtnText, isLiked && styles.socialBtnTextActive],
+                children: ["Like ", likeCount]
+              })]
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.commentsCountBtn,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").MessageSquare, {
+                size: 14,
+                color: "#64748b"
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                style: styles.commentsCountText,
+                children: [commentsList.length, " Comments"]
+              })]
+            })]
+          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+            style: styles.commentInputWrapper,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.commentInputRow,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.commentAvatar,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.commentAvatarText,
+                  children: userInitial
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TextInput, {
+                value: commentInput,
+                onChangeText: setCommentInput,
+                placeholder: "Ask a doubt, share key takeaways, or discuss this lecture...",
+                placeholderTextColor: "#94a3b8",
+                multiline: true,
+                style: styles.commentTextInput
+              })]
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.commentBottomRow,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                style: styles.commentGuidelinesText,
+                children: "Be respectful and constructive in student discussions."
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                activeOpacity: 0.85,
+                onPress: handlePostComment,
+                style: styles.postCommentBtn,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Send, {
+                  size: 13,
+                  color: "#ffffff"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.postCommentBtnText,
+                  children: "Post Comment"
+                })]
+              })]
+            })]
+          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+            style: styles.commentsHeaderRow,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").MessageSquare, {
+              size: 16,
+              color: "#059669"
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+              style: styles.commentsHeaderTitle,
+              children: ["COMMENTS & QUESTIONS (", commentsList.length, ")"]
+            })]
+          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+            style: styles.commentsList,
+            children: commentsList.map(item => /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.commentItem,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.commentItemAvatar,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.commentItemAvatarText,
+                  children: item.initial
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.commentItemContent,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.commentItemTop,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.commentAuthor,
+                    children: item.author
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.commentTime,
+                    children: item.timeAgo
+                  })]
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.commentText,
+                  children: item.text
+                })]
+              })]
+            }, item.id))
+          })]
+        }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+          style: styles.curriculumSection,
+          children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+            style: styles.curriculumHeader,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+              style: styles.curriculumTitle,
+              children: "Course Curriculum"
+            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.curriculumBadgesRow,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.videoBadge,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                  style: styles.videoBadgeText,
+                  children: [totalStats.videos, " Videos"]
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.pdfBadge,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                  style: styles.pdfBadgeText,
+                  children: [totalStats.pdfs, " PDFs"]
+                })
+              })]
+            })]
+          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+            style: styles.subjectsList,
+            children: subjects.map((sub, sIdx) => {
+              var isSubjectOpen = Boolean(openSubjects[sub._id]);
+              var chapters = sub.chapters || [];
+              var sVideos = chapters.reduce((acc, c) => acc + (c.videos?.length || 0), 0);
+              var sPdfs = chapters.reduce((acc, c) => acc + (c.pdfs?.length || 0), 0);
+              return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.subjectCard,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                  activeOpacity: 0.85,
+                  onPress: () => toggleSubject(sub._id),
+                  style: styles.subjectHeader,
                   children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                    style: styles.lectureIconBox,
-                    children: lec.completed ? /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").CheckCircle, {
-                      size: 18,
-                      color: require(_dependencyMap[6], "../../theme/colors").colors.success
-                    }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").Play, {
-                      size: 16,
-                      color: isSelected ? require(_dependencyMap[6], "../../theme/colors").colors.primary : require(_dependencyMap[6], "../../theme/colors").colors.textMuted
+                    style: styles.subjectNumberBadge,
+                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.subjectNumberText,
+                      children: sIdx + 1
                     })
                   }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                    style: styles.lectureDetails,
+                    style: styles.subjectInfoBox,
                     children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                      style: [styles.lectureTitle, isSelected && styles.lectureTitleActive],
-                      children: lec.title
-                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                      style: styles.lectureDuration,
-                      children: lec.duration
+                      style: styles.subjectTitleText,
+                      numberOfLines: 2,
+                      children: sub.subjectName
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                      style: styles.subjectMetaText,
+                      children: [chapters.length, " ", chapters.length === 1 ? 'chapter' : 'chapters', " \u2022 ", sVideos, " videos \u2022 ", sPdfs, " PDFs"]
                     })]
+                  }), isSubjectOpen ? /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ChevronUp, {
+                    size: 18,
+                    color: "#94a3b8"
+                  }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ChevronDown, {
+                    size: 18,
+                    color: "#94a3b8"
                   })]
-                }, lec.id);
-              }), chapter.notes.map(note => /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.noteRow,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").FileText, {
-                  size: 18,
-                  color: require(_dependencyMap[6], "../../theme/colors").colors.primary
-                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                  style: styles.noteDetails,
-                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.noteTitle,
-                    children: note.title
-                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.notePages,
-                    children: note.pages
-                  })]
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-                  style: styles.downloadBtn,
-                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").Download, {
-                    size: 16,
-                    color: require(_dependencyMap[6], "../../theme/colors").colors.primary
+                }), isSubjectOpen && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                  style: styles.chaptersContainer,
+                  children: chapters.map((ch, cIdx) => {
+                    var isChapterOpen = Boolean(openChapters[ch._id]);
+                    var chapVideos = ch.videos || [];
+                    var chapPdfs = ch.pdfs || [];
+                    return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                      style: styles.chapterCard,
+                      children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                        activeOpacity: 0.8,
+                        onPress: () => toggleChapter(ch._id),
+                        style: styles.chapterHeader,
+                        children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                          style: styles.chapterIndexBadge,
+                          children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                            style: styles.chapterIndexText,
+                            children: cIdx + 1
+                          })
+                        }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                          style: styles.chapterTitleBox,
+                          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                            style: styles.chapterTitleText,
+                            numberOfLines: 1,
+                            children: ch.chapterName
+                          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                            style: styles.chapterMetaText,
+                            children: [chapVideos.length, " ", chapVideos.length === 1 ? 'video' : 'videos', chapPdfs.length > 0 ? ` • ${chapPdfs.length} PDFs` : '']
+                          })]
+                        }), isChapterOpen ? /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ChevronUp, {
+                          size: 16,
+                          color: "#64748b"
+                        }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ChevronDown, {
+                          size: 16,
+                          color: "#64748b"
+                        })]
+                      }), isChapterOpen && /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                        style: styles.chapterContentBox,
+                        children: [chapVideos.map((vid, vIdx) => {
+                          var isActive = activeLecture?._id === vid._id || activeLecture?.title === vid.title;
+                          return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                            activeOpacity: 0.8,
+                            onPress: () => {
+                              setActiveLecture(vid);
+                              handlePlayVideo(vid);
+                            },
+                            style: [styles.lectureItemRow, isActive && styles.lectureItemRowActive],
+                            children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                              style: [styles.lectureItemIconBox, isActive && styles.lectureItemIconBoxActive],
+                              children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Play, {
+                                size: 13,
+                                color: isActive ? '#ffffff' : '#2563eb',
+                                fill: isActive ? '#ffffff' : '#2563eb'
+                              })
+                            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                              style: styles.lectureItemDetails,
+                              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                                style: [styles.lectureItemTitle, isActive && styles.lectureItemTitleActive],
+                                numberOfLines: 1,
+                                children: vid.title
+                              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                                style: styles.lectureItemDuration,
+                                children: [vid.duration || '40:00', " \u2022 Tap to stream"]
+                              })]
+                            }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                              style: [styles.playingPill, isActive && styles.playingPillActive],
+                              children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                                style: [styles.playingPillText, isActive && styles.playingPillTextActive],
+                                children: isActive ? 'PLAYING' : 'PLAY'
+                              })
+                            })]
+                          }, vid._id || vIdx);
+                        }), chapPdfs.map((pdf, pIdx) => /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                          activeOpacity: 0.8,
+                          onPress: () => handleOpenPdf(pdf),
+                          style: styles.pdfItemRow,
+                          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                            style: styles.pdfItemIconBox,
+                            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").FileText, {
+                              size: 14,
+                              color: "#7c3aed"
+                            })
+                          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                            style: styles.pdfItemDetails,
+                            children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                              style: styles.pdfItemTitle,
+                              numberOfLines: 1,
+                              children: pdf.title
+                            }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                              style: styles.pdfItemPages,
+                              children: pdf.pages || 'Downloadable PDF'
+                            })]
+                          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                            style: styles.readPdfText,
+                            children: "Read \u2192"
+                          })]
+                        }, pdf._id || pIdx))]
+                      })]
+                    }, ch._id || cIdx);
                   })
                 })]
-              }, note.id))]
-            })]
-          }, chapter.id);
+              }, sub._id || sIdx);
+            })
+          })]
         })]
       })]
     });
@@ -204053,172 +204702,657 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
   var styles = _reactNative.StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: require(_dependencyMap[6], "../../theme/colors").colors.background
+      backgroundColor: '#f8fafc' // slate-50
     },
-    topBar: {
+    topHeader: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingBottom: 12,
       backgroundColor: '#ffffff',
       borderBottomWidth: 1,
-      borderBottomColor: require(_dependencyMap[6], "../../theme/colors").colors.border
+      borderBottomColor: '#f1f5f9',
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.sm
     },
-    backBtn: {
-      padding: 6,
-      marginRight: 10
+    backButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: '#f1f5f9',
+      alignItems: 'center',
+      justifyContent: 'center'
     },
-    topBarTitle: {
+    headerTitleBox: {
+      flex: 1,
+      marginHorizontal: 12
+    },
+    headerBranding: {
       fontSize: 16,
-      fontWeight: '700',
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary,
-      flex: 1
+      fontWeight: '900',
+      color: '#0f172a',
+      letterSpacing: 0.5
     },
-    playerContainer: {
+    headerSubtitle: {
+      fontSize: 11,
+      color: '#64748b',
+      fontWeight: '600'
+    },
+    userAvatarCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#fef3c7',
+      // amber-100
+      borderWidth: 1.5,
+      borderColor: '#f59e0b',
+      // amber-500
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    userAvatarText: {
+      fontSize: 14,
+      fontWeight: '900',
+      color: '#92400e'
+    },
+    scrollContainer: {
+      padding: 14
+    },
+    // 1. Player Styles (16:9)
+    playerWrapper: {
       width: '100%',
-      height: 220,
-      backgroundColor: '#0f172a'
+      aspectRatio: 16 / 9,
+      backgroundColor: '#000000',
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 14,
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.lg
     },
-    playerPlaceholder: {
+    playerScreen: {
+      flex: 1,
+      backgroundColor: '#090d16',
+      justifyContent: 'space-between'
+    },
+    playerVisualArea: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 16
+      paddingHorizontal: 20
     },
-    playIconCircle: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: require(_dependencyMap[6], "../../theme/colors").colors.primary,
+    instructorHalo: {
+      width: 74,
+      height: 74,
+      borderRadius: 37,
+      backgroundColor: 'rgba(37, 99, 235, 0.25)',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 10,
-      ...require(_dependencyMap[6], "../../theme/colors").shadows.md
+      borderWidth: 1.5,
+      borderColor: 'rgba(96, 165, 250, 0.4)'
     },
-    playingTitle: {
-      fontSize: 14,
-      fontWeight: '700',
+    bigPlayCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: '#2563eb',
+      // royal vibrant blue
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.md
+    },
+    playerActiveTitle: {
       color: '#ffffff',
+      fontSize: 15,
+      fontWeight: '700',
       textAlign: 'center',
-      maxWidth: width - 40
+      marginBottom: 8
     },
-    playerSecurityBadge: {
-      marginTop: 8,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    playNowActionBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+      borderWidth: 1,
+      borderColor: 'rgba(16, 185, 129, 0.4)',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 20
+    },
+    playNowActionText: {
+      color: '#34d399',
+      fontSize: 10,
+      fontWeight: '900',
+      letterSpacing: 0.6
+    },
+    playerControlsBar: {
+      height: 44,
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      gap: 8
+    },
+    controlIconBtn: {
+      padding: 4
+    },
+    playBarBadge: {
+      backgroundColor: '#2563eb',
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 6
     },
-    securityText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#38bdf8',
+    playBarBadgeText: {
+      color: '#ffffff',
+      fontSize: 11,
+      fontWeight: '800'
+    },
+    timeText: {
+      color: '#e2e8f0',
+      fontSize: 11,
+      fontWeight: '600'
+    },
+    fullscreenBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6
+    },
+    fullscreenBtnText: {
+      color: '#ffffff',
+      fontSize: 10.5,
+      fontWeight: '700'
+    },
+    // 2. Discussion Card Styles (From web screenshot)
+    discussionCard: {
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+      padding: 16,
+      marginBottom: 16,
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.sm
+    },
+    discussionBadgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6
+    },
+    lecturePill: {
+      backgroundColor: '#ecfdf5',
+      borderWidth: 1,
+      borderColor: '#a7f3d0',
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 20
+    },
+    lecturePillText: {
+      color: '#047857',
+      fontSize: 10.5,
+      fontWeight: '900',
       letterSpacing: 0.5
     },
-    scrollArea: {
-      flex: 1
+    lectureMainTitle: {
+      fontSize: 19,
+      fontWeight: '800',
+      color: '#0f172a',
+      marginBottom: 12
     },
-    scrollContent: {
-      padding: 16,
-      paddingBottom: 40
-    },
-    curriculumHeader: {
+    actionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 8,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f1f5f9',
       marginBottom: 14
     },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary
+    ratingBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#fffbeb',
+      borderWidth: 1,
+      borderColor: '#fef3c7',
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderRadius: 10,
+      gap: 6
     },
-    sectionSubtitle: {
+    starsRow: {
+      flexDirection: 'row',
+      gap: 2
+    },
+    rateBtn: {
+      backgroundColor: '#ffffff',
+      borderWidth: 1,
+      borderColor: '#fcd34d',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6
+    },
+    rateBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: '#b45309'
+    },
+    socialBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#f8fafc',
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10
+    },
+    socialBtnActive: {
+      backgroundColor: '#eff6ff',
+      borderColor: '#bfdbfe'
+    },
+    socialBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#475569'
+    },
+    socialBtnTextActive: {
+      color: '#2563eb'
+    },
+    commentsCountBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#f8fafc',
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10
+    },
+    commentsCountText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#64748b'
+    },
+    // Comment Box
+    commentInputWrapper: {
+      backgroundColor: '#f8fafc',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+      padding: 12,
+      marginBottom: 16
+    },
+    commentInputRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10
+    },
+    commentAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: '#059669',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    commentAvatarText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800'
+    },
+    commentTextInput: {
+      flex: 1,
       fontSize: 13,
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textMuted,
-      marginTop: 2
+      color: '#0f172a',
+      minHeight: 40,
+      paddingTop: 4,
+      paddingBottom: 4
+    },
+    commentBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: '#e2e8f0'
+    },
+    commentGuidelinesText: {
+      fontSize: 10,
+      color: '#94a3b8',
+      flex: 1,
+      marginRight: 8
+    },
+    postCommentBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#0d9488',
+      // teal-600
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 10,
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.sm
+    },
+    postCommentBtnText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800'
+    },
+    // Comments List
+    commentsHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 12
+    },
+    commentsHeaderTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: '#059669',
+      letterSpacing: 0.5
+    },
+    commentsList: {
+      gap: 10
+    },
+    commentItem: {
+      flexDirection: 'row',
+      gap: 10,
+      padding: 10,
+      backgroundColor: '#f8fafc',
+      borderRadius: 12
+    },
+    commentItemAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#3b82f6',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    commentItemAvatarText: {
+      color: '#ffffff',
+      fontSize: 11,
+      fontWeight: '800'
+    },
+    commentItemContent: {
+      flex: 1
+    },
+    commentItemTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 2
+    },
+    commentAuthor: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#0f172a'
+    },
+    commentTime: {
+      fontSize: 10,
+      color: '#94a3b8'
+    },
+    commentText: {
+      fontSize: 12,
+      color: '#334155',
+      lineHeight: 16
+    },
+    // 3. Curriculum Section Styles (Dark Cards)
+    curriculumSection: {
+      marginTop: 4
+    },
+    curriculumHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12
+    },
+    curriculumTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: '#0f172a'
+    },
+    curriculumBadgesRow: {
+      flexDirection: 'row',
+      gap: 6
+    },
+    videoBadge: {
+      backgroundColor: '#eff6ff',
+      borderWidth: 1,
+      borderColor: '#bfdbfe',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 14
+    },
+    videoBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#1d4ed8'
+    },
+    pdfBadge: {
+      backgroundColor: '#faf5ff',
+      borderWidth: 1,
+      borderColor: '#e9d5ff',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 14
+    },
+    pdfBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#7e22ce'
+    },
+    subjectsList: {
+      gap: 12
+    },
+    // Dark Subject Card (Matching screenshot)
+    subjectCard: {
+      backgroundColor: '#0f172a',
+      // dark slate navy
+      borderRadius: 18,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: '#1e293b',
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.md
+    },
+    subjectHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      gap: 12
+    },
+    subjectNumberBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+      // blue-500/20
+      borderWidth: 1,
+      borderColor: 'rgba(96, 165, 250, 0.3)',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    subjectNumberText: {
+      color: '#93c5fd',
+      fontSize: 13,
+      fontWeight: '900'
+    },
+    subjectInfoBox: {
+      flex: 1
+    },
+    subjectTitleText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
+      lineHeight: 18,
+      letterSpacing: 0.2
+    },
+    subjectMetaText: {
+      color: '#94a3b8',
+      fontSize: 11,
+      fontWeight: '500',
+      marginTop: 3
+    },
+    // Chapters inside subject
+    chaptersContainer: {
+      backgroundColor: '#f8fafc',
+      padding: 10,
+      gap: 10,
+      borderTopWidth: 1,
+      borderTopColor: '#1e293b'
     },
     chapterCard: {
       backgroundColor: '#ffffff',
-      borderRadius: 16,
+      borderRadius: 14,
       borderWidth: 1,
-      borderColor: require(_dependencyMap[6], "../../theme/colors").colors.border,
-      marginBottom: 12,
-      overflow: 'hidden',
-      ...require(_dependencyMap[6], "../../theme/colors").shadows.sm
+      borderColor: '#e2e8f0',
+      overflow: 'hidden'
     },
     chapterHeader: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      backgroundColor: '#f8fafc'
-    },
-    chapterTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary,
-      flex: 1,
-      marginRight: 10
-    },
-    chapterBody: {
-      padding: 12
-    },
-    lectureRow: {
-      flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 10,
-      marginBottom: 6
+      gap: 10,
+      backgroundColor: '#f1f5f9'
     },
-    lectureRowActive: {
-      backgroundColor: require(_dependencyMap[6], "../../theme/colors").colors.primaryLight
+    chapterIndexBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 6,
+      backgroundColor: '#dbeafe',
+      alignItems: 'center',
+      justifyContent: 'center'
     },
-    lectureIconBox: {
-      marginRight: 12
+    chapterIndexText: {
+      color: '#1d4ed8',
+      fontSize: 11,
+      fontWeight: '800'
     },
-    lectureDetails: {
+    chapterTitleBox: {
       flex: 1
     },
-    lectureTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary
+    chapterTitleText: {
+      fontSize: 12.5,
+      fontWeight: '700',
+      color: '#0f172a'
     },
-    lectureTitleActive: {
-      color: require(_dependencyMap[6], "../../theme/colors").colors.primary,
-      fontWeight: '700'
-    },
-    lectureDuration: {
-      fontSize: 12,
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textMuted,
-      marginTop: 2
-    },
-    noteRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#f1f5f9',
-      padding: 12,
-      borderRadius: 10,
-      marginTop: 4
-    },
-    noteDetails: {
-      flex: 1,
-      marginLeft: 10
-    },
-    noteTitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textPrimary
-    },
-    notePages: {
-      fontSize: 11,
-      color: require(_dependencyMap[6], "../../theme/colors").colors.textMuted,
+    chapterMetaText: {
+      fontSize: 10.5,
+      color: '#64748b',
       marginTop: 1
     },
-    downloadBtn: {
-      padding: 8
+    chapterContentBox: {
+      padding: 8,
+      gap: 6
+    },
+    // Video Lectures Inside Chapter
+    lectureItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#f1f5f9',
+      backgroundColor: '#ffffff',
+      gap: 10
+    },
+    lectureItemRowActive: {
+      borderColor: '#10b981',
+      backgroundColor: '#ecfdf5'
+    },
+    lectureItemIconBox: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: '#eff6ff',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    lectureItemIconBoxActive: {
+      backgroundColor: '#059669'
+    },
+    lectureItemDetails: {
+      flex: 1
+    },
+    lectureItemTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#0f172a'
+    },
+    lectureItemTitleActive: {
+      color: '#065f46',
+      fontWeight: '800'
+    },
+    lectureItemDuration: {
+      fontSize: 10.5,
+      color: '#94a3b8',
+      marginTop: 1
+    },
+    playingPill: {
+      backgroundColor: '#eff6ff',
+      borderWidth: 1,
+      borderColor: '#bfdbfe',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6
+    },
+    playingPillActive: {
+      backgroundColor: '#d1fae5',
+      borderColor: '#a7f3d0'
+    },
+    playingPillText: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: '#2563eb'
+    },
+    playingPillTextActive: {
+      color: '#059669'
+    },
+    // PDF items
+    pdfItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#f1f5f9',
+      backgroundColor: '#faf5ff',
+      gap: 10
+    },
+    pdfItemIconBox: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: '#f3e8ff',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    pdfItemDetails: {
+      flex: 1
+    },
+    pdfItemTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#581c87'
+    },
+    pdfItemPages: {
+      fontSize: 10,
+      color: '#7e22ce',
+      marginTop: 1
+    },
+    readPdfText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#7e22ce'
     }
   });
   var _default = exports.default = SinglePurchasedCourse;
-},2622,[1,14,71,2,190,626,2601],"src/pages/User/SinglePurchasedCourse.jsx");
+},2622,[1,186,14,71,2,190,2602,2615,626,2601],"src/pages/User/SinglePurchasedCourse.jsx");
 __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, exports, _dependencyMap) {
   var _interopRequireDefault = require(_dependencyMap[0], "@babel/runtime/helpers/interopRequireDefault");
   Object.defineProperty(exports, "__esModule", {
@@ -205346,7 +206480,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
   function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (var _t in e) "default" !== _t && {}.hasOwnProperty.call(e, _t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, _t)) && (i.get || i.set) ? o(f, _t, i) : f[_t] = e[_t]); return f; })(e, t); }
   var Login = ({
     onNavigate,
-    onLoginSuccess
+    onLoginSuccess,
+    onBack
   }) => {
     var _useState = (0, _react.useState)(''),
       _useState2 = (0, _slicedToArray2.default)(_useState, 2),
@@ -205402,7 +206537,17 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
         showsVerticalScrollIndicator: false,
         children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
           style: styles.card,
-          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+            onPress: () => {
+              if (onBack) onBack();else if (onNavigate) onNavigate('Home');
+            },
+            style: styles.backBtn,
+            activeOpacity: 0.7,
+            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").ArrowLeft, {
+              size: 20,
+              color: "#475569"
+            })
+          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
             style: styles.iconCircle,
             children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").GraduationCap, {
               size: 32,
@@ -205483,7 +206628,20 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       padding: 24,
       borderWidth: 1,
       borderColor: require(_dependencyMap[9], "../../theme/colors").colors.border,
+      position: 'relative',
       ...require(_dependencyMap[9], "../../theme/colors").shadows.lg
+    },
+    backBtn: {
+      position: 'absolute',
+      top: 18,
+      left: 18,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#f1f5f9',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10
     },
     iconCircle: {
       width: 60,
@@ -205681,7 +206839,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
   function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (var _t in e) "default" !== _t && {}.hasOwnProperty.call(e, _t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, _t)) && (i.get || i.set) ? o(f, _t, i) : f[_t] = e[_t]); return f; })(e, t); }
   var Register = ({
     onNavigate,
-    onRegisterSuccess
+    onRegisterSuccess,
+    onBack
   }) => {
     var _useState = (0, _react.useState)(''),
       _useState2 = (0, _slicedToArray2.default)(_useState, 2),
@@ -205738,7 +206897,17 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
         showsVerticalScrollIndicator: false,
         children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
           style: styles.card,
-          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+          children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+            onPress: () => {
+              if (onBack) onBack();else if (onNavigate) onNavigate('Home');
+            },
+            style: styles.backBtn,
+            activeOpacity: 0.7,
+            children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").ArrowLeft, {
+              size: 20,
+              color: "#475569"
+            })
+          }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
             style: styles.iconCircle,
             children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[5], "lucide-react-native").GraduationCap, {
               size: 28,
@@ -205832,7 +207001,20 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       padding: 24,
       borderWidth: 1,
       borderColor: require(_dependencyMap[7], "../../theme/colors").colors.border,
+      position: 'relative',
       ...require(_dependencyMap[7], "../../theme/colors").shadows.lg
+    },
+    backBtn: {
+      position: 'absolute',
+      top: 18,
+      left: 18,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#f1f5f9',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10
     },
     iconCircle: {
       width: 52,

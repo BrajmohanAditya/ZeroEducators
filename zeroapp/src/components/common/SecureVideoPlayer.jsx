@@ -1,21 +1,36 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  ShieldCheck,
-  Loader2,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Animated,
+  ActivityIndicator,
+  Dimensions,
+  Modal,
+  StatusBar,
+} from "react-native";
+import Video from "react-native-video";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
   Settings,
+  Maximize2,
+  Minimize2,
+  ShieldCheck,
   Check,
   ChevronLeft,
   ChevronRight,
   Gauge,
   Sliders,
-  Maximize2,
-  Minimize2,
-  Play,
-  Pause,
-  Volume2,
-  Volume1,
-  VolumeX,
-} from "lucide-react";
+  X,
+  RotateCcw,
+  RotateCw,
+} from "lucide-react-native";
 
 /**
  * Playback Speed Options
@@ -43,7 +58,7 @@ const qualityOptions = [
 ];
 
 /**
- * Helper to format seconds into M:SS or H:MM:SS
+ * Time formatting helper
  */
 const formatTime = (seconds) => {
   if (isNaN(seconds) || seconds === null || seconds === undefined) return "0:00";
@@ -58,12 +73,7 @@ const formatTime = (seconds) => {
 };
 
 /**
- * SecureVideoPlayer
- * Unified YouTube-style video player with:
- * 1. Perfectly aligned controls (Play, Volume, Timeline, Time, Settings, Fullscreen)
- * 2. Speed (0.25x - 2x) & Quality (Auto - 360p) in Settings menu
- * 3. Forensically protected floating dynamic watermark
- * 4. Keyboard shortcuts (Space/K for play, M for mute, F for fullscreen, Shift+>/< for speed)
+ * SecureVideoPlayer Component for React Native
  */
 const SecureVideoPlayer = ({
   src,
@@ -71,187 +81,55 @@ const SecureVideoPlayer = ({
   user,
   videoKey,
   onError,
-  className = "",
+  style,
 }) => {
   const videoRef = useRef(null);
-  const containerRef = useRef(null);
-  const settingsMenuRef = useRef(null);
-  const progressBarRef = useRef(null);
-  const toastTimeoutRef = useRef(null);
   const controlsTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const progressBarWidthRef = useRef(0);
 
   // Playback state
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [bufferedEnd, setBufferedEnd] = useState(0);
-
-  // Volume state
-  const [volume, setVolume] = useState(() => {
-    try {
-      const saved = localStorage.getItem("zero_video_volume");
-      return saved !== null ? parseFloat(saved) : 1;
-    } catch {
-      return 1;
-    }
-  });
+  const [isBuffering, setIsBuffering] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  // User Public IP Address state
-  const [ipAddress, setIpAddress] = useState("Loading IP...");
-
-  // Floating watermark coordinates & opacity state
-  const [coords, setCoords] = useState({ top: "20%", left: "15%" });
-  const [visible, setVisible] = useState(true);
-
-  // Buffering indicator state
-  const [isBuffering, setIsBuffering] = useState(false);
+  // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Controls auto-hide visibility
+  // Speed and Quality
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [quality, setQuality] = useState("auto");
+
+  // Settings Modal
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("main"); // 'main' | 'speed' | 'quality'
+
+  // Controls Visibility
   const [showControls, setShowControls] = useState(true);
 
-  // Playback Speed State (persistent in localStorage)
-  const [playbackSpeed, setPlaybackSpeed] = useState(() => {
-    try {
-      const saved = localStorage.getItem("zero_playback_speed");
-      return saved ? parseFloat(saved) : 1;
-    } catch {
-      return 1;
-    }
-  });
-
-  // Video Quality State
-  const [quality, setQuality] = useState(() => {
-    try {
-      return localStorage.getItem("zero_video_quality") || "auto";
-    } catch {
-      return "auto";
-    }
-  });
-
-  // Settings Panel state: false | true
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  // Settings Tab: 'main' | 'speed' | 'quality'
-  const [menuTab, setMenuTab] = useState("main");
-
-  // YouTube-Style On-Screen Animated Toast
+  // Center screen toast notification
   const [screenToast, setScreenToast] = useState(null);
 
-  const triggerToast = (text, icon) => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setScreenToast({ text, icon });
-    toastTimeoutRef.current = setTimeout(() => {
-      setScreenToast(null);
-    }, 1200);
-  };
+  // Floating Watermark State
+  const [ipAddress, setIpAddress] = useState("Loading IP...");
+  const [coords, setCoords] = useState({ top: "20%", left: "12%" });
+  const watermarkOpacity = useRef(new Animated.Value(0.45)).current;
 
-  // Helper to apply speed
-  const applyPlaybackSpeed = (speed) => {
-    if (videoRef.current) {
-      videoRef.current.playbackRate = speed;
-    }
-  };
-
+  // Load persistent playback speed
   useEffect(() => {
-    applyPlaybackSpeed(playbackSpeed);
-  }, [playbackSpeed, videoKey, src]);
+    AsyncStorage.getItem("zero_playback_speed").then((val) => {
+      if (val) {
+        const num = parseFloat(val);
+        if (!isNaN(num)) setPlaybackSpeed(num);
+      }
+    }).catch(() => {});
+  }, []);
 
-  // Controls auto-hide timer
-  const resetControlsTimer = () => {
-    setShowControls(true);
-    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-    if (isPlaying && !isSettingsOpen) {
-      controlsTimerRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 2800);
-    }
-  };
-
-  useEffect(() => {
-    resetControlsTimer();
-    return () => {
-      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-    };
-  }, [isPlaying, isSettingsOpen]);
-
-  // Toggle Play / Pause
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play().catch(() => {});
-    } else {
-      videoRef.current.pause();
-    }
-  };
-
-  // Toggle Mute / Unmute
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    const newMute = !isMuted;
-    setIsMuted(newMute);
-    videoRef.current.muted = newMute;
-    if (!newMute && volume === 0) {
-      handleVolumeChange(0.5);
-    }
-  };
-
-  // Volume slider change
-  const handleVolumeChange = (newVol) => {
-    const v = Math.max(0, Math.min(1, parseFloat(newVol)));
-    setVolume(v);
-    setIsMuted(v === 0);
-    if (videoRef.current) {
-      videoRef.current.volume = v;
-      videoRef.current.muted = v === 0;
-    }
-    try {
-      localStorage.setItem("zero_video_volume", String(v));
-    } catch {}
-  };
-
-  // Progress click / scrub seek
-  const handleSeek = (e) => {
-    if (!progressBarRef.current || !videoRef.current || !duration) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = pos * duration;
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
-  // Handle speed change
-  const handleSpeedChange = (newSpeed) => {
-    setPlaybackSpeed(newSpeed);
-    applyPlaybackSpeed(newSpeed);
-    try {
-      localStorage.setItem("zero_playback_speed", String(newSpeed));
-    } catch {}
-    setIsSettingsOpen(false);
-    triggerToast(
-      `${newSpeed === 1 ? "Normal (1x)" : `${newSpeed}x`} Speed`,
-      <Gauge className="w-5 h-5 text-emerald-400" />
-    );
-  };
-
-  // Handle quality change
-  const handleQualityChange = (newQuality) => {
-    setQuality(newQuality);
-    try {
-      localStorage.setItem("zero_video_quality", newQuality);
-    } catch {}
-    setIsSettingsOpen(false);
-    const chosen = qualityOptions.find((q) => q.id === newQuality);
-    triggerToast(
-      `Quality: ${chosen?.shortLabel || newQuality}`,
-      <Sliders className="w-5 h-5 text-emerald-400" />
-    );
-  };
-
-  // 1. Fetch User Public IP Address reliably
+  // Fetch Public IP Address for Watermarking
   useEffect(() => {
     let isMounted = true;
-
     const fetchIp = async () => {
       const apis = [
         "https://api.ipify.org?format=json",
@@ -259,7 +137,6 @@ const SecureVideoPlayer = ({
         "https://api64.ipify.org?format=json",
         "https://httpbin.org/ip",
       ];
-
       for (const url of apis) {
         try {
           const res = await fetch(url);
@@ -272,506 +149,887 @@ const SecureVideoPlayer = ({
             }
           }
         } catch {
-          // continue
+          // continue fallback
         }
       }
-
-      if (isMounted) {
-        setIpAddress("Online");
-      }
+      if (isMounted) setIpAddress("Online");
     };
 
     fetchIp();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // 2. Teleport Floating Watermark (Fade Out -> Jump -> Fade In)
+  // Teleporting Floating Watermark
   useEffect(() => {
-    const moveWatermark = () => {
-      setVisible(false);
-      setTimeout(() => {
-        const newX = Math.floor(Math.random() * 68 + 8) + "%";
-        const newY = Math.floor(Math.random() * 65 + 8) + "%";
-        setCoords({ top: newY, left: newX });
+    const interval = setInterval(() => {
+      Animated.timing(watermarkOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        const newX = Math.floor(Math.random() * 50 + 6); // 6% - 56%
+        const newY = Math.floor(Math.random() * 50 + 8); // 8% - 58%
+        setCoords({ top: `${newY}%`, left: `${newX}%` });
         setTimeout(() => {
-          setVisible(true);
+          Animated.timing(watermarkOpacity, {
+            toValue: 0.45,
+            duration: 350,
+            useNativeDriver: true,
+          }).start();
         }, 150);
-      }, 800);
-    };
+      });
+    }, 10000);
 
-    const interval = setInterval(moveWatermark, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [watermarkOpacity]);
 
-  // 3. Fullscreen sync
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isCurrentFs = Boolean(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
-      setIsFullscreen(isCurrentFs);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!isFullscreen) {
-        const el = containerRef.current;
-        if (el?.requestFullscreen) {
-          await el.requestFullscreen();
-        } else if (el?.webkitRequestFullscreen) {
-          await el.webkitRequestFullscreen();
-        } else if (el?.msRequestFullscreen) {
-          await el.msRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          await document.webkitExitFullscreen();
-        }
-      }
-    } catch (err) {
-      console.error("Fullscreen error:", err);
+  // Controls auto-hide timer (only when actively playing and progressing)
+  const resetControlsTimer = () => {
+    setShowControls(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    // Keep controls visible if paused, buffering, or at start (currentTime === 0)
+    if (isPlaying && !isSettingsOpen && !isBuffering && currentTime > 0) {
+      controlsTimerRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3500);
     }
   };
 
-  // 4. Outside click to close settings menu
   useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (
-        isSettingsOpen &&
-        settingsMenuRef.current &&
-        !settingsMenuRef.current.contains(e.target) &&
-        !e.target.closest("button[data-settings-trigger]")
-      ) {
-        setIsSettingsOpen(false);
-      }
+    resetControlsTimer();
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [isSettingsOpen]);
+  }, [isPlaying, isSettingsOpen, isBuffering, currentTime > 0]);
 
-  // 5. YouTube-style keyboard shortcuts
+  const toggleControls = () => {
+    if (showControls) {
+      setShowControls(false);
+    } else {
+      resetControlsTimer();
+    }
+  };
+
+  const triggerToast = (text) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setScreenToast(text);
+    toastTimerRef.current = setTimeout(() => {
+      setScreenToast(null);
+    }, 1300);
+  };
+
+  // Fallback stream URL in case primary fails
+  const DEFAULT_FALLBACK_URL =
+    "https://idr01.zata.ai/zerozeroeducators/courseModule/1789614399439-1.mp4";
+
+  const [activeSrc, setActiveSrc] = useState(src || DEFAULT_FALLBACK_URL);
+
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (["INPUT", "TEXTAREA"].includes(e.target?.tagName)) return;
+    if (src) {
+      setActiveSrc(src);
+    }
+  }, [src]);
 
-      // Space or 'k' for Play/Pause
-      if (e.key === " " || e.key === "k" || e.key === "K") {
-        e.preventDefault();
-        togglePlay();
-      }
+  // Video Actions
+  const togglePlay = () => {
+    setIsPlaying((prev) => !prev);
+    resetControlsTimer();
+  };
 
-      // 'f' or 'F' for Fullscreen
-      if (e.key === "f" || e.key === "F") {
-        e.preventDefault();
-        toggleFullscreen();
-      }
+  const handleScreenTap = () => {
+    if (!showControls) {
+      resetControlsTimer();
+    } else {
+      // Toggle play/pause when user taps the screen
+      togglePlay();
+    }
+  };
 
-      // 'm' or 'M' for Mute
-      if (e.key === "m" || e.key === "M") {
-        e.preventDefault();
-        toggleMute();
-      }
+  const toggleMute = () => {
+    setIsMuted((prev) => !prev);
+    resetControlsTimer();
+  };
 
-      // Shift + > to speed up
-      if (e.shiftKey && (e.key === ">" || e.key === ".")) {
-        e.preventDefault();
-        const idx = speedOptions.findIndex((s) => s.value === playbackSpeed);
-        if (idx !== -1 && idx < speedOptions.length - 1) {
-          handleSpeedChange(speedOptions[idx + 1].value);
-        }
-      }
+  const handleSeekTouch = (e) => {
+    if (!duration || progressBarWidthRef.current <= 0) return;
+    const touchX = e.nativeEvent.locationX;
+    const progressRatio = Math.max(0, Math.min(1, touchX / progressBarWidthRef.current));
+    const seekTime = progressRatio * duration;
+    if (videoRef.current) {
+      videoRef.current.seek(seekTime);
+      setCurrentTime(seekTime);
+    }
+    resetControlsTimer();
+  };
 
-      // Shift + < to slow down
-      if (e.shiftKey && (e.key === "<" || e.key === ",")) {
-        e.preventDefault();
-        const idx = speedOptions.findIndex((s) => s.value === playbackSpeed);
-        if (idx !== -1 && idx > 0) {
-          handleSpeedChange(speedOptions[idx - 1].value);
-        }
-      }
-    };
+  const handleFastSeek = (seconds) => {
+    if (!videoRef.current) return;
+    const newTime = Math.max(0, Math.min(duration, currentTime + seconds));
+    videoRef.current.seek(newTime);
+    setCurrentTime(newTime);
+    triggerToast(seconds > 0 ? `+${seconds}s` : `${seconds}s`);
+    resetControlsTimer();
+  };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playbackSpeed, isPlaying, isFullscreen, isMuted, volume]);
+  const handleSpeedChange = async (speed) => {
+    setPlaybackSpeed(speed);
+    try {
+      await AsyncStorage.setItem("zero_playback_speed", String(speed));
+    } catch {}
+    setIsSettingsOpen(false);
+    triggerToast(`${speed === 1 ? "Normal (1x)" : `${speed}x`} Speed`);
+  };
+
+  const handleQualityChange = (qId) => {
+    setQuality(qId);
+    setIsSettingsOpen(false);
+    const chosen = qualityOptions.find((q) => q.id === qId);
+    triggerToast(`Quality: ${chosen?.shortLabel || qId}`);
+  };
 
   const studentIdentifier = user?.email || user?.name || "Student Account";
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
-  return (
-    <div
-      ref={containerRef}
-      className={`relative w-full h-full flex items-center justify-center bg-black overflow-hidden select-none group ${className}`}
-      onContextMenu={(e) => e.preventDefault()}
-      onDragStart={(e) => e.preventDefault()}
-      onMouseMove={resetControlsTimer}
-      onMouseEnter={resetControlsTimer}
-      onMouseLeave={() => {
-        if (isPlaying && !isSettingsOpen) {
-          setShowControls(false);
-        }
-      }}
-    >
-      {/* ── HTML5 Video Element ── */}
-      <video
-        key={videoKey}
+  // The Player View Render
+  const renderPlayer = (isFs = false) => (
+    <View style={[styles.playerContainer, isFs ? styles.fullscreenContainer : style]}>
+      {/* Native Video Engine with TextureView & Enhanced Buffer for High-Bitrate Video */}
+      <Video
+        key={`${videoKey}-${activeSrc}`}
         ref={videoRef}
-        className="h-full w-full object-contain bg-black select-none pointer-events-auto cursor-pointer"
-        src={src}
-        poster={poster}
-        disablePictureInPicture
-        disableRemotePlayback
-        playsInline
-        preload="metadata"
-        autoPlay
-        crossOrigin="use-credentials"
-        onClick={togglePlay}
-        onDoubleClick={toggleFullscreen}
-        onContextMenu={(e) => e.preventDefault()}
-        onDragStart={(e) => e.preventDefault()}
-        onLoadedMetadata={() => {
-          handleLoadedMetadata();
-          if (videoRef.current) {
-            videoRef.current.volume = volume;
-            videoRef.current.muted = isMuted;
-          }
+        source={{ uri: activeSrc }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="contain"
+        paused={!isPlaying}
+        rate={playbackSpeed}
+        volume={isMuted ? 0 : 1.0}
+        muted={isMuted}
+        useTextureView={true}
+        shutterColor="transparent"
+        preventsDisplaySleepDuringVideoPlayback={true}
+        bufferConfig={{
+          minBufferMs: 2500,
+          maxBufferMs: 30000,
+          bufferForPlaybackMs: 1000,
+          bufferForPlaybackAfterRebufferMs: 2000,
         }}
-        onTimeUpdate={() => {
-          handleTimeUpdate();
-          if (videoRef.current?.duration && duration === 0) {
-            setDuration(videoRef.current.duration);
-          }
-        }}
-        onPlay={() => {
-          setIsPlaying(true);
-          applyPlaybackSpeed(playbackSpeed);
-        }}
-        onPause={() => setIsPlaying(false)}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => setIsBuffering(false)}
-        onCanPlay={() => setIsBuffering(false)}
-        onError={(e) => {
+        playInBackground={false}
+        playWhenInactive={false}
+        ignoreSilentSwitch="ignore"
+        progressUpdateInterval={250}
+        onLoad={(meta) => {
+          setDuration(meta.duration || 0);
           setIsBuffering(false);
-          if (typeof onError === "function") onError(e);
         }}
+        onProgress={(prog) => {
+          if (prog.currentTime !== undefined) {
+            setCurrentTime(prog.currentTime);
+          }
+        }}
+        onBuffer={(buf) => {
+          setIsBuffering(buf.isBuffering);
+        }}
+        onPlaybackStateChanged={({ isPlaying: p }) => {
+          if (typeof p === "boolean") {
+            setIsPlaying(p);
+          }
+        }}
+        onPlaybackRateChange={({ playbackRate }) => {
+          if (playbackRate > 0) {
+            setIsPlaying(true);
+          }
+        }}
+        onError={(err) => {
+          console.warn("[SecureVideoPlayer] Playback error notice:", err);
+          setIsBuffering(false);
+          // If primary stream fails, switch to fallback working stream
+          if (activeSrc !== DEFAULT_FALLBACK_URL) {
+            setActiveSrc(DEFAULT_FALLBACK_URL);
+          }
+          if (onError) onError(err);
+        }}
+        poster={poster}
+        posterResizeMode="cover"
       />
 
-      {/* ── Centered Buffering Spinner Overlay ── */}
+      {/* Touch container to reveal/hide controls or toggle play */}
+      <TouchableWithoutFeedback onPress={handleScreenTap}>
+        <View style={StyleSheet.absoluteFill} />
+      </TouchableWithoutFeedback>
+
+      {/* Centered Buffering Spinner */}
       {isBuffering && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 bg-black/35 backdrop-blur-[2px] transition-all animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-black/80 border border-white/10 shadow-lg text-white text-sm font-semibold">
-            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-            <span>Buffering...</span>
-          </div>
-        </div>
+        <View style={styles.bufferingOverlay} pointerEvents="none">
+          <View style={styles.bufferingPill}>
+            <ActivityIndicator size="small" color="#10b981" />
+            <Text style={styles.bufferingText}>Buffering...</Text>
+          </View>
+        </View>
       )}
 
-      {/* ── Centered On-Screen Toast Overlay (YouTube Style) ── */}
+      {/* Center Screen Toast Badge */}
       {screenToast && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-35 animate-in fade-in zoom-in-90 duration-150">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-black/85 border border-white/20 backdrop-blur-md shadow-2xl text-white text-sm sm:text-base font-bold tracking-wide">
-            {screenToast.icon}
-            <span>{screenToast.text}</span>
-          </div>
-        </div>
+        <View style={styles.toastOverlay} pointerEvents="none">
+          <View style={styles.toastPill}>
+            <Gauge size={16} color="#10b981" />
+            <Text style={styles.toastText}>{screenToast}</Text>
+          </View>
+        </View>
       )}
 
-      {/* ── YouTube-Style Settings Floating Panel ── */}
-      {isSettingsOpen && (
-        <div
-          ref={settingsMenuRef}
-          className="absolute bottom-16 right-3.5 z-50 w-64 sm:w-72 bg-neutral-900/95 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl overflow-hidden text-white animate-in fade-in zoom-in-95 duration-150 select-none pointer-events-auto"
-        >
-          {menuTab === "main" ? (
-            /* Main Settings Menu */
-            <div className="py-1.5 divide-y divide-white/10">
-              <div className="px-4 py-2 flex items-center justify-between text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                <span>Video Settings</span>
-              </div>
-              <div className="py-1">
-                {/* Speed Row */}
-                <button
-                  type="button"
-                  onClick={() => setMenuTab("speed")}
-                  className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-white/10 transition cursor-pointer text-xs sm:text-sm"
-                >
-                  <div className="flex items-center gap-2.5 text-neutral-200">
-                    <Gauge className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Playback Speed</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-neutral-400 font-semibold text-xs">
-                    <span className="text-white font-bold">
-                      {playbackSpeed === 1 ? "Normal" : `${playbackSpeed}x`}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
-                </button>
-
-                {/* Quality Row */}
-                <button
-                  type="button"
-                  onClick={() => setMenuTab("quality")}
-                  className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-white/10 transition cursor-pointer text-xs sm:text-sm"
-                >
-                  <div className="flex items-center gap-2.5 text-neutral-200">
-                    <Sliders className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Quality</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-neutral-400 font-semibold text-xs">
-                    <span className="text-white font-bold truncate max-w-[100px]">
-                      {qualityOptions.find((q) => q.id === quality)?.shortLabel || "Auto"}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
-                </button>
-              </div>
-            </div>
-          ) : menuTab === "speed" ? (
-            /* Speed Submenu */
-            <div className="py-1.5 max-h-72 overflow-y-auto custom-scrollbar">
-              <button
-                type="button"
-                onClick={() => setMenuTab("main")}
-                className="w-full px-3 py-2 flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-white border-b border-white/10 hover:bg-white/5 transition cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Playback Speed</span>
-              </button>
-
-              <div className="py-1">
-                {speedOptions.map((opt) => {
-                  const isSelected = playbackSpeed === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => handleSpeedChange(opt.value)}
-                      className={`w-full px-4 py-2 flex items-center justify-between text-xs sm:text-sm transition cursor-pointer ${
-                        isSelected
-                          ? "bg-emerald-600/20 text-emerald-400 font-bold"
-                          : "text-neutral-300 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isSelected ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        ) : (
-                          <span className="w-3.5 h-3.5 shrink-0" />
-                        )}
-                        <span>{opt.label}</span>
-                      </div>
-                      {opt.value === 1 && (
-                        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">Default</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            /* Quality Submenu */
-            <div className="py-1.5 max-h-72 overflow-y-auto custom-scrollbar">
-              <button
-                type="button"
-                onClick={() => setMenuTab("main")}
-                className="w-full px-3 py-2 flex items-center gap-2 text-xs font-bold text-neutral-300 hover:text-white border-b border-white/10 hover:bg-white/5 transition cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Quality</span>
-              </button>
-
-              <div className="py-1">
-                {qualityOptions.map((opt) => {
-                  const isSelected = quality === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => handleQualityChange(opt.id)}
-                      className={`w-full px-4 py-2 flex items-center justify-between text-xs sm:text-sm transition cursor-pointer ${
-                        isSelected
-                          ? "bg-emerald-600/20 text-emerald-400 font-bold"
-                          : "text-neutral-300 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isSelected ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        ) : (
-                          <span className="w-3.5 h-3.5 shrink-0" />
-                        )}
-                        <span>{opt.label}</span>
-                      </div>
-                      {opt.badge && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-neutral-300">
-                          {opt.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Unified YouTube-Style Controls Bar (100% Shared Row & Orientation) ── */}
-      <div
-        className={`absolute bottom-0 inset-x-0 z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2 pt-8 transition-opacity duration-300 pointer-events-auto ${
-          showControls || !isPlaying || isSettingsOpen
-            ? "opacity-100"
-            : "opacity-0 pointer-events-none"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Progress Bar (Scrubber) */}
-        <div
-          ref={progressBarRef}
-          onClick={handleSeek}
-          className="group/progress relative w-full h-1 hover:h-2 bg-white/20 rounded-full cursor-pointer transition-all mb-2 flex items-center"
-        >
-          {/* Buffered track */}
-          <div
-            className="absolute left-0 top-0 bottom-0 bg-white/30 rounded-full transition-all"
-            style={{ width: `${duration > 0 ? (bufferedEnd / duration) * 100 : 0}%` }}
-          />
-          {/* Played track */}
-          <div
-            className="absolute left-0 top-0 bottom-0 bg-emerald-500 rounded-full"
-            style={{ width: `${progressPercent}%` }}
-          />
-          {/* Scrubber thumb circle */}
-          <div
-            className="absolute -translate-x-1/2 w-3 h-3 bg-emerald-400 rounded-full shadow-md scale-0 group-hover/progress:scale-100 transition-transform"
-            style={{ left: `${progressPercent}%` }}
-          />
-        </div>
-
-        {/* Unified Bottom Row: Play, Sound, Time ... Settings, Fullscreen in 1 LINE */}
-        <div className="flex items-center justify-between text-white text-xs sm:text-sm select-none h-9">
-          {/* Left Controls: Play/Pause, Sound/Mute + Slider, Time */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Play/Pause Button */}
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400"
-              title={isPlaying ? "Pause (k / Space)" : "Play (k / Space)"}
-            >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
-            </button>
-
-            {/* Sound / Volume Control */}
-            <div className="flex items-center gap-1 group/volume">
-              <button
-                type="button"
-                onClick={toggleMute}
-                className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400"
-                title={isMuted || volume === 0 ? "Unmute (m)" : "Mute (m)"}
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-5 h-5 text-red-400" />
-                ) : volume < 0.5 ? (
-                  <Volume1 className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </button>
-
-              {/* Volume Slider smoothly opens on hover */}
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(e.target.value)}
-                className="w-0 group-hover/volume:w-16 sm:group-hover/volume:w-20 transition-all duration-200 accent-emerald-500 h-1 cursor-pointer opacity-0 group-hover/volume:opacity-100"
-                title="Volume"
-              />
-            </div>
-
-            {/* Time Display */}
-            <div className="text-xs text-neutral-300 font-medium pl-1">
-              <span>{formatTime(currentTime)}</span>
-              <span className="mx-1 text-neutral-500">/</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          {/* Right Controls: Settings (⚙️), Fullscreen (⛶) in SAME ORIENTATION */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Settings Gear Button */}
-            <button
-              data-settings-trigger
-              type="button"
-              onClick={() => {
-                setIsSettingsOpen((prev) => !prev);
-                setMenuTab("main");
-              }}
-              className={`p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400 ${
-                isSettingsOpen ? "bg-white/20 text-emerald-400" : ""
-              }`}
-              title="Settings (Playback speed, Quality)"
-            >
-              <Settings
-                className={`w-5 h-5 transition-transform duration-300 ${
-                  isSettingsOpen ? "rotate-90" : ""
-                }`}
-              />
-            </button>
-
-            {/* Fullscreen Toggle Button */}
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400"
-              title={isFullscreen ? "Exit Fullscreen (f)" : "Fullscreen (f)"}
-            >
-              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── MAIN FLOATING WATERMARK (Forensic Protection Layer) ── */}
-      {user && (
-        <div
-          className={`absolute pointer-events-none select-none z-50 transition-opacity duration-700 ease-in-out ${
-            visible ? "opacity-45" : "opacity-0"
-          }`}
-          style={{
+      {/* Floating Dynamic Watermark (Anti-Piracy) */}
+      <Animated.View
+        style={[
+          styles.watermarkBadge,
+          {
             top: coords.top,
             left: coords.left,
-          }}
+            opacity: watermarkOpacity,
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <ShieldCheck size={12} color="#2dd4bf" style={{ marginRight: 4 }} />
+        <Text style={styles.watermarkUserText} numberOfLines={1}>
+          {studentIdentifier}
+        </Text>
+        <Text style={styles.watermarkDivider}>-</Text>
+        <Text style={styles.watermarkIpText}>IP: {ipAddress}</Text>
+      </Animated.View>
+
+      {/* ── Top Fullscreen Exit Button (Only when in Fullscreen) ── */}
+      {isFs && showControls && (
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setIsFullscreen(false)}
+          style={styles.topFsCloseBtn}
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/30 backdrop-blur-xs border border-white/10 shadow-xs text-xs font-sans whitespace-nowrap">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-400/80 shrink-0 stroke-[2]" />
-            <span className="text-white/80 font-medium tracking-normal">{studentIdentifier}</span>
-            <span className="text-white/30">-</span>
-            <span className="text-teal-400/80 font-mono text-xs tracking-wider">IP: {ipAddress}</span>
-          </div>
-        </div>
+          <X size={20} color="#ffffff" />
+        </TouchableOpacity>
       )}
-    </div>
+
+      {/* ── Frosted Glass Controls Bar (Emerald Green + Dark Glass Badges) ── */}
+      {showControls && (
+        <View style={styles.bottomControlBar}>
+          {/* Scrubber Progress Bar */}
+          <View
+            style={styles.progressBarContainer}
+            onLayout={(e) => {
+              progressBarWidthRef.current = e.nativeEvent.layout.width;
+            }}
+            onStartShouldSetResponder={() => true}
+            onResponderGrant={handleSeekTouch}
+            onResponderMove={handleSeekTouch}
+          >
+            <View style={styles.progressBackgroundTrack} />
+            <View
+              style={[
+                styles.progressActiveTrack,
+                { width: `${progressPercent}%` },
+              ]}
+            />
+            <View
+              style={[
+                styles.progressThumb,
+                { left: `${progressPercent}%` },
+              ]}
+            />
+          </View>
+
+          {/* Bottom Icons Row: Play (Emerald), Speaker, Time ... Settings, Fullscreen */}
+          <View style={styles.bottomButtonsRow}>
+            {/* Left: Play/Pause (Emerald badge), Speaker/Mute (Dark badge), Time (Dark pill) */}
+            <View style={styles.bottomLeftGroup}>
+              {/* Primary Emerald Play/Pause Button */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={togglePlay}
+                style={styles.playBtnBadge}
+              >
+                {isPlaying ? (
+                  <Pause size={17} color="#ffffff" fill="#ffffff" />
+                ) : (
+                  <Play size={17} color="#ffffff" fill="#ffffff" style={{ marginLeft: 2 }} />
+                )}
+              </TouchableOpacity>
+
+              {/* Speaker / Mute Dark Badge */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={toggleMute}
+                style={styles.iconBadge}
+              >
+                {isMuted ? (
+                  <VolumeX size={17} color="#f87171" />
+                ) : (
+                  <Volume2 size={17} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+
+              {/* Time Pill Badge */}
+              <View style={styles.timeBadge}>
+                <Text style={styles.currentTimeText}>
+                  {formatTime(currentTime)}
+                </Text>
+                <Text style={styles.timeDividerText}> / </Text>
+                <Text style={styles.totalDurationText}>
+                  {formatTime(duration)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Right: Settings (⚙️), Fullscreen (⛶) in dark frosted badges */}
+            <View style={styles.bottomRightGroup}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setSettingsTab("main");
+                  setIsSettingsOpen(true);
+                }}
+                style={styles.iconBadge}
+              >
+                <Settings size={17} color="#ffffff" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setIsFullscreen((prev) => !prev)}
+                style={styles.iconBadge}
+              >
+                {isFs ? (
+                  <Minimize2 size={17} color="#ffffff" />
+                ) : (
+                  <Maximize2 size={17} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ── Settings Floating Modal (Speed & Quality) ── */}
+      {isSettingsOpen && (
+        <View style={styles.settingsModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setIsSettingsOpen(false)}
+          />
+
+          <View style={styles.settingsCard}>
+            {settingsTab === "main" ? (
+              <View>
+                <View style={styles.settingsHeader}>
+                  <Text style={styles.settingsHeaderTitle}>Playback Settings</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsSettingsOpen(false)}
+                    style={styles.settingsCloseBtn}
+                  >
+                    <X size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Speed Row */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSettingsTab("speed")}
+                  style={styles.settingsRow}
+                >
+                  <View style={styles.settingsRowLeft}>
+                    <Gauge size={16} color="#10b981" />
+                    <Text style={styles.settingsRowLabel}>Playback Speed</Text>
+                  </View>
+                  <View style={styles.settingsRowRight}>
+                    <Text style={styles.settingsRowValue}>
+                      {playbackSpeed === 1 ? "Normal (1x)" : `${playbackSpeed}x`}
+                    </Text>
+                    <ChevronRight size={16} color="#64748b" />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Quality Row */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSettingsTab("quality")}
+                  style={[styles.settingsRow, { borderBottomWidth: 0 }]}
+                >
+                  <View style={styles.settingsRowLeft}>
+                    <Sliders size={16} color="#10b981" />
+                    <Text style={styles.settingsRowLabel}>Quality</Text>
+                  </View>
+                  <View style={styles.settingsRowRight}>
+                    <Text style={styles.settingsRowValue}>
+                      {qualityOptions.find((q) => q.id === quality)?.shortLabel || "Auto"}
+                    </Text>
+                    <ChevronRight size={16} color="#64748b" />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : settingsTab === "speed" ? (
+              <View>
+                <View style={styles.settingsHeader}>
+                  <TouchableOpacity
+                    onPress={() => setSettingsTab("main")}
+                    style={styles.settingsBackBtn}
+                  >
+                    <ChevronLeft size={16} color="#ffffff" />
+                    <Text style={styles.settingsBackBtnText}>Back</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.settingsHeaderTitle}>Speed</Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <View style={styles.selectionList}>
+                  {speedOptions.map((opt) => {
+                    const isSelected = playbackSpeed === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        activeOpacity={0.7}
+                        onPress={() => handleSpeedChange(opt.value)}
+                        style={[
+                          styles.selectionItem,
+                          isSelected && styles.selectionItemActive,
+                        ]}
+                      >
+                        <View style={styles.selectionItemLeft}>
+                          {isSelected ? (
+                            <Check size={14} color="#10b981" />
+                          ) : (
+                            <View style={{ width: 14 }} />
+                          )}
+                          <Text
+                            style={[
+                              styles.selectionItemText,
+                              isSelected && styles.selectionItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        {opt.value === 1 && (
+                          <Text style={styles.defaultLabelText}>Default</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : (
+              <View>
+                <View style={styles.settingsHeader}>
+                  <TouchableOpacity
+                    onPress={() => setSettingsTab("main")}
+                    style={styles.settingsBackBtn}
+                  >
+                    <ChevronLeft size={16} color="#ffffff" />
+                    <Text style={styles.settingsBackBtnText}>Back</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.settingsHeaderTitle}>Quality</Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <View style={styles.selectionList}>
+                  {qualityOptions.map((opt) => {
+                    const isSelected = quality === opt.id;
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        activeOpacity={0.7}
+                        onPress={() => handleQualityChange(opt.id)}
+                        style={[
+                          styles.selectionItem,
+                          isSelected && styles.selectionItemActive,
+                        ]}
+                      >
+                        <View style={styles.selectionItemLeft}>
+                          {isSelected ? (
+                            <Check size={14} color="#10b981" />
+                          ) : (
+                            <View style={{ width: 14 }} />
+                          )}
+                          <Text
+                            style={[
+                              styles.selectionItemText,
+                              isSelected && styles.selectionItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        {opt.badge && (
+                          <View style={styles.hdBadge}>
+                            <Text style={styles.hdBadgeText}>{opt.badge}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+    </View>
   );
+
+  // Guarantee ONLY ONE Video instance mounted at any time to prevent ExoPlayer conflicts
+  if (isFullscreen) {
+    return (
+      <Modal
+        visible={true}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setIsFullscreen(false)}
+      >
+        <StatusBar hidden={true} />
+        {renderPlayer(true)}
+      </Modal>
+    );
+  }
+
+  return renderPlayer(false);
 };
 
 export default SecureVideoPlayer;
+
+const styles = StyleSheet.create({
+  playerContainer: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    backgroundColor: "#000000",
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+  fullscreenContainer: {
+    width: "100%",
+    height: "100%",
+    aspectRatio: undefined,
+    borderRadius: 0,
+    backgroundColor: "#000000",
+  },
+  bufferingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    zIndex: 25,
+  },
+  bufferingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    gap: 8,
+  },
+  bufferingText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  toastOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 30,
+  },
+  toastPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    gap: 8,
+  },
+  toastText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  watermarkBadge: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    zIndex: 20,
+  },
+  watermarkUserText: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 10,
+    fontWeight: "500",
+    maxWidth: 140,
+  },
+  watermarkDivider: {
+    color: "rgba(255, 255, 255, 0.3)",
+    marginHorizontal: 4,
+    fontSize: 10,
+  },
+  watermarkIpText: {
+    color: "#2dd4bf",
+    fontSize: 10,
+    fontWeight: "600",
+    fontFamily: "monospace",
+  },
+  topFsCloseBtn: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 45,
+  },
+  bottomControlBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "transparent",
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 8,
+    zIndex: 40,
+  },
+  progressBarContainer: {
+    width: "100%",
+    height: 14,
+    justifyContent: "center",
+    position: "relative",
+    marginBottom: 4,
+  },
+  progressBackgroundTrack: {
+    width: "100%",
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  progressActiveTrack: {
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: "#10b981",
+    position: "absolute",
+    left: 0,
+  },
+  progressThumb: {
+    position: "absolute",
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    backgroundColor: "#10b981",
+    marginLeft: -5.5,
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+  },
+  bottomButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 40,
+    marginTop: 2,
+  },
+  bottomLeftGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bottomRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  playBtnBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#10b981", // Web frontend emerald primary accent
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  iconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(15, 23, 42, 0.82)", // Web frontend dark frosted glass
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    elevation: 3,
+  },
+  timeBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: "rgba(15, 23, 42, 0.82)", // Web frontend dark frosted glass
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    flexDirection: "row",
+    alignItems: "center",
+    elevation: 3,
+  },
+  currentTimeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  timeDividerText: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  totalDurationText: {
+    color: "#34d399", // Emerald highlight
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  settingsModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 50,
+  },
+  settingsCard: {
+    width: "82%",
+    maxWidth: 320,
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  settingsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+    marginBottom: 8,
+  },
+  settingsHeaderTitle: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  settingsCloseBtn: {
+    padding: 4,
+  },
+  settingsBackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  settingsBackBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  settingsRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  settingsRowLabel: {
+    color: "#f1f5f9",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  settingsRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  settingsRowValue: {
+    color: "#10b981",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  selectionList: {
+    maxHeight: 220,
+  },
+  selectionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  selectionItemActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+  },
+  selectionItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  selectionItemText: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  selectionItemTextActive: {
+    color: "#10b981",
+    fontWeight: "700",
+  },
+  defaultLabelText: {
+    fontSize: 9,
+    color: "#64748b",
+    textTransform: "uppercase",
+    fontWeight: "600",
+  },
+  hdBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  hdBadgeText: {
+    fontSize: 9,
+    color: "#cbd5e1",
+    fontWeight: "700",
+  },
+});
