@@ -20,6 +20,8 @@ import {
   Sparkles,
   Tag,
   Check,
+  Play,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { enrollCourseApi, validateCouponApi } from '../../config/api';
@@ -28,6 +30,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => {
   const insets = useSafeAreaInsets();
   const currentCourse = course || {};
+
+  // Check if current course is already purchased by this user
+  const isAlreadyPurchased = useMemo(() => {
+    if (!user || !currentCourse?._id) return false;
+    const cid = String(currentCourse._id);
+    const list = user.purchasedCourse || user.purchasedCourses || [];
+    return list.some((pc) => {
+      if (!pc) return false;
+      if (typeof pc === 'string') return pc === cid;
+      return (
+        String(pc._id || '') === cid ||
+        String(pc.id || '') === cid ||
+        String(pc.courseId || '') === cid ||
+        String(pc.courseId?._id || '') === cid
+      );
+    });
+  }, [user, currentCourse]);
 
   // Pricing Plans
   const hasPlans = Boolean(
@@ -320,186 +339,243 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
               </View>
             </View>
 
-            {/* Choose Validity & Plan (Multi-Plan Selector) */}
-            {hasPlans && currentCourse.pricingPlans.length > 1 && (
-              <View style={styles.planSection}>
-                <Text style={styles.sectionLabel}>CHOOSE VALIDITY & PLAN:</Text>
-                <View style={styles.planGrid}>
-                  {currentCourse.pricingPlans.map((plan, idx) => {
-                    const isSelected = idx === selectedPlanIndex;
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        activeOpacity={0.8}
-                        onPress={() => setSelectedPlanIndex(idx)}
-                        style={[
-                          styles.planCard,
-                          isSelected && styles.planCardActive,
-                        ]}
-                      >
-                        <View style={styles.planHeaderRow}>
-                          <Text
-                            style={[
-                              styles.planDuration,
-                              isSelected && styles.planDurationActive,
-                            ]}
-                          >
-                            {plan.duration}
-                          </Text>
-                          <View
-                            style={[
-                              styles.radioOuter,
-                              isSelected && styles.radioOuterActive,
-                            ]}
-                          >
-                            {isSelected && <View style={styles.radioInner} />}
-                          </View>
-                        </View>
-                        <Text style={styles.planPrice}>₹{plan.price}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Coupon Code Section (Only for paid courses) */}
-            {!isCourseFree && (
-              <View style={styles.couponSection}>
-                {appliedCoupon ? (
-                  <View style={styles.appliedCouponCard}>
-                    <View style={styles.appliedLeft}>
-                      <View style={styles.sparkleBox}>
-                        <Sparkles size={16} color="#047857" />
-                      </View>
-                      <View>
-                        <View style={styles.codeBadgeRow}>
-                          <Text style={styles.appliedCodeText}>
-                            {appliedCoupon.code}
-                          </Text>
-                          <View style={styles.appliedBadge}>
-                            <Text style={styles.appliedBadgeText}>APPLIED</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.savingsText}>
-                          You save ₹{appliedCoupon.discountAmount}!
-                        </Text>
-                      </View>
+            {isAlreadyPurchased ? (
+              <View style={styles.enrolledAccessContainer}>
+                <View style={styles.enrolledCard}>
+                  <View style={styles.enrolledHeaderRow}>
+                    <View style={styles.enrolledIconCircle}>
+                      <ShieldCheck size={26} color="#059669" />
                     </View>
-                    <TouchableOpacity
-                      onPress={handleRemoveCoupon}
-                      style={styles.removeCouponBtn}
-                    >
-                      <Text style={styles.removeCouponText}>Remove</Text>
-                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.enrolledBadge}>
+                        <Text style={styles.enrolledBadgeText}>ACTIVE ENROLLMENT</Text>
+                      </View>
+                      <Text style={styles.enrolledCardTitle}>Course Unlocked & Active</Text>
+                    </View>
                   </View>
-                ) : (
-                  <View style={styles.couponInputGroup}>
-                    <View style={styles.couponHeaderRow}>
-                      <Tag size={13} color="#2563eb" />
-                      <Text style={styles.sectionLabel}>HAVE A COUPON CODE?</Text>
+
+                  <Text style={styles.enrolledCardDesc}>
+                    Your account has full access to this course. You can stream all recorded lectures, download chapter notes, and access mock tests anytime.
+                  </Text>
+
+                  <View style={styles.enrolledPerksList}>
+                    <View style={styles.enrolledPerkItem}>
+                      <CheckCircle2 size={16} color="#059669" />
+                      <Text style={styles.enrolledPerkText}>All Lectures Unlocked (1080p DRM)</Text>
                     </View>
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        value={couponInput}
-                        onChangeText={(txt) =>
-                          setCouponInput(txt.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))
-                        }
-                        placeholder="ENTER CODE"
-                        placeholderTextColor="#94a3b8"
-                        autoCapitalize="characters"
-                        style={styles.couponTextInput}
-                      />
-                      <TouchableOpacity
-                        onPress={handleApplyCoupon}
-                        disabled={isValidatingCoupon || !couponInput.trim()}
-                        style={[
-                          styles.applyBtn,
-                          (!couponInput.trim() || isValidatingCoupon) &&
-                            styles.applyBtnDisabled,
-                        ]}
-                      >
-                        {isValidatingCoupon ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <Text style={styles.applyBtnText}>Apply</Text>
-                        )}
-                      </TouchableOpacity>
+                    <View style={styles.enrolledPerkItem}>
+                      <CheckCircle2 size={16} color="#059669" />
+                      <Text style={styles.enrolledPerkText}>Downloadable PDF Notes & Formulas</Text>
+                    </View>
+                    <View style={styles.enrolledPerkItem}>
+                      <CheckCircle2 size={16} color="#059669" />
+                      <Text style={styles.enrolledPerkText}>Test Series & Quiz Discussions</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Continue / Start Learning Button */}
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    if (onEnroll) {
+                      onEnroll(currentCourse);
+                    } else if (onNavigate) {
+                      onNavigate('CoursePlayer', { course: currentCourse });
+                    }
+                  }}
+                  style={[styles.enrollBtn, { backgroundColor: '#059669' }]}
+                >
+                  <View style={styles.btnContentRow}>
+                    <Play size={20} color="#ffffff" fill="#ffffff" />
+                    <Text style={styles.enrollBtnText}>Start Learning / Continue</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {/* Choose Validity & Plan (Multi-Plan Selector) */}
+                {hasPlans && currentCourse.pricingPlans.length > 1 && (
+                  <View style={styles.planSection}>
+                    <Text style={styles.sectionLabel}>CHOOSE VALIDITY & PLAN:</Text>
+                    <View style={styles.planGrid}>
+                      {currentCourse.pricingPlans.map((plan, idx) => {
+                        const isSelected = idx === selectedPlanIndex;
+                        return (
+                          <TouchableOpacity
+                            key={idx}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedPlanIndex(idx)}
+                            style={[
+                              styles.planCard,
+                              isSelected && styles.planCardActive,
+                            ]}
+                          >
+                            <View style={styles.planHeaderRow}>
+                              <Text
+                                style={[
+                                  styles.planDuration,
+                                  isSelected && styles.planDurationActive,
+                                ]}
+                              >
+                                {plan.duration}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.radioOuter,
+                                  isSelected && styles.radioOuterActive,
+                                ]}
+                              >
+                                {isSelected && <View style={styles.radioInner} />}
+                              </View>
+                            </View>
+                            <Text style={styles.planPrice}>₹{plan.price}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 )}
-              </View>
-            )}
 
-            {/* Price & Summary */}
-            <View style={styles.priceSection}>
-              {isCourseFree ? (
-                <View style={styles.priceRow}>
-                  <Text style={styles.freePriceText}>FREE</Text>
-                  <View style={styles.freeBadge}>
-                    <Text style={styles.freeBadgeText}>100% OFF</Text>
+                {/* Coupon Code Section (Only for paid courses) */}
+                {!isCourseFree && (
+                  <View style={styles.couponSection}>
+                    {appliedCoupon ? (
+                      <View style={styles.appliedCouponCard}>
+                        <View style={styles.appliedLeft}>
+                          <View style={styles.sparkleBox}>
+                            <Sparkles size={16} color="#047857" />
+                          </View>
+                          <View>
+                            <View style={styles.codeBadgeRow}>
+                              <Text style={styles.appliedCodeText}>
+                                {appliedCoupon.code}
+                              </Text>
+                              <View style={styles.appliedBadge}>
+                                <Text style={styles.appliedBadgeText}>APPLIED</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.savingsText}>
+                              You save ₹{appliedCoupon.discountAmount}!
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleRemoveCoupon}
+                          style={styles.removeCouponBtn}
+                        >
+                          <Text style={styles.removeCouponText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.couponInputGroup}>
+                        <View style={styles.couponHeaderRow}>
+                          <Tag size={13} color="#2563eb" />
+                          <Text style={styles.sectionLabel}>HAVE A COUPON CODE?</Text>
+                        </View>
+                        <View style={styles.inputRow}>
+                          <TextInput
+                            value={couponInput}
+                            onChangeText={(txt) =>
+                              setCouponInput(txt.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))
+                            }
+                            placeholder="ENTER CODE"
+                            placeholderTextColor="#94a3b8"
+                            autoCapitalize="characters"
+                            style={styles.couponTextInput}
+                          />
+                          <TouchableOpacity
+                            onPress={handleApplyCoupon}
+                            disabled={isValidatingCoupon || !couponInput.trim()}
+                            style={[
+                              styles.applyBtn,
+                              (!couponInput.trim() || isValidatingCoupon) &&
+                                styles.applyBtnDisabled,
+                            ]}
+                          >
+                            {isValidatingCoupon ? (
+                              <ActivityIndicator size="small" color="#ffffff" />
+                            ) : (
+                              <Text style={styles.applyBtnText}>Apply</Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
-                </View>
-              ) : appliedCoupon ? (
-                <View>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.mainPriceText}>
-                      {isFinalFree ? 'FREE' : `₹${finalPayablePrice}`}
-                    </Text>
-                    <Text style={styles.strikethroughPrice}>₹{activePrice}</Text>
-                    <View style={styles.discountBadge}>
-                      <Text style={styles.discountBadgeText}>
-                        -₹{appliedCoupon.discountAmount} OFF
+                )}
+
+                {/* Price & Summary */}
+                <View style={styles.priceSection}>
+                  {isCourseFree ? (
+                    <View style={styles.priceRow}>
+                      <Text style={styles.freePriceText}>FREE</Text>
+                      <View style={styles.freeBadge}>
+                        <Text style={styles.freeBadgeText}>100% OFF</Text>
+                      </View>
+                    </View>
+                  ) : appliedCoupon ? (
+                    <View>
+                      <View style={styles.priceRow}>
+                        <Text style={styles.mainPriceText}>
+                          {isFinalFree ? 'FREE' : `₹${finalPayablePrice}`}
+                        </Text>
+                        <Text style={styles.strikethroughPrice}>₹{activePrice}</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountBadgeText}>
+                            -₹{appliedCoupon.discountAmount} OFF
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.couponNote}>
+                        Coupon discount applied on this course!
                       </Text>
                     </View>
-                  </View>
-                  <Text style={styles.couponNote}>
-                    Coupon discount applied on this course!
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.priceRow}>
-                  <Text style={styles.mainPriceText}>₹{activePrice}</Text>
-                  <Text style={styles.strikethroughPrice}>
-                    ₹{Math.round(activePrice * 1.3)}
-                  </Text>
-                  {activePlan && (
-                    <View style={styles.planDurationBadge}>
-                      <Text style={styles.planDurationBadgeText}>
-                        {activePlan.duration}
+                  ) : (
+                    <View style={styles.priceRow}>
+                      <Text style={styles.mainPriceText}>₹{activePrice}</Text>
+                      <Text style={styles.strikethroughPrice}>
+                        ₹{Math.round(activePrice * 1.3)}
                       </Text>
+                      {activePlan && (
+                        <View style={styles.planDurationBadge}>
+                          <Text style={styles.planDurationBadgeText}>
+                            {activePlan.duration}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
-              )}
-            </View>
 
-            {/* Enroll CTA Button */}
-            <TouchableOpacity
-              activeOpacity={0.9}
-              disabled={isEnrolling}
-              onPress={handleEnrollPress}
-              style={[
-                styles.enrollBtn,
-                isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid,
-                isEnrolling && { opacity: 0.7 },
-              ]}
-            >
-              {isEnrolling ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <View style={styles.btnContentRow}>
-                  <ShieldCheck size={20} color="#ffffff" />
-                  <Text style={styles.enrollBtnText}>
-                    {isFinalFree
-                      ? appliedCoupon
-                        ? 'Enroll for Free (Coupon Applied)'
-                        : 'Enroll for Free'
-                      : `Enroll for ₹${finalPayablePrice}`}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+                {/* Enroll CTA Button */}
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  disabled={isEnrolling}
+                  onPress={handleEnrollPress}
+                  style={[
+                    styles.enrollBtn,
+                    isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid,
+                    isEnrolling && { opacity: 0.7 },
+                  ]}
+                >
+                  {isEnrolling ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <View style={styles.btnContentRow}>
+                      <ShieldCheck size={20} color="#ffffff" />
+                      <Text style={styles.enrollBtnText}>
+                        {isFinalFree
+                          ? appliedCoupon
+                            ? 'Enroll for Free (Coupon Applied)'
+                            : 'Enroll for Free'
+                          : `Enroll for ₹${finalPayablePrice}`}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -862,6 +938,73 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  enrolledAccessContainer: {
+    marginTop: 4,
+  },
+  enrolledCard: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1.5,
+    borderColor: '#a7f3d0',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.sm,
+  },
+  enrolledHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  enrolledIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#d1fae5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enrolledBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#059669',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    marginBottom: 3,
+  },
+  enrolledBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  enrolledCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#064e3b',
+  },
+  enrolledCardDesc: {
+    fontSize: 13,
+    color: '#047857',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  enrolledPerksList: {
+    gap: 7,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#a7f3d0',
+  },
+  enrolledPerkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  enrolledPerkText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#065f46',
   },
 });
 

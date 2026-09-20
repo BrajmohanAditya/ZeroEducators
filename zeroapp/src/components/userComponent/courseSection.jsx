@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Sparkles,
   BookOpen,
+  Play,
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { fetchLiveCourses } from '../../config/api';
@@ -25,6 +26,7 @@ import { fetchLiveCourses } from '../../config/api';
 export const CourseSection = ({
   courses: initialCourses = [],
   onCoursePress,
+  user,
 }) => {
   const [courses, setCourses] = useState(initialCourses);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,6 +73,25 @@ export const CourseSection = ({
         course.description?.toLowerCase().includes(q)
     );
   }, [allCourses, searchQuery]);
+
+  const isCoursePurchased = (item) => {
+    if (!user || !item?._id) return false;
+    const cid = String(item._id);
+    const list = user.purchasedCourse || user.purchasedCourses || [];
+    return list.some((pc) => {
+      if (!pc) return false;
+      if (typeof pc === 'string') return pc === cid;
+      if (typeof pc === 'object') {
+        return (
+          String(pc._id || '') === cid ||
+          String(pc.id || '') === cid ||
+          String(pc.courseId || '') === cid ||
+          String(pc.courseId?._id || '') === cid
+        );
+      }
+      return false;
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -183,7 +204,14 @@ export const CourseSection = ({
                       </View>
                     </View>
 
-                    <Text style={styles.dropdownViewAction}>View →</Text>
+                    <Text
+                      style={[
+                        styles.dropdownViewAction,
+                        isCoursePurchased(course) && { color: '#059669', fontWeight: '800' },
+                      ]}
+                    >
+                      {isCoursePurchased(course) ? 'Continue →' : 'View →'}
+                    </Text>
                   </TouchableOpacity>
                 ))
               ) : (
@@ -220,99 +248,115 @@ export const CourseSection = ({
         </View>
       ) : null}
 
-      {/* Courses List */}
-      <View style={styles.courseList}>
-        {filteredCourses.map((item) => (
-          <TouchableOpacity
-            key={item._id}
-            activeOpacity={0.9}
-            onPress={() => onCoursePress && onCoursePress(item)}
-            style={styles.courseCard}
-          >
-            {/* Thumbnail with 16:9 Aspect Ratio */}
-            <View style={styles.thumbnailContainer}>
-              {item.thumbnail ? (
-                <Image
-                  source={{ uri: item.thumbnail }}
-                  style={styles.thumbnail}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.thumbnailPlaceholder} />
-              )}
+      {/* Course Cards Feed */}
+      <View style={styles.courseFeed}>
+        {filteredCourses.map((item) => {
+          const purchased = isCoursePurchased(item);
+          return (
+            <TouchableOpacity
+              key={item._id}
+              activeOpacity={0.92}
+              onPress={() => onCoursePress && onCoursePress(item)}
+              style={styles.courseCard}
+            >
+              {/* Thumbnail Container */}
+              <View style={styles.thumbnailContainer}>
+                {item.thumbnail ? (
+                  <Image
+                    source={{ uri: item.thumbnail }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.thumbnailFallback}>
+                    <BookOpen size={32} color={colors.textMuted} />
+                  </View>
+                )}
+                {/* Rating Badge */}
+                <View style={styles.ratingBadge}>
+                  <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                  <Text style={styles.ratingText}>
+                    {item.rating || '4.9'}
+                  </Text>
+                </View>
+              </View>
 
-              {/* Floating Star Rating Badge */}
-              <View style={styles.ratingBadge}>
-                <Star size={13} color="#eab308" fill="#eab308" />
-                <Text style={styles.ratingText}>
-                  {item.rating || '4.9'}
+              {/* Card Body */}
+              <View style={styles.cardBody}>
+                <Text style={styles.courseTitle} numberOfLines={2}>
+                  {item.title}
                 </Text>
-              </View>
-            </View>
 
-            {/* Content Info */}
-            <View style={styles.cardBody}>
-              {/* Course Title */}
-              <Text style={styles.courseTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-
-              {/* Meta Details: Students & Hours */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaItem}>
-                  <Users size={14} color="#64748b" />
-                  <Text style={styles.metaText}>
-                    {item.enrolled || '1.5k'} students
-                  </Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Clock size={14} color="#64748b" />
-                  <Text style={styles.metaText}>
-                    {item.duration || '12 hours'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Price & Action Row */}
-              <View style={styles.cardFooter}>
-                <View style={styles.priceContainer}>
-                  <Text style={styles.priceLabel}>
-                    {item.isFree || Number(item.amount) === 0
-                      ? 'Course Fee'
-                      : 'Starting at'}
-                  </Text>
-                  <View style={styles.priceValuesRow}>
-                    {item.isFree || Number(item.amount) === 0 ? (
-                      <Text style={styles.freePrice}>FREE</Text>
-                    ) : (
-                      <>
-                        <Text style={styles.amountText}>
-                          ₹{item.amount !== undefined ? item.amount : '2,999'}
-                        </Text>
-                        <Text style={styles.originalAmountText}>
-                          ₹
-                          {item.amount !== undefined
-                            ? Math.round(Number(item.amount) * 1.25)
-                            : '3,999'}
-                        </Text>
-                      </>
-                    )}
+                {/* Course Metadata (Duration & Students) */}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Users size={14} color="#64748b" />
+                    <Text style={styles.metaText}>1.5k students</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Clock size={14} color="#64748b" />
+                    <Text style={styles.metaText}>
+                      {item.duration || '6 Months'}
+                    </Text>
                   </View>
                 </View>
 
-                {/* Enroll Now Button matching Web Frontend */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => onCoursePress && onCoursePress(item)}
-                  style={styles.enrollBtn}
-                >
-                  <Zap size={14} color="#ffffff" fill="#ffffff" />
-                  <Text style={styles.enrollBtnText}>Enroll Now</Text>
-                </TouchableOpacity>
+                {/* Price and Action Row */}
+                <View style={styles.actionRow}>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceLabel}>
+                      {purchased
+                        ? 'Enrolled'
+                        : item.isFree || Number(item.amount) === 0
+                        ? 'Course Fee'
+                        : 'Starting at'}
+                    </Text>
+                    <View style={styles.priceRow}>
+                      {purchased ? (
+                        <Text style={[styles.amountText, { color: '#059669', fontSize: 16 }]}>
+                          Active Access
+                        </Text>
+                      ) : item.isFree || Number(item.amount) === 0 ? (
+                        <Text style={styles.freeText}>FREE</Text>
+                      ) : (
+                        <>
+                          <Text style={styles.amountText}>
+                            ₹{item.amount !== undefined ? item.amount : '2,999'}
+                          </Text>
+                          <Text style={styles.originalAmountText}>
+                            ₹
+                            {item.amount !== undefined
+                              ? Math.round(Number(item.amount) * 1.25)
+                              : '3,999'}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Enroll or Continue Button */}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => onCoursePress && onCoursePress(item)}
+                    style={[
+                      styles.enrollBtn,
+                      purchased && { backgroundColor: '#059669' },
+                    ]}
+                  >
+                    {purchased ? (
+                      <Play size={14} color="#ffffff" fill="#ffffff" />
+                    ) : (
+                      <Zap size={14} color="#ffffff" fill="#ffffff" />
+                    )}
+                    <Text style={styles.enrollBtnText}>
+                      {purchased ? 'Continue' : 'Enroll Now'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );

@@ -83925,6 +83925,42 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       _useState8 = (0, _slicedToArray2.default)(_useState7, 2),
       currentUser = _useState8[0],
       setCurrentUser = _useState8[1];
+    var _useState9 = (0, _react.useState)([]),
+      _useState0 = (0, _slicedToArray2.default)(_useState9, 2),
+      liveCourses = _useState0[0],
+      setLiveCourses = _useState0[1];
+    (0, _react.useEffect)(() => {
+      (0, require(_dependencyMap[17], "./src/config/api").fetchLiveCourses)().then(data => {
+        if (data && data.length > 0) setLiveCourses(data);
+      });
+    }, []);
+    var isCoursePurchased = course => {
+      if (!currentUser || !course?._id) return false;
+      var cid = String(course._id);
+      var list = currentUser.purchasedCourse || currentUser.purchasedCourses || [];
+      return list.some(pc => {
+        if (!pc) return false;
+        if (typeof pc === 'string') return pc === cid;
+        return String(pc._id || '') === cid || String(pc.id || '') === cid || String(pc.courseId || '') === cid || String(pc.courseId?._id || '') === cid;
+      });
+    };
+    var myPurchasedCourses = (0, _react.useMemo)(() => {
+      if (!currentUser) return [];
+      var directList = (currentUser.purchasedCourse || currentUser.purchasedCourses || []).filter(item => item && typeof item === 'object' && item.title);
+      if (directList.length > 0) return directList;
+      return liveCourses.filter(c => isCoursePurchased(c));
+    }, [currentUser, liveCourses]);
+    var handleCoursePress = course => {
+      if (isCoursePurchased(course)) {
+        navigate('CoursePlayer', {
+          course
+        });
+      } else {
+        navigate('SingleCourse', {
+          course
+        });
+      }
+    };
     var navigate = (screenName, params = null) => {
       setScreenParams(params);
       setCurrentScreen(screenName);
@@ -83949,7 +83985,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
 
     // Full screen views (without bottom navbar / layout)
     if (currentScreen === 'QuizInterface') {
-      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
           barStyle: "dark-content",
           backgroundColor: "#ffffff"
@@ -83961,7 +83997,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       });
     }
     if (currentScreen === 'SingleCourse') {
-      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
           barStyle: "dark-content",
           backgroundColor: "#ffffff"
@@ -83983,7 +84019,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       });
     }
     if (currentScreen === 'CoursePlayer') {
-      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
           barStyle: "light-content",
           backgroundColor: "#0f172a"
@@ -83994,7 +84030,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       });
     }
     if (currentScreen === 'Login') {
-      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
           barStyle: "dark-content",
           backgroundColor: "#eef2ff"
@@ -84008,7 +84044,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       });
     }
     if (currentScreen === 'Register') {
-      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+      return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
         children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
           barStyle: "dark-content",
           backgroundColor: "#eef2ff"
@@ -84023,7 +84059,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     }
 
     // Regular screens wrapped with UserLayout (Navbar + Bottom Tabs)
-    return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[17], "react-native-safe-area-context").SafeAreaProvider, {
+    return /*#__PURE__*/(0, _jsxRuntime.jsxs)(require(_dependencyMap[18], "react-native-safe-area-context").SafeAreaProvider, {
       children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.StatusBar, {
         barStyle: "dark-content",
         backgroundColor: "#ffffff"
@@ -84037,16 +84073,15 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
         children: [currentScreen === 'Home' && /*#__PURE__*/(0, _jsxRuntime.jsx)(_Home.default, {
           user: currentUser,
           onNavigate: navigate,
-          onCoursePress: course => navigate('SingleCourse', {
-            course
-          })
+          onCoursePress: handleCoursePress
         }), currentScreen === 'StudyMaterial' && /*#__PURE__*/(0, _jsxRuntime.jsx)(_study.default, {
           onNavigate: navigate
         }), currentScreen === 'Courses' && /*#__PURE__*/(0, _jsxRuntime.jsx)(_courseSection.default, {
-          onCoursePress: course => navigate('SingleCourse', {
-            course
-          })
+          courses: liveCourses,
+          user: currentUser,
+          onCoursePress: handleCoursePress
         }), currentScreen === 'MyCourses' && /*#__PURE__*/(0, _jsxRuntime.jsx)(_yourAllPurchasedCourse.default, {
+          purchasedCourses: myPurchasedCourses,
           onOpenCourse: course => navigate('CoursePlayer', {
             course
           }),
@@ -84063,7 +84098,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     });
   }
   var _default = exports.default = App;
-},622,[1,14,71,2,623,2611,2616,2619,2620,2622,2623,2624,2626,2627,2629,2614,190,2602],"App.jsx");
+},622,[1,14,71,2,623,2611,2616,2619,2620,2622,2623,2624,2626,2627,2629,2614,190,2615,2602],"App.jsx");
 __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, exports, _dependencyMap) {
   var _interopRequireDefault = require(_dependencyMap[0], "@babel/runtime/helpers/interopRequireDefault");
   Object.defineProperty(exports, "__esModule", {
@@ -200308,6 +200343,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           onNavigate: onNavigate
         }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_courseSection.default, {
           courses: courses,
+          user: user,
           onCoursePress: course => {
             if (onCoursePress) {
               onCoursePress(course);
@@ -201565,7 +201601,8 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
   function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (var _t in e) "default" !== _t && {}.hasOwnProperty.call(e, _t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, _t)) && (i.get || i.set) ? o(f, _t, i) : f[_t] = e[_t]); return f; })(e, t); }
   var CourseSection = ({
     courses: initialCourses = [],
-    onCoursePress
+    onCoursePress,
+    user
   }) => {
     var _useState = (0, _react.useState)(initialCourses),
       _useState2 = (0, _slicedToArray2.default)(_useState, 2),
@@ -201620,6 +201657,19 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       var q = searchQuery.toLowerCase().trim();
       return allCourses.filter(course => course.title?.toLowerCase().includes(q) || course.description?.toLowerCase().includes(q));
     }, [allCourses, searchQuery]);
+    var isCoursePurchased = item => {
+      if (!user || !item?._id) return false;
+      var cid = String(item._id);
+      var list = user.purchasedCourse || user.purchasedCourses || [];
+      return list.some(pc => {
+        if (!pc) return false;
+        if (typeof pc === 'string') return pc === cid;
+        if (typeof pc === 'object') {
+          return String(pc._id || '') === cid || String(pc.id || '') === cid || String(pc.courseId || '') === cid || String(pc.courseId?._id || '') === cid;
+        }
+        return false;
+      });
+    };
     return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
       style: styles.container,
       children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
@@ -201728,8 +201778,11 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
                   })]
                 })]
               }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                style: styles.dropdownViewAction,
-                children: "View \u2192"
+                style: [styles.dropdownViewAction, isCoursePurchased(course) && {
+                  color: '#059669',
+                  fontWeight: '800'
+                }],
+                children: isCoursePurchased(course) ? 'Continue →' : 'View →'
               })]
             }, course._id)) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
               style: styles.emptyDropdown,
@@ -201768,97 +201821,116 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
           children: "Loading live courses..."
         })]
       }) : null, /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-        style: styles.courseList,
-        children: filteredCourses.map(item => /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-          activeOpacity: 0.9,
-          onPress: () => onCoursePress && onCoursePress(item),
-          style: styles.courseCard,
-          children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-            style: styles.thumbnailContainer,
-            children: [item.thumbnail ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Image, {
-              source: {
-                uri: item.thumbnail
-              },
-              style: styles.thumbnail,
-              resizeMode: "cover"
-            }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-              style: styles.thumbnailPlaceholder
-            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-              style: styles.ratingBadge,
-              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Star, {
-                size: 13,
-                color: "#eab308",
-                fill: "#eab308"
-              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                style: styles.ratingText,
-                children: item.rating || '4.9'
+        style: styles.courseFeed,
+        children: filteredCourses.map(item => {
+          var purchased = isCoursePurchased(item);
+          return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+            activeOpacity: 0.92,
+            onPress: () => onCoursePress && onCoursePress(item),
+            style: styles.courseCard,
+            children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.thumbnailContainer,
+              children: [item.thumbnail ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Image, {
+                source: {
+                  uri: item.thumbnail
+                },
+                style: styles.thumbnail,
+                resizeMode: "cover"
+              }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.thumbnailFallback,
+                children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").BookOpen, {
+                  size: 32,
+                  color: require(_dependencyMap[8], "../../theme/colors").colors.textMuted
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.ratingBadge,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Star, {
+                  size: 12,
+                  color: "#f59e0b",
+                  fill: "#f59e0b"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.ratingText,
+                  children: item.rating || '4.9'
+                })]
               })]
-            })]
-          }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-            style: styles.cardBody,
-            children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-              style: styles.courseTitle,
-              numberOfLines: 2,
-              children: item.title
             }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-              style: styles.metaRow,
-              children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.metaItem,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Users, {
-                  size: 14,
-                  color: "#64748b"
-                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                  style: styles.metaText,
-                  children: [item.enrolled || '1.5k', " students"]
+              style: styles.cardBody,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                style: styles.courseTitle,
+                numberOfLines: 2,
+                children: item.title
+              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.metaRow,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.metaItem,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Users, {
+                    size: 14,
+                    color: "#64748b"
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.metaText,
+                    children: "1.5k students"
+                  })]
+                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.metaItem,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Clock, {
+                    size: 14,
+                    color: "#64748b"
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.metaText,
+                    children: item.duration || '6 Months'
+                  })]
                 })]
               }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.metaItem,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Clock, {
-                  size: 14,
-                  color: "#64748b"
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.metaText,
-                  children: item.duration || '12 hours'
-                })]
-              })]
-            }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-              style: styles.cardFooter,
-              children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.priceContainer,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.priceLabel,
-                  children: item.isFree || Number(item.amount) === 0 ? 'Course Fee' : 'Starting at'
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                  style: styles.priceValuesRow,
-                  children: item.isFree || Number(item.amount) === 0 ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.freePrice,
-                    children: "FREE"
-                  }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_jsxRuntime.Fragment, {
-                    children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                      style: styles.amountText,
-                      children: ["\u20B9", item.amount !== undefined ? item.amount : '2,999']
-                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                      style: styles.originalAmountText,
-                      children: ["\u20B9", item.amount !== undefined ? Math.round(Number(item.amount) * 1.25) : '3,999']
-                    })]
-                  })
-                })]
-              }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-                activeOpacity: 0.85,
-                onPress: () => onCoursePress && onCoursePress(item),
-                style: styles.enrollBtn,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Zap, {
-                  size: 14,
-                  color: "#ffffff",
-                  fill: "#ffffff"
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.enrollBtnText,
-                  children: "Enroll Now"
+                style: styles.actionRow,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.priceContainer,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.priceLabel,
+                    children: purchased ? 'Enrolled' : item.isFree || Number(item.amount) === 0 ? 'Course Fee' : 'Starting at'
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                    style: styles.priceRow,
+                    children: purchased ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: [styles.amountText, {
+                        color: '#059669',
+                        fontSize: 16
+                      }],
+                      children: "Active Access"
+                    }) : item.isFree || Number(item.amount) === 0 ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.freeText,
+                      children: "FREE"
+                    }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_jsxRuntime.Fragment, {
+                      children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                        style: styles.amountText,
+                        children: ["\u20B9", item.amount !== undefined ? item.amount : '2,999']
+                      }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                        style: styles.originalAmountText,
+                        children: ["\u20B9", item.amount !== undefined ? Math.round(Number(item.amount) * 1.25) : '3,999']
+                      })]
+                    })
+                  })]
+                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                  activeOpacity: 0.85,
+                  onPress: () => onCoursePress && onCoursePress(item),
+                  style: [styles.enrollBtn, purchased && {
+                    backgroundColor: '#059669'
+                  }],
+                  children: [purchased ? /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Play, {
+                    size: 14,
+                    color: "#ffffff",
+                    fill: "#ffffff"
+                  }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[7], "lucide-react-native").Zap, {
+                    size: 14,
+                    color: "#ffffff",
+                    fill: "#ffffff"
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.enrollBtnText,
+                    children: purchased ? 'Continue' : 'Enroll Now'
+                  })]
                 })]
               })]
             })]
-          })]
-        }, item._id))
+          }, item._id);
+        })
       })]
     });
   };
@@ -202419,6 +202491,18 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     var insets = (0, require(_dependencyMap[6], "react-native-safe-area-context").useSafeAreaInsets)();
     var currentCourse = course || {};
 
+    // Check if current course is already purchased by this user
+    var isAlreadyPurchased = (0, _react.useMemo)(() => {
+      if (!user || !currentCourse?._id) return false;
+      var cid = String(currentCourse._id);
+      var list = user.purchasedCourse || user.purchasedCourses || [];
+      return list.some(pc => {
+        if (!pc) return false;
+        if (typeof pc === 'string') return pc === cid;
+        return String(pc._id || '') === cid || String(pc.id || '') === cid || String(pc.courseId || '') === cid || String(pc.courseId?._id || '') === cid;
+      });
+    }, [user, currentCourse]);
+
     // Pricing Plans
     var hasPlans = Boolean(currentCourse?.pricingPlans && currentCourse.pricingPlans.length > 0 && !currentCourse?.isFree);
     var _useState = (0, _react.useState)(0),
@@ -202683,179 +202767,268 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
                   children: activeDuration
                 })]
               })]
-            }), hasPlans && currentCourse.pricingPlans.length > 1 && /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-              style: styles.planSection,
-              children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                style: styles.sectionLabel,
-                children: "CHOOSE VALIDITY & PLAN:"
-              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                style: styles.planGrid,
-                children: currentCourse.pricingPlans.map((plan, idx) => {
-                  var isSelected = idx === selectedPlanIndex;
-                  return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-                    activeOpacity: 0.8,
-                    onPress: () => setSelectedPlanIndex(idx),
-                    style: [styles.planCard, isSelected && styles.planCardActive],
-                    children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                      style: styles.planHeaderRow,
-                      children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                        style: [styles.planDuration, isSelected && styles.planDurationActive],
-                        children: plan.duration
-                      }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                        style: [styles.radioOuter, isSelected && styles.radioOuterActive],
-                        children: isSelected && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                          style: styles.radioInner
-                        })
-                      })]
-                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                      style: styles.planPrice,
-                      children: ["\u20B9", plan.price]
-                    })]
-                  }, idx);
-                })
-              })]
-            }), !isCourseFree && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-              style: styles.couponSection,
-              children: appliedCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.appliedCouponCard,
+            }), isAlreadyPurchased ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+              style: styles.enrolledAccessContainer,
+              children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.enrolledCard,
                 children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                  style: styles.appliedLeft,
+                  style: styles.enrolledHeaderRow,
                   children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                    style: styles.sparkleBox,
-                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Sparkles, {
-                      size: 16,
-                      color: "#047857"
+                    style: styles.enrolledIconCircle,
+                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ShieldCheck, {
+                      size: 26,
+                      color: "#059669"
                     })
                   }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                    children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                      style: styles.codeBadgeRow,
-                      children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                        style: styles.appliedCodeText,
-                        children: appliedCoupon.code
-                      }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                        style: styles.appliedBadge,
-                        children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                          style: styles.appliedBadgeText,
-                          children: "APPLIED"
-                        })
-                      })]
-                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                      style: styles.savingsText,
-                      children: ["You save \u20B9", appliedCoupon.discountAmount, "!"]
+                    style: {
+                      flex: 1
+                    },
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                      style: styles.enrolledBadge,
+                      children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                        style: styles.enrolledBadgeText,
+                        children: "ACTIVE ENROLLMENT"
+                      })
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.enrolledCardTitle,
+                      children: "Course Unlocked & Active"
                     })]
                   })]
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-                  onPress: handleRemoveCoupon,
-                  style: styles.removeCouponBtn,
-                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.removeCouponText,
-                    children: "Remove"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.enrolledCardDesc,
+                  children: "Your account has full access to this course. You can stream all recorded lectures, download chapter notes, and access mock tests anytime."
+                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.enrolledPerksList,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.enrolledPerkItem,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").CheckCircle2, {
+                      size: 16,
+                      color: "#059669"
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.enrolledPerkText,
+                      children: "All Lectures Unlocked (1080p DRM)"
+                    })]
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.enrolledPerkItem,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").CheckCircle2, {
+                      size: 16,
+                      color: "#059669"
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.enrolledPerkText,
+                      children: "Downloadable PDF Notes & Formulas"
+                    })]
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.enrolledPerkItem,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").CheckCircle2, {
+                      size: 16,
+                      color: "#059669"
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.enrolledPerkText,
+                      children: "Test Series & Quiz Discussions"
+                    })]
+                  })]
+                })]
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                activeOpacity: 0.88,
+                onPress: () => {
+                  if (onEnroll) {
+                    onEnroll(currentCourse);
+                  } else if (onNavigate) {
+                    onNavigate('CoursePlayer', {
+                      course: currentCourse
+                    });
+                  }
+                },
+                style: [styles.enrollBtn, {
+                  backgroundColor: '#059669'
+                }],
+                children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.btnContentRow,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Play, {
+                    size: 20,
+                    color: "#ffffff",
+                    fill: "#ffffff"
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.enrollBtnText,
+                    children: "Start Learning / Continue"
+                  })]
+                })
+              })]
+            }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_jsxRuntime.Fragment, {
+              children: [hasPlans && currentCourse.pricingPlans.length > 1 && /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                style: styles.planSection,
+                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                  style: styles.sectionLabel,
+                  children: "CHOOSE VALIDITY & PLAN:"
+                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                  style: styles.planGrid,
+                  children: currentCourse.pricingPlans.map((plan, idx) => {
+                    var isSelected = idx === selectedPlanIndex;
+                    return /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
+                      activeOpacity: 0.8,
+                      onPress: () => setSelectedPlanIndex(idx),
+                      style: [styles.planCard, isSelected && styles.planCardActive],
+                      children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                        style: styles.planHeaderRow,
+                        children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                          style: [styles.planDuration, isSelected && styles.planDurationActive],
+                          children: plan.duration
+                        }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                          style: [styles.radioOuter, isSelected && styles.radioOuterActive],
+                          children: isSelected && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                            style: styles.radioInner
+                          })
+                        })]
+                      }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                        style: styles.planPrice,
+                        children: ["\u20B9", plan.price]
+                      })]
+                    }, idx);
                   })
                 })]
-              }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.couponInputGroup,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                  style: styles.couponHeaderRow,
-                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Tag, {
-                    size: 13,
-                    color: "#2563eb"
-                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.sectionLabel,
-                    children: "HAVE A COUPON CODE?"
-                  })]
-                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                  style: styles.inputRow,
-                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TextInput, {
-                    value: couponInput,
-                    onChangeText: txt => setCouponInput(txt.toUpperCase().replace(/[^A-Z0-9_-]/g, '')),
-                    placeholder: "ENTER CODE",
-                    placeholderTextColor: "#94a3b8",
-                    autoCapitalize: "characters",
-                    style: styles.couponTextInput
+              }), !isCourseFree && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.couponSection,
+                children: appliedCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.appliedCouponCard,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.appliedLeft,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                      style: styles.sparkleBox,
+                      children: /*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Sparkles, {
+                        size: 16,
+                        color: "#047857"
+                      })
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                      children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                        style: styles.codeBadgeRow,
+                        children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                          style: styles.appliedCodeText,
+                          children: appliedCoupon.code
+                        }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                          style: styles.appliedBadge,
+                          children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                            style: styles.appliedBadgeText,
+                            children: "APPLIED"
+                          })
+                        })]
+                      }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                        style: styles.savingsText,
+                        children: ["You save \u20B9", appliedCoupon.discountAmount, "!"]
+                      })]
+                    })]
                   }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-                    onPress: handleApplyCoupon,
-                    disabled: isValidatingCoupon || !couponInput.trim(),
-                    style: [styles.applyBtn, (!couponInput.trim() || isValidatingCoupon) && styles.applyBtnDisabled],
-                    children: isValidatingCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.ActivityIndicator, {
-                      size: "small",
-                      color: "#ffffff"
-                    }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                      style: styles.applyBtnText,
-                      children: "Apply"
+                    onPress: handleRemoveCoupon,
+                    style: styles.removeCouponBtn,
+                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.removeCouponText,
+                      children: "Remove"
                     })
                   })]
-                })]
-              })
-            }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-              style: styles.priceSection,
-              children: isCourseFree ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.priceRow,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.freePriceText,
-                  children: "FREE"
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                  style: styles.freeBadge,
-                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.freeBadgeText,
-                    children: "100% OFF"
-                  })
-                })]
-              }) : appliedCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.couponInputGroup,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.couponHeaderRow,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").Tag, {
+                      size: 13,
+                      color: "#2563eb"
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.sectionLabel,
+                      children: "HAVE A COUPON CODE?"
+                    })]
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.inputRow,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TextInput, {
+                      value: couponInput,
+                      onChangeText: txt => setCouponInput(txt.toUpperCase().replace(/[^A-Z0-9_-]/g, '')),
+                      placeholder: "ENTER CODE",
+                      placeholderTextColor: "#94a3b8",
+                      autoCapitalize: "characters",
+                      style: styles.couponTextInput
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                      onPress: handleApplyCoupon,
+                      disabled: isValidatingCoupon || !couponInput.trim(),
+                      style: [styles.applyBtn, (!couponInput.trim() || isValidatingCoupon) && styles.applyBtnDisabled],
+                      children: isValidatingCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.ActivityIndicator, {
+                        size: "small",
+                        color: "#ffffff"
+                      }) : /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                        style: styles.applyBtnText,
+                        children: "Apply"
+                      })
+                    })]
+                  })]
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                style: styles.priceSection,
+                children: isCourseFree ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
                   style: styles.priceRow,
                   children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.mainPriceText,
-                    children: isFinalFree ? 'FREE' : `₹${finalPayablePrice}`
-                  }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                    style: styles.strikethroughPrice,
-                    children: ["\u20B9", activePrice]
+                    style: styles.freePriceText,
+                    children: "FREE"
                   }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                    style: styles.discountBadge,
-                    children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                      style: styles.discountBadgeText,
-                      children: ["-\u20B9", appliedCoupon.discountAmount, " OFF"]
+                    style: styles.freeBadge,
+                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.freeBadgeText,
+                      children: "100% OFF"
                     })
                   })]
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.couponNote,
-                  children: "Coupon discount applied on this course!"
-                })]
-              }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.priceRow,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                  style: styles.mainPriceText,
-                  children: ["\u20B9", activePrice]
-                }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
-                  style: styles.strikethroughPrice,
-                  children: ["\u20B9", Math.round(activePrice * 1.3)]
-                }), activePlan && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
-                  style: styles.planDurationBadge,
-                  children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                    style: styles.planDurationBadgeText,
-                    children: activePlan.duration
-                  })
-                })]
-              })
-            }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-              activeOpacity: 0.9,
-              disabled: isEnrolling,
-              onPress: handleEnrollPress,
-              style: [styles.enrollBtn, isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid, isEnrolling && {
-                opacity: 0.7
-              }],
-              children: isEnrolling ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.ActivityIndicator, {
-                size: "small",
-                color: "#ffffff"
-              }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
-                style: styles.btnContentRow,
-                children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ShieldCheck, {
-                  size: 20,
+                }) : appliedCoupon ? /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                    style: styles.priceRow,
+                    children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.mainPriceText,
+                      children: isFinalFree ? 'FREE' : `₹${finalPayablePrice}`
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                      style: styles.strikethroughPrice,
+                      children: ["\u20B9", activePrice]
+                    }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                      style: styles.discountBadge,
+                      children: /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                        style: styles.discountBadgeText,
+                        children: ["-\u20B9", appliedCoupon.discountAmount, " OFF"]
+                      })
+                    })]
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.couponNote,
+                    children: "Coupon discount applied on this course!"
+                  })]
+                }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.priceRow,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                    style: styles.mainPriceText,
+                    children: ["\u20B9", activePrice]
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.Text, {
+                    style: styles.strikethroughPrice,
+                    children: ["\u20B9", Math.round(activePrice * 1.3)]
+                  }), activePlan && /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.View, {
+                    style: styles.planDurationBadge,
+                    children: /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                      style: styles.planDurationBadgeText,
+                      children: activePlan.duration
+                    })
+                  })]
+                })
+              }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.TouchableOpacity, {
+                activeOpacity: 0.9,
+                disabled: isEnrolling,
+                onPress: handleEnrollPress,
+                style: [styles.enrollBtn, isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid, isEnrolling && {
+                  opacity: 0.7
+                }],
+                children: isEnrolling ? /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.ActivityIndicator, {
+                  size: "small",
                   color: "#ffffff"
-                }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
-                  style: styles.enrollBtnText,
-                  children: isFinalFree ? appliedCoupon ? 'Enroll for Free (Coupon Applied)' : 'Enroll for Free' : `Enroll for ₹${finalPayablePrice}`
-                })]
-              })
+                }) : /*#__PURE__*/(0, _jsxRuntime.jsxs)(_reactNative.View, {
+                  style: styles.btnContentRow,
+                  children: [/*#__PURE__*/(0, _jsxRuntime.jsx)(require(_dependencyMap[8], "lucide-react-native").ShieldCheck, {
+                    size: 20,
+                    color: "#ffffff"
+                  }), /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNative.Text, {
+                    style: styles.enrollBtnText,
+                    children: isFinalFree ? appliedCoupon ? 'Enroll for Free (Coupon Applied)' : 'Enroll for Free' : `Enroll for ₹${finalPayablePrice}`
+                  })]
+                })
+              })]
             })]
           })]
         })
@@ -203218,6 +203391,73 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       color: '#ffffff',
       fontSize: 16,
       fontWeight: '800'
+    },
+    enrolledAccessContainer: {
+      marginTop: 4
+    },
+    enrolledCard: {
+      backgroundColor: '#ecfdf5',
+      borderWidth: 1.5,
+      borderColor: '#a7f3d0',
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 16,
+      ...require(_dependencyMap[9], "../../theme/colors").shadows.sm
+    },
+    enrolledHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 10
+    },
+    enrolledIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: '#d1fae5',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    enrolledBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: '#059669',
+      paddingHorizontal: 8,
+      paddingVertical: 2.5,
+      borderRadius: 6,
+      marginBottom: 3
+    },
+    enrolledBadgeText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontWeight: '900',
+      letterSpacing: 0.5
+    },
+    enrolledCardTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: '#064e3b'
+    },
+    enrolledCardDesc: {
+      fontSize: 13,
+      color: '#047857',
+      lineHeight: 18,
+      marginBottom: 12
+    },
+    enrolledPerksList: {
+      gap: 7,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: '#a7f3d0'
+    },
+    enrolledPerkItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8
+    },
+    enrolledPerkText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+      color: '#065f46'
     }
   });
   var _default = exports.default = SingleCourse;

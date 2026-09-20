@@ -89,6 +89,7 @@ export const Home = ({
         {/* 4. Live Courses Section from AWS */}
         <CourseSection
           courses={courses}
+          user={user}
           onCoursePress={(course) => {
             if (onCoursePress) {
               onCoursePress(course);

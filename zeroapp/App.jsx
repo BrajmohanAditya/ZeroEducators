@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -13,14 +13,54 @@ import QuizeDetail from './src/pages/User/quize/quize.detail';
 import QuizeInterface from './src/pages/User/quize/quize.interface';
 import Login from './src/pages/Auth/Login';
 import Register from './src/pages/Auth/Register';
-
 import StudyMaterial from './src/pages/User/study.material';
+import { fetchLiveCourses } from './src/config/api';
 
 export function App() {
   const [activeTab, setActiveTab] = useState('Home');
   const [currentScreen, setCurrentScreen] = useState('Home');
   const [screenParams, setScreenParams] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [liveCourses, setLiveCourses] = useState([]);
+
+  useEffect(() => {
+    fetchLiveCourses().then((data) => {
+      if (data && data.length > 0) setLiveCourses(data);
+    });
+  }, []);
+
+  const isCoursePurchased = (course) => {
+    if (!currentUser || !course?._id) return false;
+    const cid = String(course._id);
+    const list = currentUser.purchasedCourse || currentUser.purchasedCourses || [];
+    return list.some((pc) => {
+      if (!pc) return false;
+      if (typeof pc === 'string') return pc === cid;
+      return (
+        String(pc._id || '') === cid ||
+        String(pc.id || '') === cid ||
+        String(pc.courseId || '') === cid ||
+        String(pc.courseId?._id || '') === cid
+      );
+    });
+  };
+
+  const myPurchasedCourses = useMemo(() => {
+    if (!currentUser) return [];
+    const directList = (currentUser.purchasedCourse || currentUser.purchasedCourses || []).filter(
+      (item) => item && typeof item === 'object' && item.title
+    );
+    if (directList.length > 0) return directList;
+    return liveCourses.filter((c) => isCoursePurchased(c));
+  }, [currentUser, liveCourses]);
+
+  const handleCoursePress = (course) => {
+    if (isCoursePurchased(course)) {
+      navigate('CoursePlayer', { course });
+    } else {
+      navigate('SingleCourse', { course });
+    }
+  };
 
   const navigate = (screenName, params = null) => {
     setScreenParams(params);
@@ -138,7 +178,7 @@ export function App() {
           <Home
             user={currentUser}
             onNavigate={navigate}
-            onCoursePress={(course) => navigate('SingleCourse', { course })}
+            onCoursePress={handleCoursePress}
           />
         )}
 
@@ -148,12 +188,15 @@ export function App() {
 
         {currentScreen === 'Courses' && (
           <CourseSection
-            onCoursePress={(course) => navigate('SingleCourse', { course })}
+            courses={liveCourses}
+            user={currentUser}
+            onCoursePress={handleCoursePress}
           />
         )}
 
         {currentScreen === 'MyCourses' && (
           <YourAllPurchasedCourse
+            purchasedCourses={myPurchasedCourses}
             onOpenCourse={(course) => navigate('CoursePlayer', { course })}
             onExploreCourses={() => navigate('Courses')}
           />
