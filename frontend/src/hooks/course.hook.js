@@ -5,6 +5,9 @@ import {
   getSinglePurchaseCourseApi,
   getSingleCourseApi,
   deleteCourseApi,
+  getTrashCoursesApi,
+  restoreCourseApi,
+  hardDeleteCourseApi,
   editCourseApi,
   addTopicApi,
   deleteTopicApi,
@@ -93,12 +96,51 @@ export const useDeleteCourseHook = () => {
   return useMutation({
     mutationFn: deleteCourseApi,
     onSuccess: (data) => {
-      // This is the magic line! It tells React Query to instantly refresh the course list on your screen
       queryClient.invalidateQueries(["getCourse"]);
-      toast.success(data?.message);
+      queryClient.invalidateQueries(["getTrashCourses"]);
+      toast.success(data?.message || "Course moved to Trash (15 days auto-delete)");
     },
     onError: (err) => {
-      console.log(err);
+      toast.error(err.response?.data?.message || "Failed to delete course");
+    },
+  });
+};
+
+export const useGetTrashCoursesHook = () => {
+  return useQuery({
+    queryKey: ["getTrashCourses"],
+    queryFn: getTrashCoursesApi,
+  });
+};
+
+export const useRestoreCourseHook = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: restoreCourseApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getCourse"]);
+      queryClient.invalidateQueries(["getTrashCourses"]);
+      toast.success(data?.message || "Course restored successfully!");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to restore course");
+    },
+  });
+};
+
+export const useHardDeleteCourseHook = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: hardDeleteCourseApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getCourse"]);
+      queryClient.invalidateQueries(["getTrashCourses"]);
+      toast.success(data?.message || "Course permanently deleted");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to permanently delete course");
     },
   });
 };

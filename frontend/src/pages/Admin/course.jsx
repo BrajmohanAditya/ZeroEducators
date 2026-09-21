@@ -1,9 +1,10 @@
 import CreateCourseDialog from "../../components/Admin/CreateCourseDialog";
 import GrantCourseAccessDialog from "../../components/Admin/GrantCourseAccessDialog";
 import CopyCourseDialog from "../../components/Admin/CopyCourseDialog";
-import { useGetCourseHook, useDeleteCourseHook, useEditCourseHook } from "../../hooks/course.hook";
+import TrashCoursesDialog from "../../components/Admin/TrashCoursesDialog";
+import { useGetCourseHook, useDeleteCourseHook, useEditCourseHook, useGetTrashCoursesHook } from "../../hooks/course.hook";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, BookOpen, Video, FileText, UserPlus, Users, Copy } from "lucide-react";
+import { Edit, Trash2, BookOpen, Video, FileText, UserPlus, Users, Copy, Archive } from "lucide-react";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import { useState } from "react";
 
@@ -19,6 +20,9 @@ const DashboardProducts = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [accessDialog, setAccessDialog] = useState(null); // { course, tab: 'grant' | 'students' }
   const [copyDialogState, setCopyDialogState] = useState({ isOpen: false, course: null });
+  const [trashOpen, setTrashOpen] = useState(false);
+  const { data: trashData } = useGetTrashCoursesHook();
+  const trashCount = trashData?.count || 0;
 
   const handleDelete = (id, title) => {
     setDeleteConfirm({ id, title });
@@ -37,6 +41,19 @@ const DashboardProducts = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTrashOpen(true)}
+            className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer flex items-center gap-2"
+            title="Courses in Trash will be kept for 15 days before permanent wipeout"
+          >
+            <Trash2 className="w-4 h-4 text-amber-600" />
+            <span>Trash</span>
+            {trashCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold">
+                {trashCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={() =>
               setCopyDialogState({
@@ -371,6 +388,12 @@ const DashboardProducts = () => {
           initialCourse={copyDialogState.course}
         />
       )}
+
+      {/* Trash Courses 15-Day Retention Dialog */}
+      <TrashCoursesDialog
+        isOpen={trashOpen}
+        onClose={() => setTrashOpen(false)}
+      />
 
       <DeleteAlertbox
         isOpen={!!deleteConfirm}

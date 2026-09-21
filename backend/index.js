@@ -20,6 +20,8 @@ import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
 import couponRoute from "./src/routes/coupon.route.js";
 import videoInteractionRoute from "./src/routes/videoInteraction.route.js";
 import analyticsRoute from "./src/routes/analytics.route.js";
+import { startCourseCleanupJob } from "./src/jobs/courseCleanup.job.js";
+import { startDbBackupSchedule } from "./src/jobs/dbBackup.job.js";
 
 const app = express();
 
@@ -71,6 +73,8 @@ app.use((err, req, res, next) => {
 const server = app.listen(ENV.PORT || 10000, "0.0.0.0", () => {
   console.log(`Server running on port ${ENV.PORT || 10000}`);
   connectDB();
+  startCourseCleanupJob();
+  startDbBackupSchedule();
 });
 
 // Configure 1-hour timeout for 2GB+ video uploads

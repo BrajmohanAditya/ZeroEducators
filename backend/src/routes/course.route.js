@@ -5,6 +5,9 @@ import { videoUpload, formatUploadError } from "../middlewares/videoUpload.js";
 import {
   createCourse,
   deleteCourse,
+  restoreCourse,
+  getTrashCourses,
+  hardDeleteCourse,
   getAllPurchasedCourse,
   getCourse,
   getSingleCourse,
@@ -68,6 +71,9 @@ courseRoute.get(
 );
 courseRoute.get("/stream-pdf/:courseId/:pdfId", isLoggedIn, streamCoursePdf);
 courseRoute.delete("/deleteCourse/:id", isLoggedIn, isAdmin, deleteCourse);
+courseRoute.get("/trash", isLoggedIn, isAdmin, getTrashCourses);
+courseRoute.put("/restore/:id", isLoggedIn, isAdmin, restoreCourse);
+courseRoute.delete("/permanent-delete/:id", isLoggedIn, isAdmin, hardDeleteCourse);
 courseRoute.put("/editCourse/:id", isLoggedIn, isAdmin, upload.single("thumbnail"), editCourse);
 
 // Admin Course Grant & Enrollment Routes

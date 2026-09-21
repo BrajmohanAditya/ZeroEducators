@@ -55,6 +55,37 @@ export const deleteCourseApi = async (courseId) => {
   return res.data;
 };
 
+export const getTrashCoursesApi = async () => {
+  const res = await axios.get(`${baseUrl}/course/trash`, {
+    headers: { "Content-Type": "Application/json" },
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const restoreCourseApi = async (courseId) => {
+  const res = await axios.put(
+    `${baseUrl}/course/restore/${courseId}`,
+    {},
+    {
+      headers: { "Content-Type": "Application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+export const hardDeleteCourseApi = async (courseId) => {
+  const res = await axios.delete(
+    `${baseUrl}/course/permanent-delete/${courseId}`,
+    {
+      headers: { "Content-Type": "Application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
 export const editCourseApi = async ({ courseId, formData }) => {
   const res = await axios.put(
     `${baseUrl}/course/editCourse/${courseId}`,

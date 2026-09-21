@@ -113,7 +113,7 @@ export const getCourse = async (req, res) => {
   try {
     const { search } = req.query;
     if (!search || search.trim() === "") {
-      const allCourses = await Course.find({})
+      const allCourses = await Course.find({ isDeleted: { $ne: true } })
         .collation({ locale: "en", strength: 2 })
         .sort({ title: 1 });
       return res.status(200).json({
@@ -146,6 +146,7 @@ export const getCourse = async (req, res) => {
     const searchTerm = aiText || search;
 
     const mongoQuery = {
+      isDeleted: { $ne: true },
       $or: [
         { title: { $regex: searchTerm, $options: "i" } },
         { description: { $regex: searchTerm, $options: "i" } },
@@ -185,7 +186,7 @@ export const getSingleCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
 
-    const course = await Course.findById(courseId)
+    const course = await Course.findOne({ _id: courseId, isDeleted: { $ne: true } })
       .populate("userId")
       .populate("modules");
 
@@ -222,7 +223,7 @@ export const getSinglePurchasedCourse = async (req, res) => {
       });
     }
 
-    const purchasedOrder = await Course.findById(courseId).populate("modules");
+    const purchasedOrder = await Course.findOne({ _id: courseId, isDeleted: { $ne: true } }).populate("modules");
 
     if (!purchasedOrder) {
       return res.status(401).json({
@@ -254,6 +255,108 @@ export const getAllPurchasedCourse = async (req, res) => {
   }
 };
 
+/**
+ * Helper to permanently delete course media from Zata Cloud S3 and drop from MongoDB
+ */
+export const permanentlyDeleteCourseHelper = async (courseId) => {
+  const course = await Course.findById(courseId);
+  if (!course) {
+    return { success: false, status: 404, message: "Course not found" };
+  }
+
+  if (course.thumbnail_id) {
+    try {
+      await deleteFromB2(course.thumbnail_id);
+    } catch (e) {
+      console.error("Error deleting course thumbnail:", e);
+    }
+  }
+
+  // 1. Delete all Subject & Chapter PDFs and Videos from S3
+  if (course.subjects && course.subjects.length > 0) {
+    for (const subject of course.subjects) {
+      if (subject.chapters && subject.chapters.length > 0) {
+        for (const chapter of subject.chapters) {
+          if (chapter.pdfs && chapter.pdfs.length > 0) {
+            for (const pdf of chapter.pdfs) {
+              if (pdf.pdf_id) {
+                try {
+                  await deleteFromB2(pdf.pdf_id);
+                } catch (e) {
+                  console.error("Error deleting chapter pdf:", e);
+                }
+              }
+            }
+          }
+
+          if (chapter.videos && chapter.videos.length > 0) {
+            for (const video of chapter.videos) {
+              if (video.Video_id) {
+                try {
+                  await deleteFromB2(video.Video_id);
+                } catch (e) {
+                  console.error("Error deleting chapter video:", e);
+                }
+              }
+              if (video.moduleId) {
+                await Modules.findByIdAndDelete(video.moduleId);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Delete legacy topic PDFs and Videos from S3
+  if (course.topics && course.topics.length > 0) {
+    for (const topic of course.topics) {
+      if (topic.pdfs && topic.pdfs.length > 0) {
+        for (const pdf of topic.pdfs) {
+          if (pdf.pdf_id) {
+            try {
+              await deleteFromB2(pdf.pdf_id);
+            } catch (e) {
+              console.error("Error deleting topic pdf:", e);
+            }
+          }
+        }
+      }
+      if (topic.videos && topic.videos.length > 0) {
+        for (const video of topic.videos) {
+          if (video.Video_id) {
+            try {
+              await deleteFromB2(video.Video_id);
+            } catch (e) {
+              console.error("Error deleting topic video:", e);
+            }
+          }
+          if (video.moduleId) {
+            await Modules.findByIdAndDelete(video.moduleId);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Clean up any remaining Modules belonging to this course
+  const remainingModules = await Modules.find({ courseId: courseId });
+  for (const mod of remainingModules) {
+    if (mod.Video_id) {
+      try {
+        await deleteFromB2(mod.Video_id);
+      } catch (e) {
+        console.error("Error deleting module video:", e);
+      }
+    }
+  }
+  await Modules.deleteMany({ courseId: courseId });
+
+  await Course.findByIdAndDelete(courseId);
+  return { success: true, message: "Course permanently deleted" };
+};
+
+// Soft Delete (Moves course to Trash with 15-day retention)
 export const deleteCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id;
@@ -265,107 +368,91 @@ export const deleteCourse = async (req, res, next) => {
         .json({ success: false, message: "Course not found" });
     }
 
-    if (course.thumbnail_id) {
-      try {
-        await deleteFromB2(course.thumbnail_id);
-      } catch (e) {
-        console.error("Error deleting course thumbnail:", e);
-      }
+    if (course.isDeleted) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Course is already in Trash" });
     }
 
-    // 1. Delete all Subject & Chapter PDFs and Videos from S3
-    if (course.subjects && course.subjects.length > 0) {
-      for (const subject of course.subjects) {
-        if (subject.chapters && subject.chapters.length > 0) {
-          for (const chapter of subject.chapters) {
-            // Delete chapter PDFs
-            if (chapter.pdfs && chapter.pdfs.length > 0) {
-              for (const pdf of chapter.pdfs) {
-                if (pdf.pdf_id) {
-                  try {
-                    await deleteFromB2(pdf.pdf_id);
-                  } catch (e) {
-                    console.error("Error deleting chapter pdf:", e);
-                  }
-                }
-              }
-            }
+    course.isDeleted = true;
+    course.deletedAt = new Date();
+    await course.save();
 
-            // Delete chapter Videos
-            if (chapter.videos && chapter.videos.length > 0) {
-              for (const video of chapter.videos) {
-                if (video.Video_id) {
-                  try {
-                    await deleteFromB2(video.Video_id);
-                  } catch (e) {
-                    console.error("Error deleting chapter video:", e);
-                  }
-                }
-                if (video.moduleId) {
-                  await Modules.findByIdAndDelete(video.moduleId);
-                }
-              }
-            }
-          }
-        }
-      }
+    return res.status(200).json({
+      success: true,
+      message: "Course moved to Trash. It will be permanently deleted after 15 days.",
+      courseId,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Restore Course from Trash
+export const restoreCourse = async (req, res, next) => {
+  try {
+    const courseId = req.params.id;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
 
-    // 2. Delete legacy topic PDFs and Videos from S3
-    if (course.topics && course.topics.length > 0) {
-      for (const topic of course.topics) {
-        if (topic.pdfs && topic.pdfs.length > 0) {
-          for (const pdf of topic.pdfs) {
-            if (pdf.pdf_id) {
-              try {
-                await deleteFromB2(pdf.pdf_id);
-              } catch (e) {
-                console.error("Error deleting topic pdf:", e);
-              }
-            }
-          }
-        }
-        if (topic.videos && topic.videos.length > 0) {
-          for (const video of topic.videos) {
-            if (video.Video_id) {
-              try {
-                await deleteFromB2(video.Video_id);
-              } catch (e) {
-                console.error("Error deleting topic video:", e);
-              }
-            }
-            if (video.moduleId) {
-              await Modules.findByIdAndDelete(video.moduleId);
-            }
-          }
-        }
-      }
-    }
+    course.isDeleted = false;
+    course.deletedAt = null;
+    await course.save();
 
-    // 3. Clean up any remaining Modules belonging to this course
-    const remainingModules = await Modules.find({ courseId: courseId });
-    for (const mod of remainingModules) {
-      if (mod.Video_id) {
-        try {
-          await deleteFromB2(mod.Video_id);
-        } catch (e) {
-          console.error("Error deleting module video:", e);
-        }
-      }
-    }
-    await Modules.deleteMany({ courseId: courseId });
+    return res.status(200).json({
+      success: true,
+      message: "Course restored successfully from Trash!",
+      course,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    const deletedCourse = await Course.findByIdAndDelete(courseId);
+// Get all Trashed Courses (for Admin)
+export const getTrashCourses = async (req, res, next) => {
+  try {
+    const trashedCourses = await Course.find({ isDeleted: true })
+      .sort({ deletedAt: -1 })
+      .lean();
 
-    if (!deletedCourse) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      });
+    const now = Date.now();
+    const coursesWithDays = trashedCourses.map((c) => {
+      const deletedMs = c.deletedAt ? new Date(c.deletedAt).getTime() : now;
+      const daysPassed = Math.floor((now - deletedMs) / (1000 * 60 * 60 * 24));
+      const daysRemaining = Math.max(0, 15 - daysPassed);
+      return {
+        ...c,
+        daysRemaining,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: coursesWithDays.length,
+      courses: coursesWithDays,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Permanent Hard Delete (Manual admin override from Trash)
+export const hardDeleteCourse = async (req, res, next) => {
+  try {
+    const courseId = req.params.id;
+    const result = await permanentlyDeleteCourseHelper(courseId);
+    if (!result.success) {
+      return res.status(result.status || 500).json(result);
     }
     return res.status(200).json({
       success: true,
-      message: "Course and all its content deleted completely!",
+      message: "Course and all its media permanently deleted from Cloud and Database.",
     });
   } catch (error) {
     next(error);
