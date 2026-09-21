@@ -129,11 +129,14 @@ export function App() {
 
   const myPurchasedCourses = useMemo(() => {
     if (!currentUser) return [];
+    // Prioritize liveCourses matching purchased IDs to ensure full thumbnails and metadata
+    const fromLive = liveCourses.filter((c) => isCoursePurchased(c));
+    if (fromLive.length > 0) return fromLive;
+
     const directList = (currentUser.purchasedCourse || currentUser.purchasedCourses || []).filter(
       (item) => item && typeof item === 'object' && item.title
     );
-    if (directList.length > 0) return directList;
-    return liveCourses.filter((c) => isCoursePurchased(c));
+    return directList;
   }, [currentUser, liveCourses]);
 
   const handleCoursePress = (course) => {

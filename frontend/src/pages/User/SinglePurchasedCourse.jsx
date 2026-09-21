@@ -273,14 +273,13 @@ const SinglePurchasedCourse = () => {
                   src={
                     module.moduleId || module._id
                       ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
+                      : module.Video_id
+                      ? `${baseUrl}/module/stream/${encodeURIComponent(module.Video_id)}`
                       : module.Video
                   }
                   user={user}
                   onError={(e) => {
-                    if (module?.Video && e.currentTarget.src !== module.Video) {
-                      e.currentTarget.removeAttribute("crossorigin");
-                      e.currentTarget.src = module.Video;
-                    }
+                    console.warn("Secure video playback notice:", e?.type || e);
                   }}
                 />
               ) : (

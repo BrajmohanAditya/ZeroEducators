@@ -9,6 +9,7 @@ import {
   changePassword,
   forgotPassword,
   resetPasswordWithOtp,
+  getStreamToken,
 } from "../controllers/user.controllers.js";
 import { isLoggedIn } from "../middlewares/auth.middleware.js";
 
@@ -23,6 +24,8 @@ userRoute.post("/google", googleLogin);
 userRoute.post("/change-password", isLoggedIn, changePassword);
 userRoute.post("/forgot-password", forgotPassword);
 userRoute.post("/reset-password", resetPasswordWithOtp);
+userRoute.post("/stream-token", getStreamToken);
+
 
 
 

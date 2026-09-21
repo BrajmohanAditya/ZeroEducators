@@ -10,6 +10,7 @@ import {
   Dimensions,
   Modal,
   StatusBar,
+  ScrollView,
 } from "react-native";
 import Video from "react-native-video";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,6 +32,7 @@ import {
   RotateCcw,
   RotateCw,
 } from "lucide-react-native";
+import { BASE_URL } from "../../config/api";
 
 /**
  * Playback Speed Options
@@ -50,8 +52,7 @@ const speedOptions = [
  * Video Quality Options
  */
 const qualityOptions = [
-  { id: "auto", label: "Auto (Recommended - 1080p)", shortLabel: "Auto", badge: "HD" },
-  { id: "1080p", label: "1080p (Full HD)", shortLabel: "1080p", badge: "HD" },
+  { id: "auto", label: "Auto (Recommended - 720p HD)", shortLabel: "Auto", badge: "HD" },
   { id: "720p", label: "720p (HD)", shortLabel: "720p", badge: "HD" },
   { id: "480p", label: "480p (Data Saver)", shortLabel: "480p", badge: "SD" },
   { id: "360p", label: "360p (Low Data)", shortLabel: "360p", badge: "SD" },
@@ -220,9 +221,8 @@ const SecureVideoPlayer = ({
     }, 1300);
   };
 
-  // Fallback stream URL in case primary fails
-  const DEFAULT_FALLBACK_URL =
-    "https://idr01.zata.ai/zerozeroeducators/courseModule/1789614399439-1.mp4";
+  // Fallback stream URL routed securely through backend in case primary fails
+  const DEFAULT_FALLBACK_URL = `${BASE_URL}/module/stream/${encodeURIComponent("courseModule/1789614399439-1.mp4")}`;
 
   const [activeSrc, setActiveSrc] = useState(src || DEFAULT_FALLBACK_URL);
 
@@ -239,6 +239,10 @@ const SecureVideoPlayer = ({
   };
 
   const handleScreenTap = () => {
+    if (isSettingsOpen) {
+      setIsSettingsOpen(false);
+      return;
+    }
     if (!showControls) {
       resetControlsTimer();
     } else {
@@ -485,8 +489,9 @@ const SecureVideoPlayer = ({
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => {
+                  setIsSettingsOpen((prev) => !prev);
                   setSettingsTab("main");
-                  setIsSettingsOpen(true);
+                  resetControlsTimer();
                 }}
                 style={styles.iconBadge}
               >
@@ -509,16 +514,9 @@ const SecureVideoPlayer = ({
         </View>
       )}
 
-      {/* ── Settings Floating Modal (Speed & Quality) ── */}
+      {/* ── Settings Compact Floating Dropdown (Speed & Quality) ── */}
       {isSettingsOpen && (
-        <View style={styles.settingsModalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setIsSettingsOpen(false)}
-          />
-
-          <View style={styles.settingsCard}>
+        <View style={styles.settingsCard}>
             {settingsTab === "main" ? (
               <View>
                 <View style={styles.settingsHeader}>
@@ -526,8 +524,9 @@ const SecureVideoPlayer = ({
                   <TouchableOpacity
                     onPress={() => setIsSettingsOpen(false)}
                     style={styles.settingsCloseBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <X size={16} color="#94a3b8" />
+                    <X size={13} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
 
@@ -538,14 +537,14 @@ const SecureVideoPlayer = ({
                   style={styles.settingsRow}
                 >
                   <View style={styles.settingsRowLeft}>
-                    <Gauge size={16} color="#10b981" />
-                    <Text style={styles.settingsRowLabel}>Playback Speed</Text>
+                    <Gauge size={14} color="#10b981" />
+                    <Text style={styles.settingsRowLabel}>Speed</Text>
                   </View>
                   <View style={styles.settingsRowRight}>
                     <Text style={styles.settingsRowValue}>
                       {playbackSpeed === 1 ? "Normal (1x)" : `${playbackSpeed}x`}
                     </Text>
-                    <ChevronRight size={16} color="#64748b" />
+                    <ChevronRight size={13} color="#64748b" />
                   </View>
                 </TouchableOpacity>
 
@@ -556,14 +555,14 @@ const SecureVideoPlayer = ({
                   style={[styles.settingsRow, { borderBottomWidth: 0 }]}
                 >
                   <View style={styles.settingsRowLeft}>
-                    <Sliders size={16} color="#10b981" />
+                    <Sliders size={14} color="#10b981" />
                     <Text style={styles.settingsRowLabel}>Quality</Text>
                   </View>
                   <View style={styles.settingsRowRight}>
                     <Text style={styles.settingsRowValue}>
                       {qualityOptions.find((q) => q.id === quality)?.shortLabel || "Auto"}
                     </Text>
-                    <ChevronRight size={16} color="#64748b" />
+                    <ChevronRight size={13} color="#64748b" />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -574,14 +573,14 @@ const SecureVideoPlayer = ({
                     onPress={() => setSettingsTab("main")}
                     style={styles.settingsBackBtn}
                   >
-                    <ChevronLeft size={16} color="#ffffff" />
+                    <ChevronLeft size={14} color="#ffffff" />
                     <Text style={styles.settingsBackBtnText}>Back</Text>
                   </TouchableOpacity>
                   <Text style={styles.settingsHeaderTitle}>Speed</Text>
-                  <View style={{ width: 40 }} />
+                  <View style={{ width: 28 }} />
                 </View>
 
-                <View style={styles.selectionList}>
+                <ScrollView style={styles.selectionList} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
                   {speedOptions.map((opt) => {
                     const isSelected = playbackSpeed === opt.value;
                     return (
@@ -596,9 +595,9 @@ const SecureVideoPlayer = ({
                       >
                         <View style={styles.selectionItemLeft}>
                           {isSelected ? (
-                            <Check size={14} color="#10b981" />
+                            <Check size={12} color="#10b981" />
                           ) : (
-                            <View style={{ width: 14 }} />
+                            <View style={{ width: 12 }} />
                           )}
                           <Text
                             style={[
@@ -615,7 +614,7 @@ const SecureVideoPlayer = ({
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </ScrollView>
               </View>
             ) : (
               <View>
@@ -624,14 +623,14 @@ const SecureVideoPlayer = ({
                     onPress={() => setSettingsTab("main")}
                     style={styles.settingsBackBtn}
                   >
-                    <ChevronLeft size={16} color="#ffffff" />
+                    <ChevronLeft size={14} color="#ffffff" />
                     <Text style={styles.settingsBackBtnText}>Back</Text>
                   </TouchableOpacity>
                   <Text style={styles.settingsHeaderTitle}>Quality</Text>
-                  <View style={{ width: 40 }} />
+                  <View style={{ width: 28 }} />
                 </View>
 
-                <View style={styles.selectionList}>
+                <ScrollView style={styles.selectionList} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
                   {qualityOptions.map((opt) => {
                     const isSelected = quality === opt.id;
                     return (
@@ -646,9 +645,9 @@ const SecureVideoPlayer = ({
                       >
                         <View style={styles.selectionItemLeft}>
                           {isSelected ? (
-                            <Check size={14} color="#10b981" />
+                            <Check size={12} color="#10b981" />
                           ) : (
-                            <View style={{ width: 14 }} />
+                            <View style={{ width: 12 }} />
                           )}
                           <Text
                             style={[
@@ -667,11 +666,10 @@ const SecureVideoPlayer = ({
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </ScrollView>
               </View>
             )}
           </View>
-        </View>
       )}
     </View>
   );
@@ -909,94 +907,96 @@ const styles = StyleSheet.create({
   },
   settingsModalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 50,
+    backgroundColor: "transparent",
+    zIndex: 60,
   },
   settingsCard: {
-    width: "82%",
-    maxWidth: 320,
-    backgroundColor: "#1e293b",
-    borderRadius: 16,
+    position: "absolute",
+    bottom: 48,
+    right: 10,
+    width: 200,
+    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    padding: 16,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 30,
+    zIndex: 99,
   },
   settingsHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingBottom: 12,
+    paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
-    marginBottom: 8,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 4,
   },
   settingsHeaderTitle: {
     color: "#94a3b8",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   settingsCloseBtn: {
-    padding: 4,
+    padding: 2,
   },
   settingsBackBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    gap: 3,
+    paddingVertical: 1,
+    paddingHorizontal: 2,
   },
   settingsBackBtnText: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
   },
   settingsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 7,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   settingsRowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 7,
   },
   settingsRowLabel: {
     color: "#f1f5f9",
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "500",
   },
   settingsRowRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
   },
   settingsRowValue: {
     color: "#10b981",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
   },
   selectionList: {
-    maxHeight: 220,
+    maxHeight: 130,
   },
   selectionItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    borderRadius: 6,
   },
   selectionItemActive: {
     backgroundColor: "rgba(16, 185, 129, 0.15)",
@@ -1004,11 +1004,11 @@ const styles = StyleSheet.create({
   selectionItemLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   selectionItemText: {
     color: "#cbd5e1",
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: "500",
   },
   selectionItemTextActive: {
@@ -1016,7 +1016,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   defaultLabelText: {
-    fontSize: 9,
+    fontSize: 8.5,
     color: "#64748b",
     textTransform: "uppercase",
     fontWeight: "600",

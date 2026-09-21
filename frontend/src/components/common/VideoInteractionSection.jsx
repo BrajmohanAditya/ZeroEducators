@@ -278,7 +278,7 @@ const VideoInteractionSection = ({ video, courseId, currentUser }) => {
             <p className="text-xs text-slate-400">Loading comments...</p>
           </div>
         ) : comments.length > 0 ? (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
             {comments.map((c) => {
               const authorName = c.user?.name || "Student";
               const authorInitial = authorName.charAt(0).toUpperCase();

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Course } from "../models/course.model.js";
 import { Modules } from "../models/module.model.js";
 import { User } from "../models/user.model.js";
@@ -138,22 +139,94 @@ export const streamModuleVideo = async (req, res) => {
     const { moduleId } = req.params;
     const user = req.user;
 
-    let module = await Modules.findById(moduleId);
-    let videoId = module?.Video_id;
-    let courseId = module?.courseId;
+    const isObjectId = mongoose.isValidObjectId(moduleId);
+    let module = null;
+    let videoId = null;
+    let courseId = null;
 
+    if (isObjectId) {
+      module = await Modules.findById(moduleId);
+      if (module) {
+        videoId = module.Video_id;
+        courseId = module.courseId;
+      }
+    }
+
+    // 1. Search in Course subjects -> chapters -> videos
     if (!module) {
-      const courseWithVideo = await Course.findOne({ "topics.videos._id": moduleId });
+      const matchConditions = [
+        { "subjects.chapters.videos.Video_id": moduleId },
+      ];
+      if (isObjectId) {
+        matchConditions.push({ "subjects.chapters.videos._id": moduleId });
+        matchConditions.push({ "subjects.chapters.videos.moduleId": moduleId });
+      }
+
+      const courseWithSubjectVideo = await Course.findOne({ $or: matchConditions });
+
+      if (courseWithSubjectVideo) {
+        courseId = courseWithSubjectVideo._id;
+        for (const subject of courseWithSubjectVideo.subjects || []) {
+          for (const chapter of subject.chapters || []) {
+            const v = (chapter.videos || []).find(
+              (vid) =>
+                (isObjectId && vid._id?.toString() === moduleId) ||
+                (isObjectId && vid.moduleId?.toString() === moduleId) ||
+                vid.Video_id === moduleId
+            );
+            if (v) {
+              videoId = v.Video_id;
+              module = { Video_id: v.Video_id, courseId: courseWithSubjectVideo._id, Video: v.Video };
+              break;
+            }
+          }
+          if (module) break;
+        }
+      }
+    }
+
+    // 2. Search in Course topics -> videos
+    if (!module) {
+      const matchTopicConditions = [
+        { "topics.videos.Video_id": moduleId },
+      ];
+      if (isObjectId) {
+        matchTopicConditions.push({ "topics.videos._id": moduleId });
+        matchTopicConditions.push({ "topics.videos.moduleId": moduleId });
+      }
+      const courseWithVideo = await Course.findOne({ $or: matchTopicConditions });
       if (courseWithVideo) {
         courseId = courseWithVideo._id;
-        for (const topic of courseWithVideo.topics) {
-          const v = topic.videos?.id(moduleId);
+        for (const topic of courseWithVideo.topics || []) {
+          const v = (topic.videos || []).find(
+            (vid) =>
+              (isObjectId && vid._id?.toString() === moduleId) ||
+              (isObjectId && vid.moduleId?.toString() === moduleId) ||
+              vid.Video_id === moduleId
+          );
           if (v) {
             videoId = v.Video_id;
-            module = { Video_id: v.Video_id, courseId: courseWithVideo._id };
+            module = { Video_id: v.Video_id, courseId: courseWithVideo._id, Video: v.Video };
             break;
           }
         }
+      }
+    }
+
+    // 3. Fallback: if direct S3 key was provided or matches
+    if (!videoId) {
+      const decodedKey = decodeURIComponent(moduleId);
+      if (decodedKey.includes("courseModule")) {
+        videoId = decodedKey;
+        module = { Video_id: videoId };
+      }
+    }
+
+    // Sanitize videoId in case it was stored as a full S3 URL
+    if (videoId && (videoId.startsWith("http://") || videoId.startsWith("https://"))) {
+      const urlParts = videoId.split("courseModule/");
+      if (urlParts.length > 1) {
+        videoId = `courseModule/${urlParts[1]}`;
       }
     }
 
@@ -162,7 +235,7 @@ export const streamModuleVideo = async (req, res) => {
     }
 
     // Access control: admins, enrolled users, or free courses
-    if (user?.role !== "admin") {
+    if (user?.role !== "admin" && courseId) {
       const course = await Course.findById(courseId);
       const isPurchased = user?.purchasedCourse?.some(
         (cId) => cId.toString() === courseId?.toString()

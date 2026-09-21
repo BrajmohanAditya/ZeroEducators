@@ -32,15 +32,15 @@ import {
   BookOpen,
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
-import { fetchLiveSingleCourse } from '../../config/api';
+import { fetchLiveSingleCourse, BASE_URL } from '../../config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SecureVideoPlayer from '../../components/common/SecureVideoPlayer';
-import { getUserSession } from '../../utils/storage';
+import { getUserSession, saveUserSession } from '../../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-// Default working video stream URL from Zata S3 CDN
-const DEFAULT_STREAM_URL = 'https://idr01.zata.ai/zerozeroeducators/courseModule/1789614399439-1.mp4';
+// Default working video stream URL routed securely through backend
+const DEFAULT_STREAM_URL = `${BASE_URL}/module/stream/${encodeURIComponent('courseModule/1789614399439-1.mp4')}`;
 
 // Default curriculum mirroring the user's banking course (from web screenshot)
 const fallbackSubjects = [
@@ -135,41 +135,42 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [userToken, setUserToken] = useState(null);
 
-  // Load auth token for secure video streaming
+  // Load auth token for secure video streaming (with auto-refresh from stream-token endpoint)
   useEffect(() => {
-    getUserSession().then((session) => {
+    getUserSession().then(async (session) => {
       if (session?.token) {
         setUserToken(session.token);
+      } else if (session?.user?._id || user?._id) {
+        const uId = session?.user?._id || user?._id;
+        try {
+          const res = await fetch(`${BASE_URL}/user/stream-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ userId: uId }),
+          });
+          const data = await res.json();
+          if (data?.token) {
+            setUserToken(data.token);
+            await saveUserSession(session?.user || user, data.token);
+          }
+        } catch (e) {
+          console.log('Stream token fetch notice:', e);
+        }
       }
     });
-  }, []);
+  }, [user]);
 
   // Accordion toggle states
   const [openSubjects, setOpenSubjects] = useState({});
   const [openChapters, setOpenChapters] = useState({});
 
   // Video Interaction States (Like, Rating, Comments)
-  const [likeCount, setLikeCount] = useState(14);
+  const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
-  const [userRating, setUserRating] = useState(5);
+  const [userRating, setUserRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [commentInput, setCommentInput] = useState('');
-  const [commentsList, setCommentsList] = useState([
-    {
-      id: 'c1',
-      author: 'Mohit Kumar',
-      initial: 'M',
-      text: 'Great lecture! The explanation of customer requirements under retail banking was crystal clear.',
-      timeAgo: '2h ago',
-    },
-    {
-      id: 'c2',
-      author: 'Priya Sharma',
-      initial: 'P',
-      text: 'Thank you maam! Can we get the chapter practice MCQs PDF for revision?',
-      timeAgo: '1d ago',
-    },
-  ]);
+  const [commentsList, setCommentsList] = useState([]);
 
   // Fetch full course data with subjects if needed
   useEffect(() => {
@@ -226,22 +227,27 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
     }
   }, [subjects]);
 
-  // Get valid streaming video URL
+  // Get valid secure streaming video URL routed exclusively through backend
   const getVideoUrl = (lecture) => {
-    if (lecture?.Video && typeof lecture.Video === 'string' && lecture.Video.startsWith('http')) {
-      return lecture.Video;
-    }
-    if (lecture?.videoUrl && typeof lecture.videoUrl === 'string' && lecture.videoUrl.startsWith('http')) {
-      return lecture.videoUrl;
-    }
     const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
-    if (lecture?.moduleId) {
-      return `https://zeroeducators.com/api/module/stream/${lecture.moduleId}${tokenQuery}`;
+    const videoIdentifier =
+      lecture?.moduleId ||
+      (lecture?._id && String(lecture._id).length === 24 ? lecture._id : null) ||
+      lecture?.Video_id;
+
+    if (videoIdentifier) {
+      return `${BASE_URL}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`;
     }
-    if (lecture?._id && String(lecture._id).length === 24) {
-      return `https://zeroeducators.com/api/module/stream/${lecture._id}${tokenQuery}`;
+
+    // If lecture contains a full or partial S3 key, route it securely through backend stream
+    if (lecture?.Video && typeof lecture.Video === 'string') {
+      const match = lecture.Video.match(/courseModule\/[^?]+/);
+      if (match) {
+        return `${BASE_URL}/module/stream/${encodeURIComponent(match[0])}${tokenQuery}`;
+      }
     }
-    return DEFAULT_STREAM_URL;
+
+    return `${DEFAULT_STREAM_URL}${tokenQuery}`;
   };
 
   // Launch and play video immediately
@@ -256,9 +262,18 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
     }
   };
 
-  // Open PDF notes
+  // Open PDF notes securely through backend stream
   const handleOpenPdf = async (pdf) => {
-    const url = pdf?.pdfUrl || pdf?.url || (pdf?._id ? `https://zeroeducators.com/api/module/stream/${pdf._id}` : null);
+    const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
+    let url = null;
+    const courseId = courseData?._id || course?._id;
+
+    if (courseId && pdf?._id && String(pdf._id).length === 24) {
+      url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}${tokenQuery}`;
+    } else if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string' && !pdf.pdfUrl.includes('coursePdfs')) {
+      url = pdf.pdfUrl;
+    }
+
     if (url && url.startsWith('http')) {
       try {
         await Linking.openURL(url);
@@ -470,20 +485,30 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
           </View>
 
           <View style={styles.commentsList}>
-            {commentsList.map((item) => (
-              <View key={item.id} style={styles.commentItem}>
-                <View style={styles.commentItemAvatar}>
-                  <Text style={styles.commentItemAvatarText}>{item.initial}</Text>
-                </View>
-                <View style={styles.commentItemContent}>
-                  <View style={styles.commentItemTop}>
-                    <Text style={styles.commentAuthor}>{item.author}</Text>
-                    <Text style={styles.commentTime}>{item.timeAgo}</Text>
+            {commentsList.length > 0 ? (
+              commentsList.map((item) => (
+                <View key={item.id} style={styles.commentItem}>
+                  <View style={styles.commentItemAvatar}>
+                    <Text style={styles.commentItemAvatarText}>{item.initial}</Text>
                   </View>
-                  <Text style={styles.commentText}>{item.text}</Text>
+                  <View style={styles.commentItemContent}>
+                    <View style={styles.commentItemTop}>
+                      <Text style={styles.commentAuthor}>{item.author}</Text>
+                      <Text style={styles.commentTime}>{item.timeAgo}</Text>
+                    </View>
+                    <Text style={styles.commentText}>{item.text}</Text>
+                  </View>
                 </View>
+              ))
+            ) : (
+              <View style={styles.emptyCommentsCard}>
+                <MessageSquare size={22} color="#94a3b8" />
+                <Text style={styles.emptyCommentsTitle}>No comments yet on this lecture</Text>
+                <Text style={styles.emptyCommentsSubtitle}>
+                  Have a doubt or feedback? Be the first to start the discussion!
+                </Text>
               </View>
-            ))}
+            )}
           </View>
         </View>
 
@@ -1066,6 +1091,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#334155',
     lineHeight: 16,
+  },
+  emptyCommentsCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+  },
+  emptyCommentsTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 6,
+  },
+  emptyCommentsSubtitle: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+    textAlign: 'center',
   },
 
   // 3. Curriculum Section Styles (Dark Cards)

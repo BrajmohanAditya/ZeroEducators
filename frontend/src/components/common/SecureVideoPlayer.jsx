@@ -35,8 +35,7 @@ const speedOptions = [
  * Video Quality Options
  */
 const qualityOptions = [
-  { id: "auto", label: "Auto (Recommended - 1080p)", shortLabel: "Auto", badge: "HD" },
-  { id: "1080p", label: "1080p (Full HD)", shortLabel: "1080p", badge: "HD" },
+  { id: "auto", label: "Auto (Recommended - 720p HD)", shortLabel: "Auto", badge: "HD" },
   { id: "720p", label: "720p (HD)", shortLabel: "720p", badge: "HD" },
   { id: "480p", label: "480p (Data Saver)", shortLabel: "480p", badge: "SD" },
   { id: "360p", label: "360p (Low Data)", shortLabel: "360p", badge: "SD" },
@@ -726,9 +725,7 @@ const SecureVideoPlayer = ({
                 setIsSettingsOpen((prev) => !prev);
                 setMenuTab("main");
               }}
-              className={`p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400 ${
-                isSettingsOpen ? "bg-white/20 text-emerald-400" : ""
-              }`}
+              className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white"
               title="Settings (Playback speed, Quality)"
             >
               <Settings

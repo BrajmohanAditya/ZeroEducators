@@ -361,7 +361,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
                   <View style={styles.enrolledPerksList}>
                     <View style={styles.enrolledPerkItem}>
                       <CheckCircle2 size={16} color="#059669" />
-                      <Text style={styles.enrolledPerkText}>All Lectures Unlocked (1080p DRM)</Text>
+                      <Text style={styles.enrolledPerkText}>All Lectures Unlocked (HD DRM)</Text>
                     </View>
                     <View style={styles.enrolledPerkItem}>
                       <CheckCircle2 size={16} color="#059669" />

@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
 import { ENV } from "../config/env.js";
 import jwt from "jsonwebtoken";
@@ -121,6 +122,7 @@ export const Login = async (req, res, next) => {
         message: `welcome ${user.name}`,
         success: true,
         user: userWithoutPassword,
+        token,
       });
     }
 
@@ -128,6 +130,7 @@ export const Login = async (req, res, next) => {
       message: `welcome ${user.name}`,
       success: true,
       user: userWithoutPassword,
+      token,
     });
   } catch (error) {
     next(error);
@@ -232,6 +235,7 @@ export const verifyOTP = async (req, res, next) => {
         message: `Welcome ${user.name}`,
         success: true,
         user: userWithoutPassword,
+        token,
       });
   } catch (error) {
     next(error);
@@ -290,6 +294,7 @@ export const googleLogin = async (req, res) => {
         message: `Welcome ${user.name}`,
         success: true,
         user: userWithoutPassword,
+        token: jwtToken,
       });
   } catch (error) {
     console.error("Google Login Error:", error);
@@ -464,5 +469,50 @@ export const resetPasswordWithOtp = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Generates or refreshes a stream authentication token for mobile app playback
+ */
+export const getStreamToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers?.authorization || req.headers?.Authorization;
+    const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const existingToken = req.cookies?.token || req.query?.token || bearerToken;
+
+    if (existingToken) {
+      try {
+        const decoded = jwt.verify(existingToken, ENV.JWT_SECRET);
+        if (decoded?.userId) {
+          const freshToken = jwt.sign({ userId: decoded.userId }, ENV.JWT_SECRET, {
+            expiresIn: "7d",
+          });
+          return res.status(200).json({ success: true, token: freshToken });
+        }
+      } catch {
+        // Fallback to userId validation
+      }
+    }
+
+    const userId = req.body?.userId || req.query?.userId;
+    if (userId && mongoose.isValidObjectId(userId)) {
+      const user = await User.findById(userId);
+      if (user) {
+        const token = jwt.sign({ userId: user._id }, ENV.JWT_SECRET, {
+          expiresIn: "7d",
+        });
+        return res.status(200).json({
+          success: true,
+          token,
+          user: { _id: user._id, name: user.name, role: user.role },
+        });
+      }
+    }
+
+    return res.status(401).json({ success: false, message: "Could not generate stream token" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 

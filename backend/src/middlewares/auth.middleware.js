@@ -4,7 +4,9 @@ import { User } from "../models/user.model.js";
 
 export const isLoggedIn = async (req, res, next) => {
   try {
-    const token = req.cookies?.token || req.query?.token;
+    const authHeader = req.headers?.authorization || req.headers?.Authorization;
+    const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const token = req.cookies?.token || req.query?.token || bearerToken;
 
     if (!token) {
       return res
