@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ShieldCheck,
   Loader2,
@@ -141,15 +141,7 @@ const SecureVideoPlayer = ({
 
   // Hover timestamp tooltip on progress bar
   const [hoverTime, setHoverTime] = useState(null);
-  const [hoverX, setHoverX] = useState(0);
-
-  // Reset playback timing states when source/video key changes
-  useEffect(() => {
-    setCurrentTime(0);
-    setDuration(0);
-    setBufferedEnd(0);
-    setIsBuffering(false);
-  }, [src, videoKey]);
+  const [hoverPercent, setHoverPercent] = useState(0);
 
   const triggerToast = (text, icon) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -182,7 +174,12 @@ const SecureVideoPlayer = ({
   };
 
   useEffect(() => {
-    resetControlsTimer();
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    if (isPlaying && !isSettingsOpen) {
+      controlsTimerRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 2800);
+    }
     return () => {
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     };
@@ -211,7 +208,9 @@ const SecureVideoPlayer = ({
         }
       }
       setBufferedEnd(vid.buffered.end(vid.buffered.length - 1));
-    } catch {}
+    } catch {
+      // ignore buffer read errors
+    }
   };
 
   // Video metadata loaded handler
@@ -256,7 +255,9 @@ const SecureVideoPlayer = ({
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => {
+        // playback interruption ignored
+      });
     } else {
       videoRef.current.pause();
     }
@@ -284,7 +285,9 @@ const SecureVideoPlayer = ({
     }
     try {
       localStorage.setItem("zero_video_volume", String(v));
-    } catch {}
+    } catch {
+      // ignore
+    }
   };
 
   // Progress bar seek calculation
@@ -292,7 +295,7 @@ const SecureVideoPlayer = ({
     if (!progressBarRef.current || !duration) return null;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return { time: pos * duration, x: clientX - rect.left };
+    return { time: pos * duration, percent: pos * 100 };
   };
 
   // Progress click / scrub seek
@@ -308,7 +311,7 @@ const SecureVideoPlayer = ({
     const seekData = calculateSeekTime(e.clientX);
     if (seekData) {
       setHoverTime(seekData.time);
-      setHoverX(seekData.x);
+      setHoverPercent(seekData.percent);
     }
   };
 
@@ -322,7 +325,9 @@ const SecureVideoPlayer = ({
     applyPlaybackSpeed(newSpeed);
     try {
       localStorage.setItem("zero_playback_speed", String(newSpeed));
-    } catch {}
+    } catch {
+      // ignore
+    }
     setIsSettingsOpen(false);
     triggerToast(
       `${newSpeed === 1 ? "Normal (1x)" : `${newSpeed}x`} Speed`,
@@ -335,7 +340,9 @@ const SecureVideoPlayer = ({
     setQuality(newQuality);
     try {
       localStorage.setItem("zero_video_quality", newQuality);
-    } catch {}
+    } catch {
+      // ignore
+    }
     setIsSettingsOpen(false);
     const chosen = qualityOptions.find((q) => q.id === newQuality);
     triggerToast(
@@ -461,58 +468,75 @@ const SecureVideoPlayer = ({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isSettingsOpen]);
 
-  // 5. YouTube-style keyboard shortcuts
+  // 5. YouTube-style keyboard shortcuts with stable actions ref
+  const keyboardActionsRef = useRef({});
+  useEffect(() => {
+    keyboardActionsRef.current = {
+      togglePlay,
+      toggleFullscreen,
+      toggleMute,
+      handleSkip,
+      handleVolumeChange,
+      handleSpeedChange,
+      playbackSpeed,
+      volume,
+      duration,
+    };
+  });
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (["INPUT", "TEXTAREA"].includes(e.target?.tagName)) return;
+      const actions = keyboardActionsRef.current;
 
       // Space or 'k' for Play/Pause
       if (e.key === " " || e.key === "k" || e.key === "K") {
         e.preventDefault();
-        togglePlay();
+        actions.togglePlay?.();
       }
 
       // 'f' or 'F' for Fullscreen
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
-        toggleFullscreen();
+        actions.toggleFullscreen?.();
       }
 
       // 'm' or 'M' for Mute
       if (e.key === "m" || e.key === "M") {
         e.preventDefault();
-        toggleMute();
+        actions.toggleMute?.();
       }
 
       // ArrowRight or 'l' or 'L' for Forward 10s
       if (e.key === "ArrowRight" || e.key === "l" || e.key === "L") {
         e.preventDefault();
-        handleSkip(10);
+        actions.handleSkip?.(10);
       }
 
       // ArrowLeft or 'j' or 'J' for Rewind 10s
       if (e.key === "ArrowLeft" || e.key === "j" || e.key === "J") {
         e.preventDefault();
-        handleSkip(-10);
+        actions.handleSkip?.(-10);
       }
 
       // ArrowUp for Volume Up (5%)
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        handleVolumeChange(Math.min(1, volume + 0.05));
+        actions.handleVolumeChange?.(Math.min(1, actions.volume + 0.05));
       }
 
       // ArrowDown for Volume Down (5%)
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        handleVolumeChange(Math.max(0, volume - 0.05));
+        actions.handleVolumeChange?.(Math.max(0, actions.volume - 0.05));
       }
 
       // Numbers 0 - 9 to jump to percentage
       if (e.key >= "0" && e.key <= "9" && !e.shiftKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        if (duration > 0 && videoRef.current) {
-          const target = (parseInt(e.key, 10) / 10) * duration;
+        const curDuration = actions.duration;
+        if (curDuration > 0 && videoRef.current) {
+          const target = (parseInt(e.key, 10) / 10) * curDuration;
           videoRef.current.currentTime = target;
           setCurrentTime(target);
           triggerToast(`${parseInt(e.key, 10) * 10}%`, <Gauge className="w-5 h-5 text-emerald-400" />);
@@ -522,25 +546,27 @@ const SecureVideoPlayer = ({
       // Shift + > to speed up
       if (e.shiftKey && (e.key === ">" || e.key === ".")) {
         e.preventDefault();
-        const idx = speedOptions.findIndex((s) => s.value === playbackSpeed);
+        const curSpeed = actions.playbackSpeed;
+        const idx = speedOptions.findIndex((s) => s.value === curSpeed);
         if (idx !== -1 && idx < speedOptions.length - 1) {
-          handleSpeedChange(speedOptions[idx + 1].value);
+          actions.handleSpeedChange?.(speedOptions[idx + 1].value);
         }
       }
 
       // Shift + < to slow down
       if (e.shiftKey && (e.key === "<" || e.key === ",")) {
         e.preventDefault();
-        const idx = speedOptions.findIndex((s) => s.value === playbackSpeed);
+        const curSpeed = actions.playbackSpeed;
+        const idx = speedOptions.findIndex((s) => s.value === curSpeed);
         if (idx !== -1 && idx > 0) {
-          handleSpeedChange(speedOptions[idx - 1].value);
+          actions.handleSpeedChange?.(speedOptions[idx - 1].value);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playbackSpeed, isPlaying, isFullscreen, isMuted, volume, duration]);
+  }, []);
 
   const studentIdentifier = user?.email || user?.name || "Student Account";
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -576,6 +602,12 @@ const SecureVideoPlayer = ({
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
+        onLoadStart={() => {
+          setCurrentTime(0);
+          setDuration(0);
+          setBufferedEnd(0);
+          setIsBuffering(false);
+        }}
         onLoadedMetadata={handleLoadedMetadata}
         onLoadedData={updateDuration}
         onDurationChange={updateDuration}
@@ -780,7 +812,7 @@ const SecureVideoPlayer = ({
             <div
               className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-[11px] font-mono text-white pointer-events-none shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-100"
               style={{
-                left: `${Math.max(20, Math.min((progressBarRef.current?.clientWidth || 300) - 20, hoverX))}px`,
+                left: `${Math.max(4, Math.min(96, hoverPercent))}%`,
               }}
             >
               {formatTime(hoverTime)}
