@@ -96,10 +96,16 @@ export function App() {
   }, [history, currentScreen]);
 
   useEffect(() => {
-    // Restore user session on app launch from AsyncStorage
-    getUserSession().then((session) => {
+    // Restore user session on app launch from AsyncStorage and immediately sync fresh profile
+    getUserSession().then(async (session) => {
       if (session?.user) {
         setCurrentUser(session.user);
+      }
+      if (session?.token) {
+        const freshUser = await refreshUserProfileApi();
+        if (freshUser) {
+          setCurrentUser(freshUser);
+        }
       }
     }).catch((err) => {
       console.log('Error restoring user session:', err);
@@ -263,6 +269,7 @@ export function App() {
             user={currentUser}
             onNavigate={navigate}
             onCoursePress={handleCoursePress}
+            onUserRefresh={setCurrentUser}
           />
         )}
 

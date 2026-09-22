@@ -34,9 +34,10 @@ export const getUserSession = async () => {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const effectiveToken = token || parsed?.token || parsed?.jwt || null;
       memoryUser = parsed;
-      memoryToken = token;
-      return { user: parsed, token };
+      memoryToken = effectiveToken;
+      return { user: parsed, token: effectiveToken };
     }
   } catch (err) {
     console.warn('[Storage] Error reading user session:', err);

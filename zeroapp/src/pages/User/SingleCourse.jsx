@@ -336,6 +336,32 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waitingForWebPayment, isAlreadyPurchased, activeOrderId]);
 
+  // Silently sync user profile when opening course screen to reflect purchases made on website
+  useEffect(() => {
+    if (currentCourse?._id) {
+      refreshUserProfileApi().then((refreshedUser) => {
+        if (refreshedUser) {
+          const cid = String(currentCourse._id);
+          const list = refreshedUser.purchasedCourse || refreshedUser.purchasedCourses || [];
+          const found = list.some((pc) => {
+            if (!pc) return false;
+            if (typeof pc === 'string') return pc === cid;
+            return (
+              String(pc._id || '') === cid ||
+              String(pc.id || '') === cid ||
+              String(pc.courseId || '') === cid ||
+              String(pc.courseId?._id || '') === cid
+            );
+          });
+          if (found) {
+            setLocallyPurchased(true);
+          }
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCourse?._id]);
+
   return (
     <View style={styles.container}>
       {/* Top Header with Back Button */}

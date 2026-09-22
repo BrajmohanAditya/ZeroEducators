@@ -188,7 +188,10 @@ export const refreshUserProfileApi = async () => {
   try {
     const session = await getUserSession();
     const token = session?.token;
-    if (!token) return null;
+    if (!token) {
+      console.warn('[Session] No auth token found in local storage. Please log in again to sync purchases.');
+      return null;
+    }
     const res = await fetch(`${BASE_URL}/getUser`, {
       method: 'GET',
       headers: {

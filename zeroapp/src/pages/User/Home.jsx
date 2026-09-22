@@ -11,7 +11,11 @@ import StudyMaterial from './study.material';
 import CourseSection from '../../components/userComponent/courseSection';
 import Footer from '../../components/userComponent/footer';
 import { colors } from '../../theme/colors';
-import { fetchLiveCourses, fetchLiveHeroSection } from '../../config/api';
+import {
+  fetchLiveCourses,
+  fetchLiveHeroSection,
+  refreshUserProfileApi,
+} from '../../config/api';
 
 import FloatingWhatsApp from '../../components/ui/FloatingWhatsApp';
 
@@ -20,6 +24,7 @@ export const Home = ({
   onCoursePress,
   onExamPress,
   user,
+  onUserRefresh,
 }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [courses, setCourses] = useState([]);
@@ -27,15 +32,19 @@ export const Home = ({
 
   const loadLiveData = async () => {
     try {
-      const [liveCourses, liveHero] = await Promise.all([
+      const [liveCourses, liveHero, freshUser] = await Promise.all([
         fetchLiveCourses(),
         fetchLiveHeroSection(),
+        refreshUserProfileApi(),
       ]);
       if (liveCourses && liveCourses.length > 0) {
         setCourses(liveCourses);
       }
       if (liveHero) {
         setHeroData(liveHero);
+      }
+      if (freshUser && onUserRefresh) {
+        onUserRefresh(freshUser);
       }
     } catch (err) {
       console.log('Error loading live data from AWS:', err);
