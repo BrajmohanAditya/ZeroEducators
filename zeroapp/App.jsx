@@ -50,11 +50,15 @@ export function App() {
     setCurrentScreen(screenName);
 
     // Sync tab if matching
-    const targetTab = ['Home', 'Courses', 'eBooks', 'Profile'].includes(screenName)
-      ? screenName
-      : activeTab;
-    if (['Home', 'Courses', 'eBooks', 'Profile'].includes(screenName)) {
-      setActiveTab(screenName);
+    const tabMap = {
+      Home: 'Home',
+      eBooks: 'eBooks',
+      MyCourses: 'MyCourses',
+      Profile: 'MyCourses',
+    };
+    const targetTab = tabMap[screenName] || activeTab;
+    if (tabMap[screenName]) {
+      setActiveTab(tabMap[screenName]);
     }
 
     setHistory((prev) => {
@@ -149,7 +153,7 @@ export function App() {
 
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
-    if (tabName === 'Profile') {
+    if (tabName === 'MyCourses' || tabName === 'Profile') {
       if (currentUser) {
         navigate('MyCourses');
       } else {
@@ -263,7 +267,7 @@ export function App() {
           <YourAllPurchasedCourse
             purchasedCourses={myPurchasedCourses}
             onOpenCourse={(course) => navigate('CoursePlayer', { course })}
-            onExploreCourses={() => navigate('Courses')}
+            onExploreCourses={() => navigate('Home')}
           />
         )}
 

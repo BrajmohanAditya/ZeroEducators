@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Home, BookOpen, FileText, User } from 'lucide-react-native';
+import { Home, GraduationCap, FileText } from 'lucide-react-native';
 import Navbar from '../components/userComponent/Navbar';
 import { colors, shadows } from '../theme/colors';
 
@@ -17,9 +17,8 @@ export const UserLayout = ({
 }) => {
   const tabs = [
     { name: 'Home', label: 'Home', icon: Home },
-    { name: 'Courses', label: 'Courses', icon: BookOpen },
     { name: 'eBooks', label: 'eBooks', icon: FileText },
-    { name: 'Profile', label: 'Account', icon: User },
+    { name: 'MyCourses', label: 'Courses', icon: GraduationCap },
   ];
 
   return (

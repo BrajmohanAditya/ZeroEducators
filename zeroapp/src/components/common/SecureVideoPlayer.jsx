@@ -7,7 +7,6 @@ import {
   TouchableWithoutFeedback,
   Animated,
   ActivityIndicator,
-  Dimensions,
   Modal,
   StatusBar,
   ScrollView,
@@ -32,7 +31,6 @@ import {
   RotateCcw,
   RotateCw,
 } from "lucide-react-native";
-import { BASE_URL } from "../../config/api";
 
 /**
  * Playback Speed Options
@@ -88,6 +86,13 @@ const SecureVideoPlayer = ({
   const controlsTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
   const progressBarWidthRef = useRef(0);
+  const containerWidthRef = useRef(0);
+  const lastTapRef = useRef(0);
+  const singleTapTimerRef = useRef(null);
+
+  // YouTube Double-Tap Animation state
+  const [doubleTapSide, setDoubleTapSide] = useState(null);
+  const doubleTapAnim = useRef(new Animated.Value(0)).current;
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(true);
@@ -186,12 +191,14 @@ const SecureVideoPlayer = ({
     return () => clearInterval(interval);
   }, [watermarkOpacity]);
 
+  const hasStartedPlaying = currentTime > 0;
+
   // Controls auto-hide timer (only when actively playing and progressing)
   const resetControlsTimer = () => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     // Keep controls visible if paused, buffering, or at start (currentTime === 0)
-    if (isPlaying && !isSettingsOpen && !isBuffering && currentTime > 0) {
+    if (isPlaying && !isSettingsOpen && !isBuffering && hasStartedPlaying) {
       controlsTimerRef.current = setTimeout(() => {
         setShowControls(false);
       }, 3500);
@@ -199,38 +206,24 @@ const SecureVideoPlayer = ({
   };
 
   useEffect(() => {
-    resetControlsTimer();
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    if (isPlaying && !isSettingsOpen && !isBuffering && hasStartedPlaying) {
+      controlsTimerRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3500);
+    }
     return () => {
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     };
-  }, [isPlaying, isSettingsOpen, isBuffering, currentTime > 0]);
+  }, [isPlaying, isSettingsOpen, isBuffering, hasStartedPlaying]);
 
-  const toggleControls = () => {
-    if (showControls) {
-      setShowControls(false);
-    } else {
-      resetControlsTimer();
-    }
-  };
-
-  const triggerToast = (text) => {
+  const triggerToast = (text, type = "gauge") => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setScreenToast(text);
+    setScreenToast({ text, type });
     toastTimerRef.current = setTimeout(() => {
       setScreenToast(null);
     }, 1300);
   };
-
-  // Fallback stream URL routed securely through backend in case primary fails
-  const DEFAULT_FALLBACK_URL = `${BASE_URL}/module/stream/${encodeURIComponent("courseModule/1789614399439-1.mp4")}`;
-
-  const [activeSrc, setActiveSrc] = useState(src || DEFAULT_FALLBACK_URL);
-
-  useEffect(() => {
-    if (src) {
-      setActiveSrc(src);
-    }
-  }, [src]);
 
   // Video Actions
   const togglePlay = () => {
@@ -238,16 +231,51 @@ const SecureVideoPlayer = ({
     resetControlsTimer();
   };
 
-  const handleScreenTap = () => {
+  const triggerDoubleTapAnimation = (side) => {
+    setDoubleTapSide(side);
+    doubleTapAnim.setValue(1);
+    Animated.timing(doubleTapAnim, {
+      toValue: 0,
+      duration: 650,
+      useNativeDriver: true,
+    }).start(() => {
+      setDoubleTapSide(null);
+    });
+  };
+
+  const handleScreenTap = (e) => {
     if (isSettingsOpen) {
       setIsSettingsOpen(false);
       return;
     }
-    if (!showControls) {
-      resetControlsTimer();
+
+    const touchX = e?.nativeEvent?.locationX || 0;
+    const width = containerWidthRef.current || 360;
+    const now = Date.now();
+
+    if (now - lastTapRef.current < 320) {
+      // YouTube Double-Tap to Seek!
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      lastTapRef.current = 0;
+
+      if (touchX < width / 2) {
+        handleFastSeek(-10);
+        triggerDoubleTapAnimation("left");
+      } else {
+        handleFastSeek(10);
+        triggerDoubleTapAnimation("right");
+      }
     } else {
-      // Toggle play/pause when user taps the screen
-      togglePlay();
+      // Candidate single tap (wait 300ms to verify it wasn't a double-tap)
+      lastTapRef.current = now;
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = setTimeout(() => {
+        if (showControls) {
+          setShowControls(false);
+        } else {
+          resetControlsTimer();
+        }
+      }, 300);
     }
   };
 
@@ -273,7 +301,7 @@ const SecureVideoPlayer = ({
     const newTime = Math.max(0, Math.min(duration, currentTime + seconds));
     videoRef.current.seek(newTime);
     setCurrentTime(newTime);
-    triggerToast(seconds > 0 ? `+${seconds}s` : `${seconds}s`);
+    triggerToast(seconds > 0 ? `+${seconds}s` : `${seconds}s`, seconds > 0 ? "forward" : "rewind");
     resetControlsTimer();
   };
 
@@ -298,12 +326,17 @@ const SecureVideoPlayer = ({
 
   // The Player View Render
   const renderPlayer = (isFs = false) => (
-    <View style={[styles.playerContainer, isFs ? styles.fullscreenContainer : style]}>
+    <View
+      style={[styles.playerContainer, isFs ? styles.fullscreenContainer : style]}
+      onLayout={(e) => {
+        containerWidthRef.current = e.nativeEvent.layout.width;
+      }}
+    >
       {/* Native Video Engine with TextureView & Enhanced Buffer for High-Bitrate Video */}
       <Video
-        key={`${videoKey}-${activeSrc}`}
+        key={`${videoKey || "video"}-${src}`}
         ref={videoRef}
-        source={{ uri: activeSrc }}
+        source={{ uri: src }}
         style={StyleSheet.absoluteFill}
         resizeMode="contain"
         paused={!isPlaying}
@@ -348,20 +381,61 @@ const SecureVideoPlayer = ({
         onError={(err) => {
           console.warn("[SecureVideoPlayer] Playback error notice:", err);
           setIsBuffering(false);
-          // If primary stream fails, switch to fallback working stream
-          if (activeSrc !== DEFAULT_FALLBACK_URL) {
-            setActiveSrc(DEFAULT_FALLBACK_URL);
-          }
           if (onError) onError(err);
         }}
         poster={poster}
         posterResizeMode="cover"
       />
 
-      {/* Touch container to reveal/hide controls or toggle play */}
+      {/* Touch container to handle double-tap seek or toggle controls */}
       <TouchableWithoutFeedback onPress={handleScreenTap}>
         <View style={StyleSheet.absoluteFill} />
       </TouchableWithoutFeedback>
+
+      {/* ── YouTube-Style Double-Tap Left Ripple Overlay ── */}
+      {doubleTapSide === "left" && (
+        <Animated.View
+          style={[styles.doubleTapRippleLeft, { opacity: doubleTapAnim }]}
+          pointerEvents="none"
+        >
+          <RotateCcw size={28} color="#ffffff" />
+          <Text style={styles.doubleTapText}>10 seconds</Text>
+        </Animated.View>
+      )}
+
+      {/* ── YouTube-Style Double-Tap Right Ripple Overlay ── */}
+      {doubleTapSide === "right" && (
+        <Animated.View
+          style={[styles.doubleTapRippleRight, { opacity: doubleTapAnim }]}
+          pointerEvents="none"
+        >
+          <RotateCw size={28} color="#ffffff" />
+          <Text style={styles.doubleTapText}>10 seconds</Text>
+        </Animated.View>
+      )}
+
+      {/* ── YouTube-Style Center Screen Controls Overlay ── */}
+      {showControls && !isBuffering && (
+        <View style={styles.centerControlsOverlay} pointerEvents="box-none">
+          {/* Rewind 10s Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleFastSeek(-10)}
+            style={styles.centerActionBtn}
+          >
+            <RotateCcw size={36} color="#ffffff" strokeWidth={2.2} />
+          </TouchableOpacity>
+
+          {/* Forward 10s Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleFastSeek(10)}
+            style={styles.centerActionBtn}
+          >
+            <RotateCw size={36} color="#ffffff" strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Centered Buffering Spinner */}
       {isBuffering && (
@@ -377,8 +451,16 @@ const SecureVideoPlayer = ({
       {screenToast && (
         <View style={styles.toastOverlay} pointerEvents="none">
           <View style={styles.toastPill}>
-            <Gauge size={16} color="#10b981" />
-            <Text style={styles.toastText}>{screenToast}</Text>
+            {typeof screenToast === "object" && screenToast.type === "forward" ? (
+              <RotateCw size={16} color="#10b981" />
+            ) : typeof screenToast === "object" && screenToast.type === "rewind" ? (
+              <RotateCcw size={16} color="#10b981" />
+            ) : (
+              <Gauge size={16} color="#10b981" />
+            )}
+            <Text style={styles.toastText}>
+              {typeof screenToast === "object" ? screenToast.text : screenToast}
+            </Text>
           </View>
         </View>
       )}
@@ -395,7 +477,7 @@ const SecureVideoPlayer = ({
         ]}
         pointerEvents="none"
       >
-        <ShieldCheck size={12} color="#2dd4bf" style={{ marginRight: 4 }} />
+        <ShieldCheck size={12} color="#2dd4bf" style={styles.watermarkIcon} />
         <Text style={styles.watermarkUserText} numberOfLines={1}>
           {studentIdentifier}
         </Text>
@@ -455,7 +537,7 @@ const SecureVideoPlayer = ({
                 {isPlaying ? (
                   <Pause size={17} color="#ffffff" fill="#ffffff" />
                 ) : (
-                  <Play size={17} color="#ffffff" fill="#ffffff" style={{ marginLeft: 2 }} />
+                  <Play size={17} color="#ffffff" fill="#ffffff" style={styles.playIconOffset} />
                 )}
               </TouchableOpacity>
 
@@ -552,7 +634,7 @@ const SecureVideoPlayer = ({
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setSettingsTab("quality")}
-                  style={[styles.settingsRow, { borderBottomWidth: 0 }]}
+                  style={[styles.settingsRow, styles.settingsRowLast]}
                 >
                   <View style={styles.settingsRowLeft}>
                     <Sliders size={14} color="#10b981" />
@@ -577,7 +659,7 @@ const SecureVideoPlayer = ({
                     <Text style={styles.settingsBackBtnText}>Back</Text>
                   </TouchableOpacity>
                   <Text style={styles.settingsHeaderTitle}>Speed</Text>
-                  <View style={{ width: 28 }} />
+                  <View style={styles.headerSpacer} />
                 </View>
 
                 <ScrollView style={styles.selectionList} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
@@ -597,7 +679,7 @@ const SecureVideoPlayer = ({
                           {isSelected ? (
                             <Check size={12} color="#10b981" />
                           ) : (
-                            <View style={{ width: 12 }} />
+                            <View style={styles.iconSpacer} />
                           )}
                           <Text
                             style={[
@@ -627,7 +709,7 @@ const SecureVideoPlayer = ({
                     <Text style={styles.settingsBackBtnText}>Back</Text>
                   </TouchableOpacity>
                   <Text style={styles.settingsHeaderTitle}>Quality</Text>
-                  <View style={{ width: 28 }} />
+                  <View style={styles.headerSpacer} />
                 </View>
 
                 <ScrollView style={styles.selectionList} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
@@ -647,7 +729,7 @@ const SecureVideoPlayer = ({
                           {isSelected ? (
                             <Check size={12} color="#10b981" />
                           ) : (
-                            <View style={{ width: 12 }} />
+                            <View style={styles.iconSpacer} />
                           )}
                           <Text
                             style={[
@@ -846,12 +928,12 @@ const styles = StyleSheet.create({
   bottomLeftGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   bottomRightGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   playBtnBadge: {
     width: 36,
@@ -905,10 +987,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
-  settingsModalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
-    zIndex: 60,
+  headerSpacer: {
+    width: 28,
+  },
+  iconSpacer: {
+    width: 12,
   },
   settingsCard: {
     position: "absolute",
@@ -966,6 +1049,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  settingsRowLast: {
+    borderBottomWidth: 0,
   },
   settingsRowLeft: {
     flexDirection: "row",
@@ -1031,5 +1117,65 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#cbd5e1",
     fontWeight: "700",
+  },
+  watermarkIcon: {
+    marginRight: 4,
+  },
+  centerControlsOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 35,
+  },
+  centerActionBtn: {
+    width: 60,
+    height: 60,
+    marginHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  playIconOffset: {
+    marginLeft: 2,
+  },
+  doubleTapRippleLeft: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: "42%",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderTopRightRadius: 120,
+    borderBottomRightRadius: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 30,
+  },
+  doubleTapRippleRight: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: "42%",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderTopLeftRadius: 120,
+    borderBottomLeftRadius: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 30,
+  },
+  doubleTapText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });
