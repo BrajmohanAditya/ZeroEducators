@@ -15,6 +15,8 @@ import {
   Volume2,
   Volume1,
   VolumeX,
+  RotateCcw,
+  RotateCw,
 } from "lucide-react";
 
 /**
@@ -137,6 +139,18 @@ const SecureVideoPlayer = ({
   // YouTube-Style On-Screen Animated Toast
   const [screenToast, setScreenToast] = useState(null);
 
+  // Hover timestamp tooltip on progress bar
+  const [hoverTime, setHoverTime] = useState(null);
+  const [hoverX, setHoverX] = useState(0);
+
+  // Reset playback timing states when source/video key changes
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(0);
+    setBufferedEnd(0);
+    setIsBuffering(false);
+  }, [src, videoKey]);
+
   const triggerToast = (text, icon) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setScreenToast({ text, icon });
@@ -174,6 +188,70 @@ const SecureVideoPlayer = ({
     };
   }, [isPlaying, isSettingsOpen]);
 
+  // Resilient duration updater
+  const updateDuration = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    const d = vid.duration;
+    if (typeof d === "number" && !isNaN(d) && isFinite(d) && d > 0) {
+      setDuration(d);
+    }
+  };
+
+  // Resilient buffer progress updater
+  const updateBuffered = () => {
+    const vid = videoRef.current;
+    if (!vid || !vid.buffered || vid.buffered.length === 0) return;
+    try {
+      const current = vid.currentTime;
+      for (let i = 0; i < vid.buffered.length; i++) {
+        if (vid.buffered.start(i) <= current && current <= vid.buffered.end(i)) {
+          setBufferedEnd(vid.buffered.end(i));
+          return;
+        }
+      }
+      setBufferedEnd(vid.buffered.end(vid.buffered.length - 1));
+    } catch {}
+  };
+
+  // Video metadata loaded handler
+  const handleLoadedMetadata = () => {
+    updateDuration();
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+      videoRef.current.muted = isMuted;
+    }
+  };
+
+  // Video time update tick
+  const handleTimeUpdate = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    setCurrentTime(vid.currentTime);
+    if (!duration || !isFinite(duration)) {
+      updateDuration();
+    }
+    updateBuffered();
+  };
+
+  // YouTube-Style Skip forward / backward (+10s / -10s)
+  const handleSkip = (seconds) => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    const maxDur = duration && isFinite(duration) ? duration : vid.duration || Infinity;
+    const target = Math.max(0, Math.min(maxDur, vid.currentTime + seconds));
+    vid.currentTime = target;
+    setCurrentTime(target);
+    triggerToast(
+      seconds > 0 ? `+${seconds}s` : `${seconds}s`,
+      seconds > 0 ? (
+        <RotateCw className="w-5 h-5 text-emerald-400" />
+      ) : (
+        <RotateCcw className="w-5 h-5 text-emerald-400" />
+      )
+    );
+  };
+
   // Toggle Play / Pause
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -209,14 +287,33 @@ const SecureVideoPlayer = ({
     } catch {}
   };
 
+  // Progress bar seek calculation
+  const calculateSeekTime = (clientX) => {
+    if (!progressBarRef.current || !duration) return null;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return { time: pos * duration, x: clientX - rect.left };
+  };
+
   // Progress click / scrub seek
   const handleSeek = (e) => {
-    if (!progressBarRef.current || !videoRef.current || !duration) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = pos * duration;
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
+    const seekData = calculateSeekTime(e.clientX);
+    if (!seekData || !videoRef.current) return;
+    videoRef.current.currentTime = seekData.time;
+    setCurrentTime(seekData.time);
+  };
+
+  // Progress hover tracking
+  const handleProgressMouseMove = (e) => {
+    const seekData = calculateSeekTime(e.clientX);
+    if (seekData) {
+      setHoverTime(seekData.time);
+      setHoverX(seekData.x);
+    }
+  };
+
+  const handleProgressMouseLeave = () => {
+    setHoverTime(null);
   };
 
   // Handle speed change
@@ -387,6 +484,41 @@ const SecureVideoPlayer = ({
         toggleMute();
       }
 
+      // ArrowRight or 'l' or 'L' for Forward 10s
+      if (e.key === "ArrowRight" || e.key === "l" || e.key === "L") {
+        e.preventDefault();
+        handleSkip(10);
+      }
+
+      // ArrowLeft or 'j' or 'J' for Rewind 10s
+      if (e.key === "ArrowLeft" || e.key === "j" || e.key === "J") {
+        e.preventDefault();
+        handleSkip(-10);
+      }
+
+      // ArrowUp for Volume Up (5%)
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        handleVolumeChange(Math.min(1, volume + 0.05));
+      }
+
+      // ArrowDown for Volume Down (5%)
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        handleVolumeChange(Math.max(0, volume - 0.05));
+      }
+
+      // Numbers 0 - 9 to jump to percentage
+      if (e.key >= "0" && e.key <= "9" && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        if (duration > 0 && videoRef.current) {
+          const target = (parseInt(e.key, 10) / 10) * duration;
+          videoRef.current.currentTime = target;
+          setCurrentTime(target);
+          triggerToast(`${parseInt(e.key, 10) * 10}%`, <Gauge className="w-5 h-5 text-emerald-400" />);
+        }
+      }
+
       // Shift + > to speed up
       if (e.shiftKey && (e.key === ">" || e.key === ".")) {
         e.preventDefault();
@@ -408,7 +540,7 @@ const SecureVideoPlayer = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playbackSpeed, isPlaying, isFullscreen, isMuted, volume]);
+  }, [playbackSpeed, isPlaying, isFullscreen, isMuted, volume, duration]);
 
   const studentIdentifier = user?.email || user?.name || "Student Account";
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -444,19 +576,11 @@ const SecureVideoPlayer = ({
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
-        onLoadedMetadata={() => {
-          handleLoadedMetadata();
-          if (videoRef.current) {
-            videoRef.current.volume = volume;
-            videoRef.current.muted = isMuted;
-          }
-        }}
-        onTimeUpdate={() => {
-          handleTimeUpdate();
-          if (videoRef.current?.duration && duration === 0) {
-            setDuration(videoRef.current.duration);
-          }
-        }}
+        onLoadedMetadata={handleLoadedMetadata}
+        onLoadedData={updateDuration}
+        onDurationChange={updateDuration}
+        onTimeUpdate={handleTimeUpdate}
+        onProgress={updateBuffered}
         onPlay={() => {
           setIsPlaying(true);
           applyPlaybackSpeed(playbackSpeed);
@@ -464,7 +588,10 @@ const SecureVideoPlayer = ({
         onPause={() => setIsPlaying(false)}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => setIsBuffering(false)}
-        onCanPlay={() => setIsBuffering(false)}
+        onCanPlay={() => {
+          setIsBuffering(false);
+          updateDuration();
+        }}
         onError={(e) => {
           setIsBuffering(false);
           if (typeof onError === "function") onError(e);
@@ -644,8 +771,22 @@ const SecureVideoPlayer = ({
         <div
           ref={progressBarRef}
           onClick={handleSeek}
+          onMouseMove={handleProgressMouseMove}
+          onMouseLeave={handleProgressMouseLeave}
           className="group/progress relative w-full h-1 hover:h-2 bg-white/20 rounded-full cursor-pointer transition-all mb-2 flex items-center"
         >
+          {/* Hover timestamp tooltip */}
+          {hoverTime !== null && duration > 0 && (
+            <div
+              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-[11px] font-mono text-white pointer-events-none shadow-lg whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-100"
+              style={{
+                left: `${Math.max(20, Math.min((progressBarRef.current?.clientWidth || 300) - 20, hoverX))}px`,
+              }}
+            >
+              {formatTime(hoverTime)}
+            </div>
+          )}
+
           {/* Buffered track */}
           <div
             className="absolute left-0 top-0 bottom-0 bg-white/30 rounded-full transition-all"
@@ -663,10 +804,10 @@ const SecureVideoPlayer = ({
           />
         </div>
 
-        {/* Unified Bottom Row: Play, Sound, Time ... Settings, Fullscreen in 1 LINE */}
+        {/* Unified Bottom Row: Play, Rewind 10s, Forward 10s, Sound, Time ... Settings, Fullscreen in 1 LINE */}
         <div className="flex items-center justify-between text-white text-xs sm:text-sm select-none h-9">
-          {/* Left Controls: Play/Pause, Sound/Mute + Slider, Time */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Left Controls: Play/Pause, Rewind 10s, Forward 10s, Sound/Mute + Slider, Time */}
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Play/Pause Button */}
             <button
               type="button"
@@ -675,6 +816,26 @@ const SecureVideoPlayer = ({
               title={isPlaying ? "Pause (k / Space)" : "Play (k / Space)"}
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+            </button>
+
+            {/* Rewind 10s Button */}
+            <button
+              type="button"
+              onClick={() => handleSkip(-10)}
+              className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400 flex items-center justify-center"
+              title="Rewind 10s (Left Arrow / J)"
+            >
+              <RotateCcw className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            </button>
+
+            {/* Forward 10s Button */}
+            <button
+              type="button"
+              onClick={() => handleSkip(10)}
+              className="p-1.5 hover:bg-white/15 rounded-lg transition cursor-pointer text-white hover:text-emerald-400 flex items-center justify-center"
+              title="Forward 10s (Right Arrow / L)"
+            >
+              <RotateCw className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </button>
 
             {/* Sound / Volume Control */}
@@ -708,7 +869,7 @@ const SecureVideoPlayer = ({
             </div>
 
             {/* Time Display */}
-            <div className="text-xs text-neutral-300 font-medium pl-1">
+            <div className="text-xs text-neutral-300 font-medium pl-1 font-mono select-none">
               <span>{formatTime(currentTime)}</span>
               <span className="mx-1 text-neutral-500">/</span>
               <span>{formatTime(duration)}</span>
