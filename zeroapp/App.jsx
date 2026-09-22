@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { StatusBar, BackHandler, ToastAndroid, Platform } from 'react-native';
+import { AppState, StatusBar, BackHandler, ToastAndroid, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import UserLayout from './src/layout/userLayout';
@@ -12,7 +12,7 @@ import AllEbooks from './src/pages/User/eBooks/All.eBook';
 import Login from './src/pages/Auth/Login';
 import Register from './src/pages/Auth/Register';
 import StudyMaterial from './src/pages/User/study.material';
-import { fetchLiveCourses } from './src/config/api';
+import { fetchLiveCourses, refreshUserProfileApi } from './src/config/api';
 import { getUserSession, clearUserSession } from './src/utils/storage';
 
 export function App() {
@@ -92,6 +92,7 @@ export function App() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, currentScreen]);
 
   useEffect(() => {
@@ -107,6 +108,19 @@ export function App() {
     fetchLiveCourses().then((data) => {
       if (data && data.length > 0) setLiveCourses(data);
     });
+
+    // Auto-refresh user session whenever app returns from background / browser
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        refreshUserProfileApi().then((refreshedUser) => {
+          if (refreshedUser) {
+            setCurrentUser(refreshedUser);
+          }
+        });
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const handleLogout = async () => {
@@ -141,6 +155,7 @@ export function App() {
       (item) => item && typeof item === 'object' && item.title
     );
     return directList;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, liveCourses]);
 
   const handleCoursePress = (course) => {

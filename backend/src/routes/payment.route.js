@@ -5,9 +5,13 @@ import {
   checkoutSuccess,
   createExamCheckOutSession,
   checkoutExamSuccess,
+  renderCheckoutPage,
 } from "../controllers/payment.controller.js";
 
 const paymentRoute = express.Router();
+
+// Direct Cashfree hosted payment page (invoked by mobile app / browser)
+paymentRoute.get("/pay", renderCheckoutPage);
 
 paymentRoute.post("/checkout", isLoggedIn, createCheckOutSession);
 paymentRoute.post("/checkout-success", isLoggedIn, checkoutSuccess);
@@ -15,4 +19,4 @@ paymentRoute.post("/checkout-success", isLoggedIn, checkoutSuccess);
 paymentRoute.post("/checkout-exam", isLoggedIn, createExamCheckOutSession);
 paymentRoute.post("/checkout-exam-success", isLoggedIn, checkoutExamSuccess);
 
-export default paymentRoute;
+export default paymentRoute;

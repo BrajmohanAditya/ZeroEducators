@@ -1,3 +1,5 @@
+import { getUserSession, saveUserSession } from '../utils/storage';
+
 // Live AWS Deployed Backend
 export const BASE_URL = 'https://zeroeducators.com/api';
 
@@ -139,12 +141,18 @@ export const liveRegisterApi = async (payload) => {
 };
 
 export const enrollCourseApi = async (payload) => {
+  const session = await getUserSession();
+  const token = session?.token;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const res = await fetch(`${BASE_URL}/payment/checkout`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
+    headers,
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -152,6 +160,51 @@ export const enrollCourseApi = async (payload) => {
     throw new Error(data?.message || data?.error || 'Enrollment failed');
   }
   return data;
+};
+
+export const checkoutSuccessApi = async (payload) => {
+  const session = await getUserSession();
+  const token = session?.token;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(`${BASE_URL}/payment/checkout-success`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Payment verification failed');
+  }
+  return data;
+};
+
+export const refreshUserProfileApi = async () => {
+  try {
+    const session = await getUserSession();
+    const token = session?.token;
+    if (!token) return null;
+    const res = await fetch(`${BASE_URL}/getUser`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json();
+    if (res.ok && data?.user) {
+      await saveUserSession(data.user, token);
+      return data.user;
+    }
+  } catch (err) {
+    console.warn('[Live API] Error refreshing user profile:', err);
+  }
+  return null;
 };
 
 export const validateCouponApi = async (payload) => {
@@ -179,6 +232,8 @@ export default {
   liveLoginApi,
   liveRegisterApi,
   enrollCourseApi,
+  checkoutSuccessApi,
+  refreshUserProfileApi,
   validateCouponApi,
 };
 

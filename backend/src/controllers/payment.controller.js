@@ -194,11 +194,18 @@ export const createCheckOutSession = async (req, res, next) => {
       orderNote: `Course purchase: ${course.title} [${durationLabel}] (ID: ${courseId}) [COUPON:${appliedCoupon ? appliedCoupon.code : "NONE"}]`,
     });
 
+    const isProduction = (ENV.CASHFREE_ENV || "PRODUCTION").toUpperCase() === "PRODUCTION";
+    const mode = isProduction ? "production" : "sandbox";
+    const host = req.get("host") || "zeroeducators.com";
+    const protocol = host.includes("localhost") || host.includes("10.0.2.2") ? "http" : "https";
+    const checkoutUrl = `${protocol}://${host}/api/payment/pay?session=${order.payment_session_id}&order_id=${order.order_id}&course_id=${courseId}&mode=${mode}`;
+
     return res.status(201).json({
       success: true,
       order: {
         orderId: order.order_id,
         paymentSessionId: order.payment_session_id,
+        checkoutUrl: checkoutUrl,
         orderAmount: order.order_amount,
         orderCurrency: order.order_currency,
         courseId: courseId,
@@ -423,11 +430,18 @@ export const createExamCheckOutSession = async (req, res, next) => {
       orderNote: `Exam Package: ${exam.title} (ID: ${examId})`,
     });
 
+    const isProduction = (ENV.CASHFREE_ENV || "PRODUCTION").toUpperCase() === "PRODUCTION";
+    const mode = isProduction ? "production" : "sandbox";
+    const host = req.get("host") || "zeroeducators.com";
+    const protocol = host.includes("localhost") || host.includes("10.0.2.2") ? "http" : "https";
+    const checkoutUrl = `${protocol}://${host}/api/payment/pay?session=${order.payment_session_id}&order_id=${orderId}&exam_id=${examId}&mode=${mode}`;
+
     return res.status(200).json({
       success: true,
       order: {
         orderId,
         paymentSessionId: order.payment_session_id,
+        checkoutUrl: checkoutUrl,
         examId,
         amount: orderAmount,
       },
@@ -517,5 +531,198 @@ export const checkoutExamSuccess = async (req, res, next) => {
     console.error("Error verifying Cashfree Exam checkout success:", error);
     next(error);
   }
+};
+
+/**
+ * Direct Cashfree Hosted Checkout Webpage
+ * Opened directly by the mobile app or browser without SDK setup needed on the client.
+ */
+export const renderCheckoutPage = (req, res) => {
+  const { session, mode = "production" } = req.query;
+
+  if (!session) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Invalid Payment Session</title></head>
+      <body style="font-family:sans-serif; background:#0f172a; color:#f87171; text-align:center; padding:40px;">
+        <h2>Payment Session Missing</h2>
+        <p style="color:#94a3b8;">Please restart enrollment from the Zero Educators app.</p>
+      </body>
+      </html>
+    `);
+  }
+
+  const safeSession = String(session).replace(/[^a-zA-Z0-9_\-]/g, "");
+  const safeMode = mode === "sandbox" ? "sandbox" : "production";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Zero Educators - Secure Checkout</title>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top center, #1e293b, #0f172a);
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 36px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .brand-text {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #10b981;
+    }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 4px solid rgba(16, 185, 129, 0.2);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 16px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .heading {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 8px;
+    }
+    .desc {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .pill {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 999px;
+      color: #34d399;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .error-box {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      color: #fca5a5;
+      font-size: 13px;
+      display: none;
+    }
+    .btn {
+      margin-top: 16px;
+      padding: 12px 24px;
+      background: #10b981;
+      color: #022c22;
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <span class="brand-text">Zero Educators</span>
+    </div>
+    <div class="spinner" id="spinner"></div>
+    <div class="heading" id="statusHead">Opening Payment Gateway...</div>
+    <div class="desc" id="statusDesc">Redirecting to Cashfree (UPI / Cards / Netbanking). Please wait...</div>
+    <div class="pill">🔒 100% Secure &amp; Official Gateway</div>
+    <div class="error-box" id="errBox"></div>
+    <button class="btn" id="retryBtn" onclick="launchCashfree()">Tap to Continue</button>
+  </div>
+
+  <script>
+    const sessionId = "${safeSession}";
+    const mode = "${safeMode}";
+
+    function launchCashfree() {
+      const errBox = document.getElementById('errBox');
+      const retryBtn = document.getElementById('retryBtn');
+      const spinner = document.getElementById('spinner');
+      errBox.style.display = 'none';
+      retryBtn.style.display = 'none';
+      spinner.style.display = 'block';
+
+      if (!window.Cashfree) {
+        spinner.style.display = 'none';
+        errBox.textContent = 'Cashfree gateway failed to load. Please check internet and retry.';
+        errBox.style.display = 'block';
+        retryBtn.style.display = 'inline-block';
+        return;
+      }
+
+      try {
+        const cashfree = window.Cashfree({ mode: mode });
+        cashfree.checkout({
+          paymentSessionId: sessionId,
+          redirectTarget: '_self'
+        }).then(function(res) {
+          if (res?.error) {
+            spinner.style.display = 'none';
+            errBox.textContent = res.error.message || 'Payment initiation error.';
+            errBox.style.display = 'block';
+            retryBtn.style.display = 'inline-block';
+          }
+        }).catch(function(err) {
+          spinner.style.display = 'none';
+          errBox.textContent = err?.message || 'Failed to open payment gateway.';
+          errBox.style.display = 'block';
+          retryBtn.style.display = 'inline-block';
+        });
+      } catch (e) {
+        spinner.style.display = 'none';
+        errBox.textContent = e?.message || 'Unexpected error.';
+        errBox.style.display = 'block';
+        retryBtn.style.display = 'inline-block';
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', launchCashfree);
+    } else {
+      launchCashfree();
+    }
+  </script>
+</body>
+</html>`;
+
+  return res.type("html").send(html);
 };
 

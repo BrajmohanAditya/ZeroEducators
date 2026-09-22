@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  AppState,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -19,20 +20,30 @@ import {
   ShieldCheck,
   Sparkles,
   Tag,
-  Check,
   Play,
   CheckCircle2,
 } from 'lucide-react-native';
-import { colors, shadows } from '../../theme/colors';
-import { enrollCourseApi, validateCouponApi } from '../../config/api';
+import { shadows } from '../../theme/colors';
+import {
+  enrollCourseApi,
+  validateCouponApi,
+  refreshUserProfileApi,
+  checkoutSuccessApi,
+} from '../../config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => {
   const insets = useSafeAreaInsets();
-  const currentCourse = course || {};
+  const currentCourse = useMemo(() => course || {}, [course]);
+
+  const [waitingForWebPayment, setWaitingForWebPayment] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [locallyPurchased, setLocallyPurchased] = useState(false);
 
   // Check if current course is already purchased by this user
   const isAlreadyPurchased = useMemo(() => {
+    if (locallyPurchased) return true;
     if (!user || !currentCourse?._id) return false;
     const cid = String(currentCourse._id);
     const list = user.purchasedCourse || user.purchasedCourses || [];
@@ -46,7 +57,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
         String(pc.courseId?._id || '') === cid
       );
     });
-  }, [user, currentCourse]);
+  }, [user, currentCourse, locallyPurchased]);
 
   // Pricing Plans
   const hasPlans = Boolean(
@@ -121,6 +132,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
       setAppliedCoupon(null);
       Alert.alert('Plan Changed', 'Pricing plan changed. Please re-apply your coupon code.');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlanIndex]);
 
   const isCourseFree = currentCourse?.isFree || Number(activePrice) === 0;
@@ -162,7 +174,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
     setCouponInput('');
   };
 
-  // Main Enrollment Handler
+  // Main Enrollment Handler - Direct 1-Click Cashfree Gateway
   const handleEnrollPress = async () => {
     if (!user) {
       Alert.alert(
@@ -183,12 +195,13 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
     }
 
     setIsEnrolling(true);
+
     try {
       const payload = {
         products: {
           _id: currentCourse._id,
           name: currentCourse.title,
-          price: finalPayablePrice,
+          price: isFinalFree ? 0 : activePrice,
           image: currentCourse.thumbnail,
           planId: activePlan?._id,
           planDuration: activeDuration,
@@ -201,9 +214,11 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
 
       const data = await enrollCourseApi(payload);
 
-      // 1. Free Course / 100% Coupon
-      if (data?.isFree) {
+      // 1. Free Course / 100% Coupon: Enroll directly in-app
+      if (data?.isFree || isFinalFree) {
         setIsEnrolling(false);
+        setLocallyPurchased(true);
+        await refreshUserProfileApi();
         Alert.alert(
           'Enrolled Successfully 🎉',
           data?.message || 'You have been enrolled in this course!',
@@ -220,37 +235,106 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
         return;
       }
 
-      // 2. Paid Course via Cashfree
-      if (data?.order?.paymentSessionId) {
-        const paymentSessionId = data.order.paymentSessionId;
-        const checkoutUrl = `https://payments.cashfree.com/order/#/${paymentSessionId}`;
+      // 2. Paid Course: Directly open Cashfree Hosted Checkout Portal (No intermediate modal)
+      if (data?.order) {
+        const { orderId, paymentSessionId, checkoutUrl } = data.order;
+        const targetUrl =
+          checkoutUrl ||
+          `https://zeroeducators.com/api/payment/pay?session=${paymentSessionId}&order_id=${orderId}&course_id=${currentCourse._id}`;
 
-        Alert.alert(
-          'Complete Payment',
-          `Order created for ₹${finalPayablePrice}. Proceed to secure payment.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Pay Now',
-              onPress: async () => {
-                try {
-                  await Linking.openURL(checkoutUrl);
-                } catch (e) {
-                  Alert.alert('Error', 'Could not open payment gateway.');
-                }
-              },
-            },
-          ]
-        );
+        setActiveOrderId(orderId);
+        setWaitingForWebPayment(true);
+        setIsEnrolling(false);
+
+        await Linking.openURL(targetUrl);
       } else {
-        Alert.alert('Notice', data?.message || 'Order initiated.');
+        setIsEnrolling(false);
+        Alert.alert('Notice', data?.message || 'Could not initiate payment session.');
       }
     } catch (err) {
-      Alert.alert('Enrollment Error', err?.message || 'Could not complete enrollment.');
-    } finally {
       setIsEnrolling(false);
+      Alert.alert('Enrollment Error', err?.message || 'Could not initiate payment. Please try again.');
     }
   };
+
+  const checkCourseAccess = async (silent = false) => {
+    if (!silent) setIsVerifying(true);
+    try {
+      // 1. If we have an active order ID, verify with Cashfree backend
+      if (activeOrderId) {
+        try {
+          await checkoutSuccessApi({
+            orderId: activeOrderId,
+            courseId: currentCourse._id,
+            planDuration: activeDuration,
+          });
+        } catch (e) {
+          // May not be completed yet
+        }
+      }
+
+      // 2. Refresh user profile session from server
+      const refreshedUser = await refreshUserProfileApi();
+      if (refreshedUser) {
+        const cid = String(currentCourse._id);
+        const list = refreshedUser.purchasedCourse || refreshedUser.purchasedCourses || [];
+        const found = list.some((pc) => {
+          if (!pc) return false;
+          if (typeof pc === 'string') return pc === cid;
+          return (
+            String(pc._id || '') === cid ||
+            String(pc.id || '') === cid ||
+            String(pc.courseId || '') === cid ||
+            String(pc.courseId?._id || '') === cid
+          );
+        });
+
+        if (found) {
+          setLocallyPurchased(true);
+          setWaitingForWebPayment(false);
+          setActiveOrderId(null);
+          Alert.alert(
+            'Enrollment Confirmed 🎉',
+            'Congratulations! Your payment has been verified and course is active.',
+            [
+              {
+                text: 'Start Learning Now',
+                onPress: () => {
+                  if (onEnroll) onEnroll(currentCourse);
+                  else if (onNavigate) onNavigate('CoursePlayer', { course: currentCourse });
+                },
+              },
+            ]
+          );
+          return;
+        }
+      }
+
+      if (!silent) {
+        Alert.alert(
+          'Payment Status',
+          'Payment not completed yet. If you just finished payment in Cashfree, please wait 3-5 seconds and tap Check Status again.'
+        );
+      }
+    } catch (err) {
+      if (!silent) {
+        Alert.alert('Notice', 'Could not check status. Please check your network connection.');
+      }
+    } finally {
+      if (!silent) setIsVerifying(false);
+    }
+  };
+
+  // Auto-verify when student returns from Cashfree browser
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && waitingForWebPayment && !isAlreadyPurchased) {
+        checkCourseAccess(true); // silent auto-check
+      }
+    });
+    return () => subscription.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingForWebPayment, isAlreadyPurchased, activeOrderId]);
 
   return (
     <View style={styles.container}>
@@ -346,7 +430,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
                     <View style={styles.enrolledIconCircle}>
                       <ShieldCheck size={26} color="#059669" />
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.flex1}>
                       <View style={styles.enrolledBadge}>
                         <Text style={styles.enrolledBadgeText}>ACTIVE ENROLLMENT</Text>
                       </View>
@@ -384,7 +468,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
                       onNavigate('CoursePlayer', { course: currentCourse });
                     }
                   }}
-                  style={[styles.enrollBtn, { backgroundColor: '#059669' }]}
+                  style={[styles.enrollBtn, styles.enrollBtnFree]}
                 >
                   <View style={styles.btnContentRow}>
                     <Play size={20} color="#ffffff" fill="#ffffff" />
@@ -556,7 +640,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
                   style={[
                     styles.enrollBtn,
                     isFinalFree ? styles.enrollBtnFree : styles.enrollBtnPaid,
-                    isEnrolling && { opacity: 0.7 },
+                    isEnrolling && styles.btnDisabled,
                   ]}
                 >
                   {isEnrolling ? (
@@ -574,6 +658,27 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
                     </View>
                   )}
                 </TouchableOpacity>
+
+                {/* Pending Cashfree Payment Banner Button */}
+                {waitingForWebPayment && !isAlreadyPurchased && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={isVerifying}
+                    onPress={() => checkCourseAccess(false)}
+                    style={styles.verifyBtn}
+                  >
+                    {isVerifying ? (
+                      <ActivityIndicator size="small" color="#059669" />
+                    ) : (
+                      <View style={styles.btnContentRow}>
+                        <Sparkles size={16} color="#059669" />
+                        <Text style={styles.verifyBtnText}>
+                          Paid via Cashfree? Tap to Verify &amp; Unlock
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -938,6 +1043,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  verifyBtn: {
+    marginTop: 12,
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    backgroundColor: '#ecfdf5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  verifyBtnText: {
+    color: '#065f46',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  flex1: {
+    flex: 1,
+  },
+  btnDisabled: {
+    opacity: 0.7,
   },
   enrolledAccessContainer: {
     marginTop: 4,
