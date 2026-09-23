@@ -140,6 +140,70 @@ export const liveRegisterApi = async (payload) => {
   return data;
 };
 
+export const liveGoogleLoginApi = async (idToken) => {
+  const res = await fetch(`${BASE_URL}/google`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ token: idToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Google login failed');
+  }
+  return data;
+};
+
+export const liveVerifyOtpApi = async (email, otp) => {
+  const res = await fetch(`${BASE_URL}/verify-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ email, otp }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'OTP verification failed');
+  }
+  return data;
+};
+
+export const liveForgotPasswordApi = async (email) => {
+  const res = await fetch(`${BASE_URL}/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Failed to send reset OTP');
+  }
+  return data;
+};
+
+export const liveResetPasswordApi = async (email, otp, newPassword) => {
+  const res = await fetch(`${BASE_URL}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ email, otp, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || 'Password reset failed');
+  }
+  return data;
+};
+
 export const enrollCourseApi = async (payload) => {
   const session = await getUserSession();
   const token = session?.token;
@@ -234,6 +298,10 @@ export default {
   fetchLiveQuizzes,
   liveLoginApi,
   liveRegisterApi,
+  liveGoogleLoginApi,
+  liveVerifyOtpApi,
+  liveForgotPasswordApi,
+  liveResetPasswordApi,
   enrollCourseApi,
   checkoutSuccessApi,
   refreshUserProfileApi,

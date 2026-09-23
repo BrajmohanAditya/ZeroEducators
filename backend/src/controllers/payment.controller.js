@@ -9,6 +9,7 @@ import { Order } from "../models/order.model.js";
 import { User } from "../models/user.model.js";
 import { Coupon } from "../models/coupon.model.js";
 import { ENV } from "../config/env.js";
+import { calculatePlanExpiry } from "../utils/courseExpiry.js";
 
 export const createCheckOutSession = async (req, res, next) => {
   try {
@@ -139,6 +140,7 @@ export const createCheckOutSession = async (req, res, next) => {
           couponCode: appliedCoupon?.code,
           couponId: appliedCoupon?._id,
           planDuration: durationLabel,
+          expiresAt: calculatePlanExpiry(durationLabel, new Date()),
           paymentId: `COUPON_FREE_${Date.now()}`,
           orderId: `COUPON_ORDER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
           paymentGateway: "coupon_free",
@@ -332,6 +334,7 @@ export const checkoutSuccess = async (req, res, next) => {
       couponCode: couponObj?.code || "",
       couponId: couponObj?._id || null,
       planDuration: planDuration || "",
+      expiresAt: calculatePlanExpiry(planDuration, new Date()),
       orderId: orderId,
       paymentId: paymentId,
       paymentGateway: "cashfree",

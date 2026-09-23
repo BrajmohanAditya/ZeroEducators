@@ -39,95 +39,6 @@ import { getUserSession, saveUserSession } from '../../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-// Default working video stream URL routed securely through backend
-const DEFAULT_STREAM_URL = `${BASE_URL}/module/stream/${encodeURIComponent('courseModule/1789614399439-1.mp4')}`;
-
-// Default curriculum mirroring the user's banking course (from web screenshot)
-const fallbackSubjects = [
-  {
-    _id: 'sub-1',
-    subjectName: 'RETAIL BANKING AND WEALTH MANAGEMENT',
-    chapters: [
-      {
-        _id: 'ch-101',
-        chapterName: 'Module A: Retail Banking & Products',
-        videos: [
-          { _id: 'v-101', title: 'Customer requirement', duration: '16:25', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-102', title: 'Retail Banking Overview & Structure', duration: '38:40', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-103', title: 'Branch Profitability & Cost Control', duration: '45:10', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [
-          { _id: 'p-101', title: 'Retail Banking Products & Guidelines.pdf', pages: '14 Pages' },
-        ],
-      },
-      {
-        _id: 'ch-102',
-        chapterName: 'Module B: Retail Lending & Credit Cards',
-        videos: [
-          { _id: 'v-104', title: 'Home Loans & Mortgage Lending Criteria', duration: '51:20', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-105', title: 'Credit Cards, Debit Cards & ATM Frauds', duration: '40:05', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [
-          { _id: 'p-102', title: 'Retail Lending Risk Management Note.pdf', pages: '18 Pages' },
-        ],
-      },
-    ],
-  },
-  {
-    _id: 'sub-2',
-    subjectName: 'INDIAN ECONOMY & INDIAN FINANCIAL SYSTEM',
-    chapters: [
-      {
-        _id: 'ch-201',
-        chapterName: 'Module A: Overview of Indian Economy',
-        videos: [
-          { _id: 'v-201', title: 'Evolution of Indian Economy & Sectors', duration: '48:30', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-202', title: 'National Income & GDP Calculation', duration: '35:15', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [],
-      },
-      {
-        _id: 'ch-202',
-        chapterName: 'Module B: Economic Planning & Monetary Policy',
-        videos: [
-          { _id: 'v-203', title: 'RBI Monetary Policy & Repo Rate Mechanism', duration: '54:10', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [],
-      },
-    ],
-  },
-  {
-    _id: 'sub-3',
-    subjectName: 'ACCOUNTING AND FINANCIAL MANAGEMENT',
-    chapters: [
-      {
-        _id: 'ch-301',
-        chapterName: 'Module A: Accounting Principles & Standards',
-        videos: [
-          { _id: 'v-301', title: 'Golden Rules of Accounting & Journal Entries', duration: '50:40', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-302', title: 'Trial Balance, P&L Account & Balance Sheet', duration: '62:00', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [],
-      },
-    ],
-  },
-  {
-    _id: 'sub-4',
-    subjectName: 'PRINCIPLES AND PRACTICES OF BANKING',
-    chapters: [
-      {
-        _id: 'ch-401',
-        chapterName: 'Module A: General Banking Operations',
-        videos: [
-          { _id: 'v-401', title: 'KYC, AML & Customer Onboarding Norms', duration: '44:20', Video: DEFAULT_STREAM_URL },
-          { _id: 'v-402', title: 'Negotiable Instruments Act & Cheque Clearing', duration: '39:50', Video: DEFAULT_STREAM_URL },
-        ],
-        pdfs: [],
-      },
-    ],
-  },
-];
-
 export const SinglePurchasedCourse = ({ course, user, onBack }) => {
   const insets = useSafeAreaInsets();
   const [courseData, setCourseData] = useState(course || {});
@@ -174,24 +85,48 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
 
   // Fetch full course data with subjects if needed
   useEffect(() => {
-    if (course?._id && (!course.subjects || course.subjects.length === 0)) {
+    if (course?._id) {
       fetchLiveSingleCourse(course._id).then((fullCourse) => {
-        if (fullCourse && fullCourse.subjects && fullCourse.subjects.length > 0) {
+        if (fullCourse) {
           setCourseData(fullCourse);
         }
       });
     }
   }, [course]);
 
-  // Determine subjects list
+  // Determine subjects list (subjects -> topics -> modules -> empty)
   const subjects = useMemo(() => {
     if (courseData?.subjects && courseData.subjects.length > 0) {
       return courseData.subjects;
     }
-    return fallbackSubjects;
+    if (courseData?.topics && courseData.topics.length > 0) {
+      return courseData.topics.map((t, idx) => ({
+        _id: t._id || `topic-${idx}`,
+        subjectName: t.topicName || `Topic ${idx + 1}`,
+        chapters: [{
+          _id: (t._id || `topic-${idx}`) + '-ch',
+          chapterName: 'Lectures & Material',
+          videos: t.videos || [],
+          pdfs: t.pdfs || [],
+        }],
+      }));
+    }
+    if (courseData?.modules && courseData.modules.length > 0) {
+      return [{
+        _id: 'sub-modules',
+        subjectName: 'Course Content',
+        chapters: [{
+          _id: 'ch-modules',
+          chapterName: 'Lectures',
+          videos: courseData.modules,
+          pdfs: [],
+        }],
+      }];
+    }
+    return [];
   }, [courseData]);
 
-  // Compute total counts
+  // Compute total counts accurately
   const totalStats = useMemo(() => {
     let videos = 0;
     let pdfs = 0;
@@ -202,33 +137,38 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
       });
     });
     return {
-      videos: videos || 57,
-      pdfs: pdfs || 14,
+      videos,
+      pdfs,
     };
   }, [subjects]);
 
-  // Set initial active lecture and open first subject/chapter
+  // Set initial active lecture only if real video exists in curriculum
   useEffect(() => {
     if (subjects.length > 0 && !activeLecture) {
-      const firstSub = subjects[0];
-      const firstCh = firstSub.chapters?.[0];
-      const firstVid = firstCh?.videos?.[0];
-
-      if (firstVid) {
-        setActiveLecture(firstVid);
-      } else {
-        setActiveLecture({ _id: 'v-default', title: 'Customer requirement', duration: '16:25', Video: DEFAULT_STREAM_URL });
+      for (const sub of subjects) {
+        for (const ch of sub.chapters || []) {
+          const firstVid = ch.videos?.[0];
+          if (firstVid) {
+            setActiveLecture(firstVid);
+            setOpenSubjects({ [sub._id]: true });
+            if (ch._id) {
+              setOpenChapters({ [ch._id]: true });
+            }
+            return;
+          }
+        }
       }
-
-      setOpenSubjects({ [firstSub._id]: true });
-      if (firstCh?._id) {
-        setOpenChapters({ [firstCh._id]: true });
+      // If subjects exist but have no videos (e.g. only PDFs)
+      const firstSub = subjects[0];
+      if (firstSub?._id) {
+        setOpenSubjects({ [firstSub._id]: true });
       }
     }
-  }, [subjects]);
+  }, [subjects, activeLecture]);
 
   // Get valid secure streaming video URL routed exclusively through backend
   const getVideoUrl = (lecture) => {
+    if (!lecture) return null;
     const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
     const videoIdentifier =
       lecture?.moduleId ||
@@ -245,9 +185,10 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
       if (match) {
         return `${BASE_URL}/module/stream/${encodeURIComponent(match[0])}${tokenQuery}`;
       }
+      return `${lecture.Video}${tokenQuery ? (lecture.Video.includes('?') ? '&' : '?') + tokenQuery.slice(1) : ''}`;
     }
 
-    return `${DEFAULT_STREAM_URL}${tokenQuery}`;
+    return null;
   };
 
   // Launch and play video immediately
@@ -351,7 +292,7 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
         <View style={styles.headerTitleBox}>
           <Text style={styles.headerBranding}>ZEROEDUCATORS</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {courseData?.title || 'Banking Foundation Batch'}
+            {courseData?.title || course?.title || 'Course Details'}
           </Text>
         </View>
 
@@ -368,30 +309,45 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
           { paddingBottom: Math.max(insets.bottom, 20) + 30 },
         ]}
       >
-        {/* ── 1. Native Secure Video Player (16:9 Aspect Ratio with Watermark & Controls) ── */}
+        {/* ── 1. Native Secure Video Player (or "Ready to Learn?" placeholder if no lecture) ── */}
         <View style={styles.playerWrapper}>
-          <SecureVideoPlayer
-            videoKey={activeLecture?._id || activeLecture?.Video_id || activeLecture?.title || 'active-lecture'}
-            src={getVideoUrl(activeLecture)}
-            user={user}
-            onError={(e) => {
-              console.log('Mobile video playback notice:', e);
-            }}
-          />
+          {activeLecture && getVideoUrl(activeLecture) ? (
+            <SecureVideoPlayer
+              videoKey={activeLecture?._id || activeLecture?.Video_id || activeLecture?.title || 'active-lecture'}
+              src={getVideoUrl(activeLecture)}
+              user={user}
+              onError={(e) => {
+                console.log('Mobile video playback notice:', e);
+              }}
+            />
+          ) : (
+            <View style={styles.emptyPlayerContainer}>
+              <View style={styles.emptyIconCircle}>
+                <Play size={28} color="#10b981" fill="#10b981" style={{ marginLeft: 3 }} />
+              </View>
+              <Text style={styles.emptyPlayerTitle}>Ready to Learn?</Text>
+              <Text style={styles.emptyPlayerSubtitle}>
+                {subjects.length > 0
+                  ? 'Select a video lecture from the course curriculum below to start watching.'
+                  : 'No lectures uploaded for this course yet.'}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* ── 2. Lecture Discussion Card (Exact replica of web screenshot) ── */}
-        <View style={styles.discussionCard}>
-          {/* Top Row: Pill Badge & Lecture Title */}
-          <View style={styles.discussionBadgeRow}>
-            <View style={styles.lecturePill}>
-              <Text style={styles.lecturePillText}>LECTURE DISCUSSION</Text>
+        {/* ── 2. Lecture Discussion Card (Shown only when active lecture exists) ── */}
+        {activeLecture ? (
+          <View style={styles.discussionCard}>
+            {/* Top Row: Pill Badge & Lecture Title */}
+            <View style={styles.discussionBadgeRow}>
+              <View style={styles.lecturePill}>
+                <Text style={styles.lecturePillText}>LECTURE DISCUSSION</Text>
+              </View>
             </View>
-          </View>
 
-          <Text style={styles.lectureMainTitle}>
-            {activeLecture?.title || 'Customer requirement'}
-          </Text>
+            <Text style={styles.lectureMainTitle}>
+              {activeLecture?.title || 'Lecture Discussion'}
+            </Text>
 
           {/* Action Row: Rating, Like & Comments */}
           <View style={styles.actionRow}>
@@ -511,6 +467,7 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
             )}
           </View>
         </View>
+        ) : null}
 
         {/* ── 3. Course Curriculum Section (Exact match with web screenshot) ── */}
         <View style={styles.curriculumSection}>
@@ -527,7 +484,8 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
           </View>
 
           {/* Subjects Hierarchy */}
-          <View style={styles.subjectsList}>
+          {subjects.length > 0 ? (
+            <View style={styles.subjectsList}>
             {subjects.map((sub, sIdx) => {
               const isSubjectOpen = Boolean(openSubjects[sub._id]);
               const chapters = sub.chapters || [];
@@ -683,6 +641,15 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
               );
             })}
           </View>
+          ) : (
+            <View style={styles.emptyCourseCard}>
+              <BookOpen size={36} color="#94a3b8" />
+              <Text style={styles.emptyCourseTitle}>No lectures uploaded for this course yet.</Text>
+              <Text style={styles.emptyCourseSubtitle}>
+                The educator has not added any lectures or content yet.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -756,6 +723,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 14,
     ...shadows.lg,
+  },
+  emptyPlayerContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1.5,
+    borderColor: '#a7f3d0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyPlayerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 4,
+    letterSpacing: -0.2,
+  },
+  emptyPlayerSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
   playerScreen: {
     flex: 1,
@@ -1365,6 +1367,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#7e22ce',
+  },
+  emptyCourseCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  emptyCourseTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyCourseSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

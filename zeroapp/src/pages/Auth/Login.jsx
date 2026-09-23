@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/button';
 
 import { liveLoginApi } from '../../config/api';
 import { saveUserSession } from '../../utils/storage';
+import GoogleSignInButton from '../../components/common/GoogleSignInButton';
 
 export const Login = ({ onNavigate, onLoginSuccess, onBack }) => {
   const [email, setEmail] = useState('');
@@ -106,7 +107,11 @@ export const Login = ({ onNavigate, onLoginSuccess, onBack }) => {
           />
 
           {/* Forgot Password Link */}
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={() => onNavigate && onNavigate('ForgotPassword')}
+            activeOpacity={0.7}
+          >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -119,6 +124,23 @@ export const Login = ({ onNavigate, onLoginSuccess, onBack }) => {
           >
             Sign In
           </Button>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign In Button */}
+          <GoogleSignInButton
+            onSuccess={(user, token) => {
+              if (onLoginSuccess) onLoginSuccess(user, token);
+              else if (onNavigate) onNavigate('Home');
+            }}
+            onNavigate={onNavigate}
+            style={styles.googleBtn}
+          />
 
           {/* Register Link */}
           <View style={styles.signupRow}>
@@ -209,7 +231,27 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#cbd5e1',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  googleBtn: {
+    width: '100%',
+    marginBottom: 14,
   },
   signupRow: {
     flexDirection: 'row',

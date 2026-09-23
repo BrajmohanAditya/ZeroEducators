@@ -20,6 +20,7 @@ import { Modules } from "../models/module.model.js";
 import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
+import { syncUserCourseExpiry } from "../utils/courseExpiry.js";
 
 const genAi = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
 const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -238,6 +239,9 @@ export const getSinglePurchasedCourse = async (req, res) => {
 export const getAllPurchasedCourse = async (req, res) => {
   try {
     const userId = req.user._id;
+
+    // Auto-remove expired courses if plan duration has passed
+    await syncUserCourseExpiry(userId);
 
     const user = await User.findById(userId)
       .select("-password")
@@ -1609,6 +1613,7 @@ export const grantCourseAccess = async (req, res, next) => {
       course: courseId,
       totalAmount: 0,
       planDuration: planDuration || course.duration || "Lifetime Access",
+      expiresAt: calculatePlanExpiry(planDuration || course.duration || "Lifetime Access", new Date()),
       paymentGateway: "admin_grant",
       orderId,
       paymentId,

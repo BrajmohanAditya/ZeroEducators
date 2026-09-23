@@ -11,6 +11,8 @@ import SinglePurchasedCourse from './src/pages/User/SinglePurchasedCourse';
 import AllEbooks from './src/pages/User/eBooks/All.eBook';
 import Login from './src/pages/Auth/Login';
 import Register from './src/pages/Auth/Register';
+import VerifyOtp from './src/pages/Auth/VerifyOtp';
+import ForgotPassword from './src/pages/Auth/ForgotPassword';
 import StudyMaterial from './src/pages/User/study.material';
 import { fetchLiveCourses, refreshUserProfileApi } from './src/config/api';
 import { getUserSession, clearUserSession } from './src/utils/storage';
@@ -185,6 +187,9 @@ export function App() {
     setActiveTab(tabName);
     if (tabName === 'MyCourses' || tabName === 'Profile') {
       if (currentUser) {
+        refreshUserProfileApi().then((fresh) => {
+          if (fresh) setCurrentUser(fresh);
+        });
         navigate('MyCourses');
       } else {
         navigate('Login');
@@ -204,6 +209,9 @@ export function App() {
           user={currentUser}
           onBack={goBack}
           onNavigate={navigate}
+          onUserRefresh={(refreshedUser) => {
+            setCurrentUser(refreshedUser);
+          }}
           onEnroll={(course) => {
             if (!currentUser) {
               navigate('Login');
@@ -234,7 +242,7 @@ export function App() {
       <SafeAreaProvider>
         <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
         <Login
-          onNavigate={(target) => navigate(target)}
+          onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
           onLoginSuccess={(user) => {
             setCurrentUser(user);
@@ -250,12 +258,44 @@ export function App() {
       <SafeAreaProvider>
         <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
         <Register
-          onNavigate={(target) => navigate(target)}
+          onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
           onRegisterSuccess={(user) => {
             setCurrentUser(user);
             navigate('Home');
           }}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  if (currentScreen === 'VerifyOtp') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
+        <VerifyOtp
+          email={screenParams?.email}
+          phone={screenParams?.phone}
+          name={screenParams?.name}
+          password={screenParams?.password}
+          onNavigate={(target, params) => navigate(target, params)}
+          onBack={goBack}
+          onVerifySuccess={(user) => {
+            setCurrentUser(user);
+            navigate('Home');
+          }}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  if (currentScreen === 'ForgotPassword') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#eef2ff" />
+        <ForgotPassword
+          onNavigate={(target, params) => navigate(target, params)}
+          onBack={goBack}
         />
       </SafeAreaProvider>
     );

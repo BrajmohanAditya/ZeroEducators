@@ -12,7 +12,9 @@ import { User, Mail, Lock, Phone, GraduationCap, ArrowLeft } from 'lucide-react-
 import { colors, shadows } from '../../theme/colors';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
+import { liveRegisterApi } from '../../config/api';
 import { saveUserSession } from '../../utils/storage';
+import GoogleSignInButton from '../../components/common/GoogleSignInButton';
 
 export const Register = ({ onNavigate, onRegisterSuccess, onBack }) => {
   const [name, setName] = useState('');
@@ -23,24 +25,47 @@ export const Register = ({ onNavigate, onRegisterSuccess, onBack }) => {
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       setError('Please fill in all required fields');
+      return;
+    }
+    if (!phone.trim()) {
+      setError('Please enter your mobile number');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
     setError('');
     setLoading(true);
 
-    setTimeout(async () => {
+    try {
+      const payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        mobileNo: phone.trim(),
+      };
+      const data = await liveRegisterApi(payload);
       setLoading(false);
-      const userObj = { name, email, phone };
-      await saveUserSession(userObj);
-      if (onRegisterSuccess) {
-        onRegisterSuccess(userObj);
-      }
+
       if (onNavigate) {
-        onNavigate('VerifyOtp', { email });
+        onNavigate('VerifyOtp', {
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          name: name.trim(),
+          password,
+        });
       }
-    }, 1000);
+    } catch (err) {
+      setLoading(false);
+      const serverMsg =
+        err?.message ||
+        err?.response?.data?.message ||
+        'Registration failed. Please check your details and try again.';
+      setError(serverMsg);
+    }
   };
 
   return (
@@ -124,6 +149,24 @@ export const Register = ({ onNavigate, onRegisterSuccess, onBack }) => {
             Create Account
           </Button>
 
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign In Button */}
+          <GoogleSignInButton
+            text="Sign up with Google"
+            onSuccess={(user, token) => {
+              if (onRegisterSuccess) onRegisterSuccess(user, token);
+              else if (onNavigate) onNavigate('Home');
+            }}
+            onNavigate={onNavigate}
+            style={styles.googleBtn}
+          />
+
           {/* Login Link */}
           <View style={styles.loginRow}>
             <Text style={styles.loginText}>Already have an account? </Text>
@@ -205,7 +248,27 @@ const styles = StyleSheet.create({
   registerBtn: {
     width: '100%',
     marginTop: 6,
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#cbd5e1',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  googleBtn: {
+    width: '100%',
+    marginBottom: 14,
   },
   loginRow: {
     flexDirection: 'row',

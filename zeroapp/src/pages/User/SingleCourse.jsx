@@ -30,9 +30,10 @@ import {
   refreshUserProfileApi,
   checkoutSuccessApi,
 } from '../../config/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => {
+export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUserRefresh }) => {
   const insets = useSafeAreaInsets();
   const currentCourse = useMemo(() => course || {}, [course]);
 
@@ -218,7 +219,10 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
       if (data?.isFree || isFinalFree) {
         setIsEnrolling(false);
         setLocallyPurchased(true);
-        await refreshUserProfileApi();
+        const freshUser = await refreshUserProfileApi();
+        if (freshUser && onUserRefresh) {
+          onUserRefresh(freshUser);
+        }
         Alert.alert(
           'Enrolled Successfully 🎉',
           data?.message || 'You have been enrolled in this course!',
@@ -246,6 +250,19 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
         setWaitingForWebPayment(true);
         setIsEnrolling(false);
 
+        try {
+          await AsyncStorage.setItem(
+            'pending_cashfree_order',
+            JSON.stringify({
+              orderId,
+              courseId: currentCourse._id,
+              planDuration: activeDuration,
+            })
+          );
+        } catch (e) {
+          console.log('Failed to save pending order:', e);
+        }
+
         await Linking.openURL(targetUrl);
       } else {
         setIsEnrolling(false);
@@ -260,11 +277,22 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
   const checkCourseAccess = async (silent = false) => {
     if (!silent) setIsVerifying(true);
     try {
+      let orderToVerify = activeOrderId;
+      if (!orderToVerify) {
+        try {
+          const saved = await AsyncStorage.getItem('pending_cashfree_order');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.orderId) orderToVerify = parsed.orderId;
+          }
+        } catch (e) {}
+      }
+
       // 1. If we have an active order ID, verify with Cashfree backend
-      if (activeOrderId) {
+      if (orderToVerify) {
         try {
           await checkoutSuccessApi({
-            orderId: activeOrderId,
+            orderId: orderToVerify,
             courseId: currentCourse._id,
             planDuration: activeDuration,
           });
@@ -276,6 +304,10 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
       // 2. Refresh user profile session from server
       const refreshedUser = await refreshUserProfileApi();
       if (refreshedUser) {
+        if (onUserRefresh) {
+          onUserRefresh(refreshedUser);
+        }
+
         const cid = String(currentCourse._id);
         const list = refreshedUser.purchasedCourse || refreshedUser.purchasedCourses || [];
         const found = list.some((pc) => {
@@ -293,6 +325,10 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll }) => 
           setLocallyPurchased(true);
           setWaitingForWebPayment(false);
           setActiveOrderId(null);
+          try {
+            await AsyncStorage.removeItem('pending_cashfree_order');
+          } catch (e) {}
+
           Alert.alert(
             'Enrollment Confirmed 🎉',
             'Congratulations! Your payment has been verified and course is active.',

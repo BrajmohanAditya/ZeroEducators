@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import otpGenerator from "otp-generator";
 import { sendEmail } from "../config/sendEmail.js";
 import { OAuth2Client } from "google-auth-library";
+import { syncUserCourseExpiry } from "../utils/courseExpiry.js";
 const client = new OAuth2Client(ENV.GOOGLE_CLIENT_ID);
 
 export const Register = async (req, res, next) => {
@@ -147,6 +148,10 @@ export const Login = async (req, res, next) => {
 export const getUser = async (req, res, next) => {
   try {
     const userId = req.user._id;
+
+    // Auto-remove expired courses if plan duration has passed
+    await syncUserCourseExpiry(userId);
+
     const user = await User.findById(userId).select("-password");
 
     if (!user) {

@@ -44,6 +44,10 @@ const orderSchema = new mongoose.Schema(
     planDuration: {
       type: String,
     },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
     pricingPlanId: {
       type: mongoose.Schema.Types.ObjectId,
     },
