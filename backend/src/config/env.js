@@ -18,4 +18,5 @@ export const ENV = {
   ZATA_BUCKET_NAME: process.env.ZATA_BUCKET_NAME,
   ZATA_ENDPOINT: process.env.ZATA_ENDPOINT,
   ZATA_REGION: process.env.ZATA_REGION,
+  TESTER_EMAIL: process.env.TESTER_EMAIL || "cckumarsingh38ar@gmail.com",
 };

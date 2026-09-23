@@ -234,8 +234,9 @@ export const streamModuleVideo = async (req, res) => {
       return res.status(404).json({ message: "Module not found" });
     }
 
-    // Access control: admins, enrolled users, or free courses
-    if (user?.role !== "admin" && courseId) {
+    // Access control: admins, demo tester, enrolled users, or free courses
+    const isTester = ENV.TESTER_EMAIL && user?.email?.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase();
+    if (user?.role !== "admin" && !isTester && courseId) {
       const course = await Course.findById(courseId);
       const isPurchased = user?.purchasedCourse?.some(
         (cId) => cId.toString() === courseId?.toString()

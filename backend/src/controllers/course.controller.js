@@ -249,7 +249,13 @@ export const getAllPurchasedCourse = async (req, res) => {
       });
     }
 
-    return res.status(201).json(user);
+    let userObj = user.toObject();
+    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+      const allCourses = await Course.find({ isDeleted: { $ne: true } });
+      userObj.purchasedCourse = allCourses;
+    }
+
+    return res.status(201).json(userObj);
   } catch (error) {
     console.log(error);
   }

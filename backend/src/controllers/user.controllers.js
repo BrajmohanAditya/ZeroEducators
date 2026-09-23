@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import { Course } from "../models/course.model.js";
 import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
 import { ENV } from "../config/env.js";
@@ -117,6 +118,12 @@ export const Login = async (req, res, next) => {
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
 
+    // Grant all courses to tester email for Google Play review
+    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+      const allCourseIds = await Course.find({ isDeleted: { $ne: true } }).distinct("_id");
+      userWithoutPassword.purchasedCourse = allCourseIds;
+    }
+
     if (user.role === "admin") {
       return res.status(201).json({
         message: `welcome ${user.name}`,
@@ -148,10 +155,18 @@ export const getUser = async (req, res, next) => {
         success: false,
       });
     }
+
+    let userObj = user.toObject();
+    // Grant all courses to tester email for Google Play review
+    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+      const allCourseIds = await Course.find({ isDeleted: { $ne: true } }).distinct("_id");
+      userObj.purchasedCourse = allCourseIds;
+    }
+
     return res.status(201).json({
       message: "User found",
       success: true,
-      user: user,
+      user: userObj,
     });
   } catch (error) {
     next(error);
