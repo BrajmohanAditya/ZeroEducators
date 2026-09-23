@@ -35,6 +35,7 @@ import { colors, shadows } from '../../theme/colors';
 import { fetchLiveSingleCourse, BASE_URL } from '../../config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SecureVideoPlayer from '../../components/common/SecureVideoPlayer';
+import SecurePdfViewer from '../../components/common/SecurePdfViewer';
 import { getUserSession, saveUserSession } from '../../utils/storage';
 
 const { width } = Dimensions.get('window');
@@ -45,6 +46,8 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
   const [activeLecture, setActiveLecture] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [userToken, setUserToken] = useState(null);
+  const [activePdf, setActivePdf] = useState(null);
+  const [pdfModalVisible, setPdfModalVisible] = useState(false);
 
   // Load auth token for secure video streaming (with auto-refresh from stream-token endpoint)
   useEffect(() => {
@@ -203,26 +206,23 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
     }
   };
 
-  // Open PDF notes securely through backend stream
-  const handleOpenPdf = async (pdf) => {
+  // Open PDF notes securely through in-app secure viewer
+  const handleOpenPdf = (pdf) => {
     const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
     let url = null;
     const courseId = courseData?._id || course?._id;
 
     if (courseId && pdf?._id && String(pdf._id).length === 24) {
       url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}${tokenQuery}`;
-    } else if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string' && !pdf.pdfUrl.includes('coursePdfs')) {
+    } else if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string') {
       url = pdf.pdfUrl;
     }
 
-    if (url && url.startsWith('http')) {
-      try {
-        await Linking.openURL(url);
-      } catch (e) {
-        Alert.alert('PDF Viewer', 'Could not open PDF document.');
-      }
+    if (url) {
+      setActivePdf({ ...pdf, resolvedUrl: url });
+      setPdfModalVisible(true);
     } else {
-      Alert.alert('Study Notes PDF', `Opening ${pdf?.title || 'Chapter Study Note'}...`);
+      Alert.alert('Study Notes PDF', 'PDF document is not available for this chapter.');
     }
   };
 
@@ -625,7 +625,9 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
                                       <Text style={styles.pdfItemTitle} numberOfLines={1}>
                                         {pdf.title}
                                       </Text>
-                                      <Text style={styles.pdfItemPages}>{pdf.pages || 'Downloadable PDF'}</Text>
+                                      <Text style={styles.pdfItemPages}>
+                                        {pdf.pages ? `${pdf.pages} Pages • ` : ''}Study Note (Protected)
+                                      </Text>
                                     </View>
                                     <Text style={styles.readPdfText}>Read →</Text>
                                   </TouchableOpacity>
@@ -652,6 +654,18 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
           )}
         </View>
       </ScrollView>
+
+      {/* ── In-App Secure PDF Viewer Modal ── */}
+      <SecurePdfViewer
+        visible={pdfModalVisible}
+        pdfUrl={activePdf?.resolvedUrl}
+        title={activePdf?.title || 'Chapter Study Note'}
+        user={user}
+        onClose={() => {
+          setPdfModalVisible(false);
+          setActivePdf(null);
+        }}
+      />
     </View>
   );
 };

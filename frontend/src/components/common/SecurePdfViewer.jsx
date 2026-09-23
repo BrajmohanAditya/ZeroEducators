@@ -34,6 +34,8 @@ const PdfPageItem = memo(
     const [isRendering, setIsRendering] = useState(false);
     const [pageSize, setPageSize] = useState({ width: 600, height: 848 });
 
+    const isIntersectingRef = useRef(false);
+
     // Measure page dimensions once loaded
     useEffect(() => {
       let active = true;
@@ -42,7 +44,10 @@ const PdfPageItem = memo(
       pdfDoc.getPage(pageNum).then((page) => {
         if (!active) return;
         const viewport = page.getViewport({ scale, rotation });
-        setPageSize({ width: viewport.width, height: viewport.height });
+        setPageSize({
+          width: Math.floor(viewport.width),
+          height: Math.floor(viewport.height),
+        });
       });
 
       return () => {
@@ -50,7 +55,7 @@ const PdfPageItem = memo(
       };
     }, [pdfDoc, pageNum, scale, rotation]);
 
-    // Render page function
+    // Render page function with exact pixel mapping and high-quality smoothing
     const renderCanvas = useCallback(async () => {
       if (!pdfDoc || !canvasRef.current) return;
 
@@ -66,24 +71,28 @@ const PdfPageItem = memo(
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
-        const viewport = page.getViewport({ scale, rotation });
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+        }
 
-        const outputScale = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = "100%";
-        canvas.style.maxWidth = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = "auto";
+        // Official Mozilla PDF.js standard high-DPI pixel mapping
+        const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+        const viewport = page.getViewport({ scale: scale * dpr, rotation });
 
-        const transform =
-          outputScale !== 1
-            ? [outputScale, 0, 0, outputScale, 0, 0]
-            : null;
+        const cssWidth = Math.floor(viewport.width / dpr);
+        const cssHeight = Math.floor(viewport.height / dpr);
+
+        // Canvas backing store gets exact hardware pixels
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+
+        // Update React state so container & canvas remain in 100% perfect aspect ratio
+        setPageSize({ width: cssWidth, height: cssHeight });
 
         const renderContext = {
           canvasContext: ctx,
-          transform,
-          viewport,
+          viewport: viewport,
         };
 
         const renderTask = page.render(renderContext);
@@ -100,6 +109,13 @@ const PdfPageItem = memo(
       }
     }, [pdfDoc, pageNum, scale, rotation]);
 
+    // Re-render immediately when scale or rotation changes if currently in viewport
+    useEffect(() => {
+      if (isIntersectingRef.current && isRendered) {
+        renderCanvas();
+      }
+    }, [scale, rotation, renderCanvas, isRendered]);
+
     // Lazy load canvas using IntersectionObserver
     useEffect(() => {
       const el = itemRef.current;
@@ -108,7 +124,8 @@ const PdfPageItem = memo(
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            // Render when page is within 400px of viewport
+            isIntersectingRef.current = entry.isIntersecting;
+            // Render when page is within 500px of viewport
             if (entry.isIntersecting) {
               renderCanvas();
             }
@@ -121,7 +138,7 @@ const PdfPageItem = memo(
         },
         {
           root: containerRef?.current || null,
-          rootMargin: "400px 0px",
+          rootMargin: "500px 0px",
           threshold: [0, 0.4, 0.8],
         }
       );
@@ -139,18 +156,23 @@ const PdfPageItem = memo(
         className="relative my-3 flex flex-col items-center select-none"
         onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Page Container */}
+        {/* Page Container: exact pixel match without squishing */}
         <div
-          className="relative bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-700/60 max-w-full"
+          className="relative bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-700/60"
           style={{
-            width: `${pageSize.width}px`,
-            minHeight: `${pageSize.height}px`,
+            width: pageSize.width ? `${pageSize.width}px` : "auto",
+            height: pageSize.height ? `${pageSize.height}px` : "auto",
           }}
         >
-          {/* Canvas Rendering */}
+          {/* Canvas Rendering: Dimensions kept in React style prop so they are never wiped */}
           <canvas
             ref={canvasRef}
             className="block select-none"
+            style={{
+              width: pageSize.width ? `${pageSize.width}px` : "100%",
+              height: pageSize.height ? `${pageSize.height}px` : "auto",
+              display: "block",
+            }}
             onContextMenu={(e) => e.preventDefault()}
           />
 
@@ -161,20 +183,6 @@ const PdfPageItem = memo(
               <span className="text-xs font-semibold text-slate-500 font-mono">
                 Loading Page {pageNum}...
               </span>
-            </div>
-          )}
-
-          {/* Diagonal Security Watermark across the page */}
-          {user && (
-            <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-around items-center opacity-[0.08] -rotate-25 overflow-hidden">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="text-slate-900 font-black text-sm sm:text-base tracking-widest uppercase whitespace-nowrap"
-                >
-                  {user.email || user.name} • ZERO EDUCATORS • CONFIDENTIAL
-                </div>
-              ))}
             </div>
           )}
 
@@ -204,7 +212,7 @@ const SecurePdfViewer = ({
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       return Math.max(0.55, Math.min(1.0, (window.innerWidth - 32) / 600));
     }
-    return 1.15;
+    return 1.35;
   });
   const [rotation, setRotation] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -265,6 +273,9 @@ const SecurePdfViewer = ({
         const loadingTask = window.pdfjsLib.getDocument({
           url: pdfUrl,
           withCredentials: true,
+          cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+          cMapPacked: true,
+          standardFontDataUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/",
         });
 
         const doc = await loadingTask.promise;

@@ -1,596 +1,563 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  ChevronLeft,
-  ChevronRight,
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  StatusBar,
+  SafeAreaView,
+  Dimensions,
+  Platform,
+} from 'react-native';
+import {
+  X,
+  ShieldCheck,
   ZoomIn,
   ZoomOut,
-  Maximize2,
-  Minimize2,
-  RotateCw,
-  ShieldCheck,
-  Lock,
-  Loader2,
-  FileText,
+  RotateCcw,
   AlertCircle,
-  ChevronsUp,
-} from "lucide-react";
-import { toast } from "sonner";
+  FileText,
+  RefreshCw,
+} from 'lucide-react-native';
 
-// Single Page Canvas Component with Intersection Observer for Lazy Rendering
-const PdfPageItem = memo(
-  ({
-    pageNum,
-    pdfDoc,
-    scale,
-    rotation,
-    user,
-    containerRef,
-    onPageVisible,
-  }) => {
-    const canvasRef = useRef(null);
-    const itemRef = useRef(null);
-    const renderTaskRef = useRef(null);
-    const [isRendered, setIsRendered] = useState(false);
-    const [isRendering, setIsRendering] = useState(false);
-    const [pageSize, setPageSize] = useState({ width: 600, height: 848 });
+// Safely load WebView TurboModule to prevent fatal crash if APK not yet rebuilt
+let WebView = null;
+try {
+  const RNWebViewModule = require('react-native-webview');
+  WebView = RNWebViewModule?.WebView || RNWebViewModule?.default || RNWebViewModule;
+} catch (err) {
+  console.warn('Native WebView module not linked yet:', err?.message);
+}
 
-    // Measure page dimensions once loaded
-    useEffect(() => {
-      let active = true;
-      if (!pdfDoc) return;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-      pdfDoc.getPage(pageNum).then((page) => {
-        if (!active) return;
-        const viewport = page.getViewport({ scale, rotation });
-        setPageSize({ width: viewport.width, height: viewport.height });
-      });
-
-      return () => {
-        active = false;
-      };
-    }, [pdfDoc, pageNum, scale, rotation]);
-
-    // Render page function
-    const renderCanvas = useCallback(async () => {
-      if (!pdfDoc || !canvasRef.current) return;
-
-      try {
-        if (renderTaskRef.current) {
-          renderTaskRef.current.cancel();
-          renderTaskRef.current = null;
-        }
-
-        setIsRendering(true);
-        const page = await pdfDoc.getPage(pageNum);
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext("2d");
-        const viewport = page.getViewport({ scale, rotation });
-
-        const outputScale = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = "100%";
-        canvas.style.maxWidth = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = "auto";
-
-        const transform =
-          outputScale !== 1
-            ? [outputScale, 0, 0, outputScale, 0, 0]
-            : null;
-
-        const renderContext = {
-          canvasContext: ctx,
-          transform,
-          viewport,
-        };
-
-        const renderTask = page.render(renderContext);
-        renderTaskRef.current = renderTask;
-
-        await renderTask.promise;
-        setIsRendering(false);
-        setIsRendered(true);
-      } catch (err) {
-        if (err?.name !== "RenderingCancelledException") {
-          console.error(`Page ${pageNum} render error:`, err);
-        }
-        setIsRendering(false);
-      }
-    }, [pdfDoc, pageNum, scale, rotation]);
-
-    // Lazy load canvas using IntersectionObserver
-    useEffect(() => {
-      const el = itemRef.current;
-      if (!el) return;
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            // Render when page is within 400px of viewport
-            if (entry.isIntersecting) {
-              renderCanvas();
-            }
-
-            // Update active page when centered
-            if (entry.intersectionRatio > 0.4) {
-              onPageVisible(pageNum);
-            }
-          });
-        },
-        {
-          root: containerRef?.current || null,
-          rootMargin: "400px 0px",
-          threshold: [0, 0.4, 0.8],
-        }
-      );
-
-      observer.observe(el);
-      return () => {
-        observer.disconnect();
-      };
-    }, [renderCanvas, pageNum, onPageVisible, containerRef]);
-
-    return (
-      <div
-        ref={itemRef}
-        id={`pdf-page-${pageNum}`}
-        className="relative my-3 flex flex-col items-center select-none"
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {/* Page Container */}
-        <div
-          className="relative bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-700/60 max-w-full"
-          style={{
-            width: `${pageSize.width}px`,
-            minHeight: `${pageSize.height}px`,
-          }}
-        >
-          {/* Canvas Rendering */}
-          <canvas
-            ref={canvasRef}
-            className="block select-none"
-            onContextMenu={(e) => e.preventDefault()}
-          />
-
-          {/* Placeholder/Spinner before rendering */}
-          {(!isRendered || isRendering) && (
-            <div className="absolute inset-0 bg-slate-900/5 flex flex-col items-center justify-center pointer-events-none z-10">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-2 opacity-80" />
-              <span className="text-xs font-semibold text-slate-500 font-mono">
-                Loading Page {pageNum}...
-              </span>
-            </div>
-          )}
-
-          {/* Diagonal Security Watermark across the page */}
-          {user && (
-            <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-around items-center opacity-[0.08] -rotate-25 overflow-hidden">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="text-slate-900 font-black text-sm sm:text-base tracking-widest uppercase whitespace-nowrap"
-                >
-                  {user.email || user.name} • ZERO EDUCATORS • CONFIDENTIAL
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Subtle Page Number Badge */}
-          <div className="absolute top-2 right-2 pointer-events-none select-none z-20 text-[10px] font-mono text-slate-400 bg-white/70 px-2 py-0.5 rounded shadow-2xs">
-            Page {pageNum}
-          </div>
-        </div>
-      </div>
-    );
-  }
-);
-
-PdfPageItem.displayName = "PdfPageItem";
-
-const SecurePdfViewer = ({
+export const SecurePdfViewer = ({
+  visible,
   pdfUrl,
-  title = "Document",
+  title = 'Study Note PDF',
   user,
-  isFullscreen,
-  onToggleFullscreen,
+  onClose,
 }) => {
-  const [pdfDoc, setPdfDoc] = useState(null);
+  const webViewRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [numPages, setNumPages] = useState(0);
-  const [scale, setScale] = useState(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      return Math.max(0.55, Math.min(1.0, (window.innerWidth - 32) / 600));
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+
+  useEffect(() => {
+    if (visible) {
+      setLoading(true);
+      setHasError(false);
+      setErrorMessage('');
+      setZoomLevel(1.0);
+      setTotalPages(0);
+      setCurrentPage(1);
     }
-    return 1.15;
-  });
-  const [rotation, setRotation] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  const [pageInputValue, setPageInputValue] = useState("1");
+  }, [visible, pdfUrl]);
 
-  const containerRef = useRef(null);
+  // HTML content rendering PDF securely via PDF.js with anti-download protection
+  const htmlContent = useMemo(() => {
+    if (!pdfUrl) return '';
 
-  // Initialize PDF.js worker
-  useEffect(() => {
-    const initPdfJs = async () => {
-      try {
-        if (!window.pdfjsLib) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src =
-              "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
+    const sanitizedUrl = pdfUrl.replace(/"/g, '\\"');
 
-        if (window.pdfjsLib) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        }
-      } catch (err) {
-        console.error("Failed to load PDF.js script:", err);
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+  <title>Secure Document Viewer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    #pdf-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 8px 40px;
+      gap: 16px;
+      transition: transform 0.2s ease;
+      transform-origin: top center;
+    }
+    .page-wrapper {
+      position: relative;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      max-width: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    #loading-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-top: 80px;
+      color: #94a3b8;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="pdf-container">
+    <div id="loading-box">
+      <div class="spinner"></div>
+      <p style="font-size: 14px; font-weight: 500;">Securing & Loading Document...</p>
+    </div>
+  </div>
+
+  <script>
+    // Disable right-click & copy shortcuts
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('copy', e => e.preventDefault());
+    document.addEventListener('selectstart', e => e.preventDefault());
+    window.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && ['p', 's', 'c', 'u'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
       }
-    };
+    });
 
-    initPdfJs();
-  }, []);
+    const pdfUrl = "${sanitizedUrl}";
 
-  // Load the PDF document
-  useEffect(() => {
-    if (!pdfUrl) return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let isMounted = true;
-    setIsLoading(true);
-    setLoadError(null);
-    setCurrentPage(1);
-    setPageInputValue("1");
+    function sendToNative(data) {
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(data));
+      }
+    }
 
-    const loadDocument = async () => {
+    async function loadPdf() {
+      const container = document.getElementById('pdf-container');
+      const loadingBox = document.getElementById('loading-box');
+
       try {
-        let attempts = 0;
-        while (!window.pdfjsLib && attempts < 25) {
-          await new Promise((r) => setTimeout(r, 150));
-          attempts++;
-        }
-
-        if (!window.pdfjsLib) {
-          throw new Error("PDF renderer could not be initialized");
-        }
-
-        const loadingTask = window.pdfjsLib.getDocument({
+        const loadingTask = pdfjsLib.getDocument({
           url: pdfUrl,
-          withCredentials: true,
+          withCredentials: false,
         });
 
-        const doc = await loadingTask.promise;
-        if (isMounted) {
-          setPdfDoc(doc);
-          setNumPages(doc.numPages);
-          setIsLoading(false);
+        loadingTask.onProgress = function(progressData) {
+          if (progressData.total > 0) {
+            const pct = Math.round((progressData.loaded / progressData.total) * 100);
+            sendToNative({ type: 'PROGRESS', percent: pct });
+          }
+        };
+
+        const pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+
+        sendToNative({ type: 'LOADED', totalPages: numPages });
+        loadingBox.style.display = 'none';
+
+        // Render each page sequentially
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          const page = await pdfDoc.getPage(pageNum);
+          const dpr = Math.max(window.devicePixelRatio || 2, 2.0);
+          const displayViewport = page.getViewport({ scale: 1.5 });
+          const renderViewport = page.getViewport({ scale: 1.5 * dpr });
+
+          const pageWrapper = document.createElement('div');
+          pageWrapper.className = 'page-wrapper';
+          pageWrapper.id = 'page-' + pageNum;
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { alpha: false });
+          canvas.height = Math.floor(renderViewport.height);
+          canvas.width = Math.floor(renderViewport.width);
+          canvas.style.width = '100%';
+          canvas.style.height = 'auto';
+          canvas.style.imageRendering = '-webkit-optimize-contrast';
+
+          // Render PDF into canvas with high-DPI vector supersampling
+          await page.render({
+            canvasContext: context,
+            viewport: renderViewport
+          }).promise;
+
+          pageWrapper.appendChild(canvas);
+          container.appendChild(pageWrapper);
         }
+
+        sendToNative({ type: 'COMPLETE' });
+
       } catch (err) {
-        console.error("PDF loading error:", err);
-        if (isMounted) {
-          setLoadError(
-            err.message || "Failed to load PDF. Please try again."
-          );
-          setIsLoading(false);
-        }
+        console.error('PDF render error:', err);
+        sendToNative({ type: 'ERROR', message: err.message || 'Unable to open PDF' });
+      }
+    }
+
+    // Zoom controller
+    window.setDocZoom = function(scale) {
+      const container = document.getElementById('pdf-container');
+      if (container) {
+        container.style.transform = 'scale(' + scale + ')';
       }
     };
 
-    loadDocument();
-
-    return () => {
-      isMounted = false;
-    };
+    window.onload = loadPdf;
+  </script>
+</body>
+</html>
+    `;
   }, [pdfUrl]);
 
-  // Page tracking callback
-  const handlePageVisible = useCallback((pageNum) => {
-    setCurrentPage(pageNum);
-    setPageInputValue(String(pageNum));
-  }, []);
-
-  // Scroll to a specific page
-  const scrollToPage = useCallback((pageNum) => {
-    const el = document.getElementById(`pdf-page-${pageNum}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
-  // Page navigation handlers
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      const prev = currentPage - 1;
-      scrollToPage(prev);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < numPages) {
-      const next = currentPage + 1;
-      scrollToPage(next);
-    }
-  };
-
-  const handlePageInputChange = (e) => {
-    setPageInputValue(e.target.value);
-  };
-
-  const handlePageInputSubmit = (e) => {
-    if (e.key === "Enter") {
-      const parsed = parseInt(pageInputValue, 10);
-      if (!isNaN(parsed) && parsed >= 1 && parsed <= numPages) {
-        scrollToPage(parsed);
-      } else {
-        setPageInputValue(String(currentPage));
+  // Handle messages sent from WebView
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'LOADED') {
+        setTotalPages(data.totalPages);
+        setLoading(false);
+      } else if (data.type === 'COMPLETE') {
+        setLoading(false);
+      } else if (data.type === 'ERROR') {
+        setLoading(false);
+        setHasError(true);
+        setErrorMessage(data.message || 'Could not load PDF document.');
       }
+    } catch (e) {
+      // ignore
     }
   };
 
-  // Zoom handlers
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.15, 2.5));
+    const nextZoom = Math.min(zoomLevel + 0.25, 2.5);
+    setZoomLevel(nextZoom);
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.setDocZoom && window.setDocZoom(${nextZoom}); true;`);
+    }
   };
 
   const handleZoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.15, 0.6));
-  };
-
-  const handleFitWidth = () => {
-    if (!containerRef.current) return;
-    const containerWidth = containerRef.current.clientWidth - 64;
-    const newScale = Math.max(0.6, Math.min(containerWidth / 620, 2.0));
-    setScale(parseFloat(newScale.toFixed(2)));
-  };
-
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
-  };
-
-  const scrollToTop = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    const nextZoom = Math.max(zoomLevel - 0.25, 0.75);
+    setZoomLevel(nextZoom);
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.setDocZoom && window.setDocZoom(${nextZoom}); true;`);
     }
   };
 
-  // Keyboard navigation & security handler
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Escape for Fullscreen
-      if (e.key === "Escape" && isFullscreen && onToggleFullscreen) {
-        onToggleFullscreen();
-        return;
-      }
-
-      // PageUp / PageDown for scrolling
-      if (e.key === "PageUp") {
-        handlePrevPage();
-      } else if (e.key === "PageDown") {
-        handleNextPage();
-      }
-
-      // Block Save & Print
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        ["s", "S", "p", "P", "u", "U"].includes(e.key)
-      ) {
-        e.preventDefault();
-        toast.error("Saving and printing are disabled to protect course materials.");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPage, numPages, isFullscreen, onToggleFullscreen]);
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.setDocZoom && window.setDocZoom(1.0); true;`);
+    }
+  };
 
   return (
-    <div
-      className={`flex flex-col select-none overflow-hidden bg-slate-950 ${
-        isFullscreen
-          ? "fixed inset-0 z-[99999] w-screen h-screen"
-          : "w-full h-full rounded-3xl border border-slate-800"
-      }`}
-      onContextMenu={(e) => e.preventDefault()}
-      onDragStart={(e) => e.preventDefault()}
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={false}
+      onRequestClose={onClose}
     >
-      {/* ── Top Header Toolbar ── */}
-      <div className="px-4 py-3 bg-slate-950 text-white flex items-center justify-between shrink-0 border-b border-slate-800/80 shadow-md">
-        {/* Document Title & Security Indicator */}
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/30">
-            <FileText className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <h2 className="text-sm font-bold truncate text-slate-100" title={title}>
-              {title}
-            </h2>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400">
-              <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                <Lock className="w-2.5 h-2.5" /> DRM Protected
-              </span>
-              <span>•</span>
-              <span>Vertical Scroll Active</span>
-            </div>
-          </div>
-        </div>
+      <StatusBar barStyle="light-content" backgroundColor="#0b0f19" />
+      <SafeAreaView style={styles.safeArea}>
+        {/* Header Bar */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <X size={22} color="#f8fafc" />
+          </TouchableOpacity>
 
-        {/* User Watermark & Fullscreen Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
-          {user && (
-            <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-900 px-3 py-1 rounded-lg border border-slate-800 font-mono">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-              <span className="truncate max-w-[170px]">
-                {user.email || user.name}
-              </span>
-            </div>
+          <View style={styles.headerTitleBox}>
+            <View style={styles.secureBadgeRow}>
+              <ShieldCheck size={13} color="#10b981" />
+              <Text style={styles.secureBadgeText}>PROTECTED READER</Text>
+            </View>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+
+          {/* Zoom controls in header */}
+          <View style={styles.zoomControls}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={handleZoomOut}
+              activeOpacity={0.7}
+              disabled={zoomLevel <= 0.75}
+            >
+              <ZoomOut size={18} color={zoomLevel <= 0.75 ? '#475569' : '#cbd5e1'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={handleResetZoom}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.zoomText}>{Math.round(zoomLevel * 100)}%</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={handleZoomIn}
+              activeOpacity={0.7}
+              disabled={zoomLevel >= 2.5}
+            >
+              <ZoomIn size={18} color={zoomLevel >= 2.5 ? '#475569' : '#cbd5e1'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sub-header info banner */}
+        <View style={styles.infoBanner}>
+          <Text style={styles.infoBannerText}>
+            🔒 In-App Reader: Download & screenshots are restricted to protect study material.
+          </Text>
+          {totalPages > 0 && (
+            <Text style={styles.pageCountBadge}>{totalPages} Pages</Text>
+          )}
+        </View>
+
+        {/* Main Content Viewer */}
+        <View style={styles.viewerContainer}>
+          {hasError ? (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={44} color="#f43f5e" style={{ marginBottom: 12 }} />
+              <Text style={styles.errorTitle}>Document Unavailable</Text>
+              <Text style={styles.errorSubtitle}>
+                {errorMessage || 'Unable to stream or render this PDF note securely.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => {
+                  setHasError(false);
+                  setLoading(true);
+                  if (webViewRef.current) webViewRef.current.reload();
+                }}
+              >
+                <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !WebView ? (
+            <View style={styles.errorContainer}>
+              <RefreshCw size={44} color="#6366f1" style={{ marginBottom: 12 }} />
+              <Text style={styles.errorTitle}>App Rebuild Required</Text>
+              <Text style={styles.errorSubtitle}>
+                A new native module was added. Please rebuild the app binary by running:
+                {'\n\n'}npm run android
+              </Text>
+            </View>
+          ) : (
+            <WebView
+              ref={webViewRef}
+              source={{ html: htmlContent, baseUrl: 'https://zeroeducators.com' }}
+              style={styles.webView}
+              originWhitelist={['*']}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              onMessage={handleWebViewMessage}
+              startInLoadingState={false}
+              showsVerticalScrollIndicator={true}
+              showsHorizontalScrollIndicator={false}
+              scalesPageToFit={false}
+              bounces={false}
+            />
           )}
 
-          {/* Fullscreen Button */}
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
-            title={isFullscreen ? "Exit Fullscreen (Esc)" : "View Fullscreen"}
-          >
-            {isFullscreen ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Exit Fullscreen</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">View Fullscreen</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main Scrollable Viewport Area (Vertical Continuous Scroll via Mouse Wheel) ── */}
-      <div
-        ref={containerRef}
-        className="flex-1 w-full overflow-y-auto overflow-x-auto bg-slate-950 flex flex-col items-center py-6 px-2 sm:px-4 relative select-none scroll-smooth custom-scrollbar"
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 p-8 my-auto">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-            <p className="text-sm font-medium">Loading document pages...</p>
-          </div>
-        ) : loadError ? (
-          <div className="flex flex-col items-center justify-center gap-3 text-red-400 max-w-md text-center p-8 bg-red-950/20 border border-red-900/40 rounded-2xl my-auto">
-            <AlertCircle className="w-8 h-8 text-red-400" />
-            <p className="text-sm font-semibold">{loadError}</p>
-            <p className="text-xs text-slate-400">
-              Please ensure you are enrolled in this course or refresh the page.
-            </p>
-          </div>
-        ) : (
-          /* Render continuous list of all pages */
-          <div className="flex flex-col items-center w-full">
-            {Array.from({ length: numPages }, (_, index) => index + 1).map(
-              (pageNum) => (
-                <PdfPageItem
-                  key={pageNum}
-                  pageNum={pageNum}
-                  pdfDoc={pdfDoc}
-                  scale={scale}
-                  rotation={rotation}
-                  user={user}
-                  containerRef={containerRef}
-                  onPageVisible={handlePageVisible}
-                />
-              )
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Bottom Floating Controls Toolbar ── */}
-      {!isLoading && !loadError && numPages > 0 && (
-        <div className="px-4 py-2.5 bg-slate-950/95 backdrop-blur-md text-white flex items-center justify-between border-t border-slate-800/80 shrink-0 gap-2 select-none z-30">
-          {/* Page Navigation & Jump */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={handlePrevPage}
-              disabled={currentPage <= 1}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
-              title="Previous Page"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-mono">
-              <span>Page</span>
-              <input
-                type="text"
-                value={pageInputValue}
-                onChange={handlePageInputChange}
-                onKeyDown={handlePageInputSubmit}
-                onBlur={() => setPageInputValue(String(currentPage))}
-                className="w-10 px-1 py-0.5 text-center bg-slate-800 border border-slate-700 rounded text-white text-xs font-mono focus:outline-none focus:border-purple-500"
-              />
-              <span>of {numPages}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleNextPage}
-              disabled={currentPage >= numPages}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
-              title="Next Page"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Zoom and Fit Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              disabled={scale <= 0.6}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-
-            <span className="text-xs text-slate-300 font-mono min-w-[45px] text-center hidden sm:inline">
-              {Math.round(scale * 100)}%
-            </span>
-
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              disabled={scale >= 2.5}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleFitWidth}
-              className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden md:inline"
-              title="Fit to Width"
-            >
-              Fit Width
-            </button>
-
-            <button
-              type="button"
-              onClick={handleRotate}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden sm:inline"
-              title="Rotate Page"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={scrollToTop}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
-              title="Scroll to Top"
-            >
-              <ChevronsUp className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+          {loading && !hasError && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#6366f1" />
+              <Text style={styles.loadingOverlayText}>Opening Secure Document...</Text>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 };
 
 export default SecurePdfViewer;
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0b0f19',
+  },
+  header: {
+    height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#0f172a',
+  },
+  closeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1e293b',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleBox: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  secureBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  secureBadgeText: {
+    color: '#10b981',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  headerTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  zoomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  iconBtn: {
+    padding: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  infoBannerText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '500',
+    flex: 1,
+  },
+  pageCountBadge: {
+    color: '#a5b4fc',
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  viewerContainer: {
+    flex: 1,
+    backgroundColor: '#0b0f19',
+    position: 'relative',
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: '#0b0f19',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0b0f19',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  loadingOverlayText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  errorSubtitle: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+    maxWidth: 280,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
