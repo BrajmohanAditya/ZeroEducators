@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { AppState, StatusBar, BackHandler, ToastAndroid, Platform } from 'react-native';
+import { AppState, StatusBar, BackHandler, ToastAndroid, Platform, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import UserLayout from './src/layout/userLayout';
@@ -46,6 +46,15 @@ export function App() {
   };
 
   const navigate = (screenName, params = null) => {
+    if (screenName === 'Terms') {
+      Linking.openURL('https://zeroeducators.com/terms-and-conditions').catch(() => {});
+      return;
+    }
+    if (screenName === 'Privacy') {
+      Linking.openURL('https://zeroeducators.com/privacy-policy').catch(() => {});
+      return;
+    }
+
     setScreenParams(params);
     setCurrentScreen(screenName);
 

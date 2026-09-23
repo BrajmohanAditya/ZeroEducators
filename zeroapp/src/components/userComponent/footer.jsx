@@ -318,28 +318,22 @@ export const Footer = ({ onNavigate, onLinkPress }) => {
 
         <View style={styles.legalLinksRow}>
           <TouchableOpacity
-            onPress={() => {
-              if (onLinkPress) onLinkPress('Terms');
-              else if (onNavigate) onNavigate('Terms');
-            }}
+            activeOpacity={0.7}
+            onPress={() => handleOpenUrl('https://zeroeducators.com/terms-and-conditions')}
           >
             <Text style={styles.legalLinkText}>Terms & Conditions</Text>
           </TouchableOpacity>
           <Text style={styles.legalDot}>•</Text>
           <TouchableOpacity
-            onPress={() => {
-              if (onLinkPress) onLinkPress('Refund');
-              else if (onNavigate) onNavigate('Terms');
-            }}
+            activeOpacity={0.7}
+            onPress={() => handleOpenUrl('https://zeroeducators.com/terms-and-conditions#refund-policy')}
           >
             <Text style={styles.legalLinkText}>No-Refund Policy</Text>
           </TouchableOpacity>
           <Text style={styles.legalDot}>•</Text>
           <TouchableOpacity
-            onPress={() => {
-              if (onLinkPress) onLinkPress('Privacy');
-              else if (onNavigate) onNavigate('Terms');
-            }}
+            activeOpacity={0.7}
+            onPress={() => handleOpenUrl('https://zeroeducators.com/privacy-policy')}
           >
             <Text style={styles.legalLinkText}>Privacy Policy</Text>
           </TouchableOpacity>

@@ -2,7 +2,7 @@ import { User } from "../models/user.model.js";
 import { Course } from "../models/course.model.js";
 import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
-import { ENV } from "../config/env.js";
+import { ENV, isTesterEmail } from "../config/env.js";
 import jwt from "jsonwebtoken";
 import otpGenerator from "otp-generator";
 import { sendEmail } from "../config/sendEmail.js";
@@ -119,7 +119,7 @@ export const Login = async (req, res, next) => {
     delete userWithoutPassword.password;
 
     // Grant all courses to tester email for Google Play review
-    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+    if (isTesterEmail(user.email)) {
       const allCourseIds = await Course.find({ isDeleted: { $ne: true } }).distinct("_id");
       userWithoutPassword.purchasedCourse = allCourseIds;
     }
@@ -158,7 +158,7 @@ export const getUser = async (req, res, next) => {
 
     let userObj = user.toObject();
     // Grant all courses to tester email for Google Play review
-    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+    if (isTesterEmail(user.email)) {
       const allCourseIds = await Course.find({ isDeleted: { $ne: true } }).distinct("_id");
       userObj.purchasedCourse = allCourseIds;
     }

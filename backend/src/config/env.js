@@ -18,5 +18,13 @@ export const ENV = {
   ZATA_BUCKET_NAME: process.env.ZATA_BUCKET_NAME,
   ZATA_ENDPOINT: process.env.ZATA_ENDPOINT,
   ZATA_REGION: process.env.ZATA_REGION,
-  TESTER_EMAIL: process.env.TESTER_EMAIL || "cckumarsingh38ar@gmail.com",
+  TESTER_EMAIL: process.env.TESTER_EMAIL || "cckumarsingh39ar@gmail.com",
+};
+
+export const isTesterEmail = (email) => {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
+  return (
+    normalized === "cckumarsingh39ar@gmail.com"
+  );
 };

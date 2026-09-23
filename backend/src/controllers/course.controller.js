@@ -11,7 +11,7 @@ import {
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import https from "https";
-import { ENV } from "../config/env.js";
+import { ENV, isTesterEmail } from "../config/env.js";
 import { Course } from "../models/course.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { User } from "../models/user.model.js";
@@ -250,7 +250,7 @@ export const getAllPurchasedCourse = async (req, res) => {
     }
 
     let userObj = user.toObject();
-    if (ENV.TESTER_EMAIL && user.email.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase()) {
+    if (isTesterEmail(user.email)) {
       const allCourses = await Course.find({ isDeleted: { $ne: true } });
       userObj.purchasedCourse = allCourses;
     }

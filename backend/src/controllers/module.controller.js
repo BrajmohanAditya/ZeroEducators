@@ -4,7 +4,7 @@ import { Modules } from "../models/module.model.js";
 import { User } from "../models/user.model.js";
 import { uploadToZata as uploadToB2, s3Client } from "../config/zata.js";
 import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
-import { ENV } from "../config/env.js";
+import { ENV, isTesterEmail } from "../config/env.js";
 import fs from "fs";
 
 export const moduleUploadProgressMap = new Map();
@@ -235,7 +235,7 @@ export const streamModuleVideo = async (req, res) => {
     }
 
     // Access control: admins, demo tester, enrolled users, or free courses
-    const isTester = ENV.TESTER_EMAIL && user?.email?.toLowerCase() === ENV.TESTER_EMAIL.toLowerCase();
+    const isTester = isTesterEmail(user?.email);
     if (user?.role !== "admin" && !isTester && courseId) {
       const course = await Course.findById(courseId);
       const isPurchased = user?.purchasedCourse?.some(
