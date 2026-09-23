@@ -256,7 +256,36 @@ const TermsAndConditions = () => {
             </div>
           </div>
 
-          {/* 9. Acceptance of Terms & Official Support */}
+          {/* 9. Privacy Policy & Student Data Protection (Google Play Compliant) */}
+          <div id="privacy-policy" className="bg-white rounded-2xl p-6 border border-emerald-200 shadow-xs hover:border-emerald-300 transition">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 font-bold">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-2">
+                  9. Privacy Policy & Student Data Protection
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3">
+                  We are committed to protecting the privacy and personal data of our users across our website and the <strong>Zero Educators Android application</strong>. 
+                  Student details (Name, Email, Mobile number) are securely stored and utilized solely for account verification, course delivery, test ranking, and academic support.
+                </p>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-3">
+                  We do not sell, rent, or trade student personal information to any third parties. All financial transactions are processed securely through RBI-compliant, encrypted payment gateways.
+                </p>
+                <div className="pt-1">
+                  <Link
+                    to="/privacy-policy"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 underline"
+                  >
+                    Read our Full Official Privacy Policy &rarr;
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 10. Acceptance of Terms & Official Support */}
           <div className="bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white rounded-2xl p-6 sm:p-8 border border-emerald-200 shadow-xs">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 font-bold shadow-sm">
@@ -264,7 +293,7 @@ const TermsAndConditions = () => {
               </div>
               <div className="flex-1">
                 <h2 className="text-base sm:text-lg font-bold text-emerald-950 mb-2">
-                  9. Acceptance of Terms & Official Support
+                  10. Acceptance of Terms & Official Support
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mb-3">
                   By purchasing or enrolling in a course, you confirm that you have had an opportunity to read these Terms

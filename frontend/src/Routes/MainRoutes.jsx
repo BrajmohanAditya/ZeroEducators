@@ -27,6 +27,7 @@ import AllEbooks from "@/pages/User/eBooks.jsx/All.eBook";
 import EbookQuestionPractice from "@/pages/User/eBooks.jsx/eBook.ui";
 import CouponManagement from "@/pages/Admin/CouponManagement";
 import TermsAndConditions from "@/pages/User/TermsAndConditions";
+import PrivacyPolicy from "@/pages/User/PrivacyPolicy";
 import AnalyticsDashboard from "@/pages/Admin/AnalyticsDashboard";
 // UserLayout wraps routes that SHOULD have the top Navbar
 
@@ -102,6 +103,8 @@ const MainRoutes = () => {
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/refund-policy" element={<TermsAndConditions />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
       </Route>
 
       {/* --- Full Screen Mock Test (No Navbar) --- */}

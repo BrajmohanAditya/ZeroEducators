@@ -863,7 +863,7 @@ const Footer = () => {
               No-Refund Policy
             </Link>
             <Link
-              to="/terms-and-conditions"
+              to="/privacy-policy"
               style={{
                 fontSize: "12px",
                 color: "#64748b",
