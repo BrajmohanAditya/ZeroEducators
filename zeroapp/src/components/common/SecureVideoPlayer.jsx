@@ -347,10 +347,10 @@ const SecureVideoPlayer = ({
         shutterColor="transparent"
         preventsDisplaySleepDuringVideoPlayback={true}
         bufferConfig={{
-          minBufferMs: 2500,
-          maxBufferMs: 30000,
-          bufferForPlaybackMs: 1000,
-          bufferForPlaybackAfterRebufferMs: 2000,
+          minBufferMs: 15000,
+          maxBufferMs: 60000,
+          bufferForPlaybackMs: 2500,
+          bufferForPlaybackAfterRebufferMs: 4000,
         }}
         playInBackground={false}
         playWhenInactive={false}

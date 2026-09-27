@@ -595,9 +595,8 @@ const SecureVideoPlayer = ({
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="metadata"
+        preload="auto"
         autoPlay
-        crossOrigin="use-credentials"
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
