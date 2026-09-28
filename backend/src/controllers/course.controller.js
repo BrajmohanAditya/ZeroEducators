@@ -20,7 +20,7 @@ import { Modules } from "../models/module.model.js";
 import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
-import { syncUserCourseExpiry } from "../utils/courseExpiry.js";
+import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
 
 const genAi = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
 const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
