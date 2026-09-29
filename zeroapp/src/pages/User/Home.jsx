@@ -87,9 +87,6 @@ export const Home = ({
         <HeroSection
           banners={heroData?.banners || []}
           upcomingExams={heroData?.upcomingExams || []}
-          onExamPress={(exam) => {
-            if (onNavigate) onNavigate('Courses');
-          }}
         />
 
         {/* 3. Study Dashboard (Live Free/Paid Quizzes, eBooks, Study Materials, Follow Us) */}

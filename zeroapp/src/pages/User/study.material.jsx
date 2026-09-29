@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Linking,
+  Image,
 } from 'react-native';
 import {
   FileCheck,
@@ -15,8 +16,12 @@ import {
   Send,
   Target,
   Megaphone,
+  Crown,
+  PlaySquare,
+  Sparkles,
 } from 'lucide-react-native';
 import Svg, { Rect, Path, Line } from 'react-native-svg';
+import { fetchLiveExams, fetchLiveQuizzes } from '../../config/api';
 
 // Custom Instagram SVG icon matching web frontend
 const InstagramIcon = ({ size = 22, color = '#db2777' }) => (
@@ -37,6 +42,82 @@ const InstagramIcon = ({ size = 22, color = '#db2777' }) => (
 );
 
 export const StudyMaterial = ({ onNavigate }) => {
+  const [freeExams, setFreeExams] = useState([]);
+  const [paidExams, setPaidExams] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const [exams, freeQ, paidQ] = await Promise.all([
+          fetchLiveExams(),
+          fetchLiveQuizzes('Free'),
+          fetchLiveQuizzes('Paid'),
+        ]);
+
+        if (!isMounted) return;
+
+        const freeMap = new Map();
+        const paidMap = new Map();
+
+        // 1. Map from Exams collection
+        (exams || []).forEach((exam) => {
+          const price = Number(exam.price) || 0;
+          const item = {
+            id: exam._id,
+            name: exam.title || 'Exam',
+            logoUrl: exam.logoUrl,
+          };
+          if (price > 0) {
+            paidMap.set(exam._id.toString(), item);
+          } else {
+            freeMap.set(exam._id.toString(), item);
+          }
+        });
+
+        // 2. Also map from Quizzes
+        (freeQ || []).forEach((quiz) => {
+          const examObj = quiz.examId;
+          const price = examObj?.price ?? quiz.price ?? 0;
+          if (price > 0) return;
+          const key = (examObj?._id || quiz.examId || quiz.nameOfExam || '').toString();
+          if (key && !freeMap.has(key)) {
+            freeMap.set(key, {
+              id: examObj?._id || quiz.examId,
+              name: examObj?.title || quiz.nameOfExam || 'Free Quiz',
+              logoUrl: examObj?.logoUrl || quiz.logoUrl,
+            });
+          }
+        });
+
+        (paidQ || []).forEach((quiz) => {
+          const examObj = quiz.examId;
+          const price = examObj?.price ?? quiz.price ?? 0;
+          if (price <= 0) return;
+          const key = (examObj?._id || quiz.examId || quiz.nameOfExam || '').toString();
+          if (key && !paidMap.has(key)) {
+            paidMap.set(key, {
+              id: examObj?._id || quiz.examId,
+              name: examObj?.title || quiz.nameOfExam || 'Premium Test',
+              logoUrl: examObj?.logoUrl || quiz.logoUrl,
+            });
+          }
+        });
+
+        setFreeExams(Array.from(freeMap.values()));
+        setPaidExams(Array.from(paidMap.values()));
+      } catch (err) {
+        console.warn('Error loading study material quiz exams:', err);
+      }
+    };
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const openLink = async (url) => {
     try {
       await Linking.openURL(url);
@@ -51,13 +132,124 @@ export const StudyMaterial = ({ onNavigate }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Study Dashboard</Text>
         <Text style={styles.subtitle}>
-          Access curated study materials, eBooks, and official communities.
+          Access curated study materials, test series, and official communities.
         </Text>
       </View>
 
       <View style={styles.cardsList}>
         {/* ==================================================== */}
-        {/* 1. STUDY MATERIALS (Soft Blue Card)                  */}
+        {/* 1. TODAY LIVE TEST (Soft Purple Full-Width Card)     */}
+        {/* ==================================================== */}
+        <View style={[styles.card, styles.purpleCard]}>
+          {/* Top-Right Glowing Live Dot */}
+          <View style={styles.topRightCorner}>
+            <View style={styles.livePulseHalo}>
+              <View style={styles.livePulseDot} />
+            </View>
+          </View>
+
+          {/* Card Title */}
+          <Text style={[styles.cardTitle, styles.purpleText]}>Today Live Test</Text>
+
+          {/* 2x2 Grid of Free Tests */}
+          <View style={styles.itemsGrid}>
+            {freeExams.slice(0, 3).map((exam, idx) => (
+              <TouchableOpacity
+                key={exam.id || idx}
+                activeOpacity={0.8}
+                onPress={() =>
+                  onNavigate &&
+                  onNavigate('Quizzes', {
+                    type: 'Free',
+                    examId: exam.id,
+                    examTitle: exam.name,
+                  })
+                }
+                style={styles.itemBox}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: '#f3e8ff' }]}>
+                  {exam.logoUrl ? (
+                    <Image
+                      source={{ uri: exam.logoUrl }}
+                      style={styles.examIconImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <PlaySquare size={22} color="#7e22ce" />
+                  )}
+                </View>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {exam.name}
+                </Text>
+                <Text style={styles.itemSubText}>Free Demo Test</Text>
+              </TouchableOpacity>
+            ))}
+
+            {/* Enter Now Box */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onNavigate && onNavigate('Quizzes', { type: 'Free' })}
+              style={styles.itemBox}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: '#f5eeff' }]}>
+                <Sparkles size={22} color="#7e22ce" />
+              </View>
+              <Text style={styles.itemName}>Enter Now</Text>
+              <Text style={styles.itemSubText}>All Free Tests</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ==================================================== */}
+        {/* 2. PREMIUM TEST (Soft Mint Green Full-Width Card)    */}
+        {/* ==================================================== */}
+        <View style={[styles.card, styles.greenCard]}>
+          {/* Top-Right Crown Icon */}
+          <View style={styles.topRightCorner}>
+            <Crown size={38} color="#059669" opacity={0.35} strokeWidth={1.5} />
+          </View>
+
+          {/* Card Title */}
+          <Text style={[styles.cardTitle, styles.greenText]}>Premium Test</Text>
+
+          {/* 2x2 Grid of Premium Tests */}
+          <View style={styles.itemsGrid}>
+            {paidExams.slice(0, 4).map((exam, idx) => (
+              <TouchableOpacity
+                key={exam.id || idx}
+                activeOpacity={0.8}
+                onPress={() =>
+                  onNavigate &&
+                  onNavigate('Quizzes', {
+                    type: 'Paid',
+                    examId: exam.id,
+                    examTitle: exam.name,
+                  })
+                }
+                style={styles.itemBox}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: '#d1fae5' }]}>
+                  {exam.logoUrl ? (
+                    <Image
+                      source={{ uri: exam.logoUrl }}
+                      style={styles.examIconImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Crown size={22} color="#059669" />
+                  )}
+                </View>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {exam.name}
+                </Text>
+                <Text style={styles.itemSubText}>Test Series</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ==================================================== */}
+        {/* 3. STUDY MATERIALS (Soft Blue Full-Width Card)       */}
         {/* ==================================================== */}
         <View style={[styles.card, styles.blueCard]}>
           {/* Top-right Target Icon */}
@@ -66,9 +258,7 @@ export const StudyMaterial = ({ onNavigate }) => {
           </View>
 
           {/* Card Title */}
-          <Text style={[styles.cardTitle, styles.blueText]}>
-            Study Materials
-          </Text>
+          <Text style={[styles.cardTitle, styles.blueText]}>Study Materials</Text>
 
           {/* 2x2 Grid of materials */}
           <View style={styles.itemsGrid}>
@@ -123,7 +313,7 @@ export const StudyMaterial = ({ onNavigate }) => {
         </View>
 
         {/* ==================================================== */}
-        {/* 2. FOLLOW US & COMMUNITY (Warm Peach / Orange Card)  */}
+        {/* 4. FOLLOW US & COMMUNITY (Warm Peach Full-Width Card)*/}
         {/* ==================================================== */}
         <View style={[styles.card, styles.orangeCard]}>
           {/* Top-right Megaphone Icon */}
@@ -221,7 +411,8 @@ const styles = StyleSheet.create({
   cardsList: {
     gap: 18,
   },
-  // Card base styles
+
+  // Full-width Base card
   card: {
     borderRadius: 28,
     padding: 22,
@@ -234,18 +425,32 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 2,
   },
-  // Theme variants
+
+  // Color Variants
+  purpleCard: {
+    backgroundColor: '#F3E8FF',
+  },
+  greenCard: {
+    backgroundColor: '#E6F8EA',
+  },
   blueCard: {
     backgroundColor: '#E6EFFF',
   },
   orangeCard: {
     backgroundColor: '#FFF4E5',
   },
+
   cardTitle: {
     fontSize: 22,
     fontWeight: '900',
     marginBottom: 20,
     letterSpacing: -0.3,
+  },
+  purpleText: {
+    color: '#6b21a8',
+  },
+  greenText: {
+    color: '#065f46',
   },
   blueText: {
     color: '#1d4ed8',
@@ -253,6 +458,25 @@ const styles = StyleSheet.create({
   orangeText: {
     color: '#c2410c',
   },
+
+  // Live Red Pulsing Badge
+  livePulseHalo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  livePulseDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#ef4444',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+
   // 2x2 Grid inside cards
   itemsGrid: {
     flexDirection: 'row',
@@ -277,12 +501,17 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+  },
+  examIconImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   itemName: {
     fontSize: 13,

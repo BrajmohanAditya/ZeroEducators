@@ -14,6 +14,9 @@ import Register from './src/pages/Auth/Register';
 import VerifyOtp from './src/pages/Auth/VerifyOtp';
 import ForgotPassword from './src/pages/Auth/ForgotPassword';
 import StudyMaterial from './src/pages/User/study.material';
+import QuizList from './src/pages/User/quize/QuizList';
+import QuizInterface from './src/pages/User/quize/QuizInterface';
+import QuizResult from './src/pages/User/quize/QuizResult';
 import { fetchLiveCourses, refreshUserProfileApi } from './src/config/api';
 import { getUserSession, clearUserSession } from './src/utils/storage';
 
@@ -22,6 +25,7 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState('Home');
   const [screenParams, setScreenParams] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [userToken, setUserToken] = useState(null);
   const [liveCourses, setLiveCourses] = useState([]);
 
   // Hardware Back button & navigation history
@@ -113,6 +117,7 @@ export function App() {
         setCurrentUser(session.user);
       }
       if (session?.token) {
+        setUserToken(session.token);
         const freshUser = await refreshUserProfileApi();
         if (freshUser) {
           setCurrentUser(freshUser);
@@ -143,6 +148,7 @@ export function App() {
   const handleLogout = async () => {
     await clearUserSession();
     setCurrentUser(null);
+    setUserToken(null);
     navigate('Home');
   };
 
@@ -244,8 +250,9 @@ export function App() {
         <Login
           onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
-          onLoginSuccess={(user) => {
+          onLoginSuccess={(user, token) => {
             setCurrentUser(user);
+            if (token) setUserToken(token);
             navigate('Home');
           }}
         />
@@ -260,8 +267,9 @@ export function App() {
         <Register
           onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
-          onRegisterSuccess={(user) => {
+          onRegisterSuccess={(user, token) => {
             setCurrentUser(user);
+            if (token) setUserToken(token);
             navigate('Home');
           }}
         />
@@ -280,8 +288,9 @@ export function App() {
           password={screenParams?.password}
           onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
-          onVerifySuccess={(user) => {
+          onVerifySuccess={(user, token) => {
             setCurrentUser(user);
+            if (token) setUserToken(token);
             navigate('Home');
           }}
         />
@@ -296,6 +305,50 @@ export function App() {
         <ForgotPassword
           onNavigate={(target, params) => navigate(target, params)}
           onBack={goBack}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  if (currentScreen === 'QuizInterface') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <QuizInterface
+          quiz={screenParams?.quiz}
+          token={userToken}
+          user={currentUser}
+          onSubmitSuccess={({ quizId, result, quiz, questions, userAnswers }) => {
+            navigate('QuizResult', {
+              quizId,
+              passedResult: result,
+              passedQuiz: quiz,
+            });
+          }}
+          onExit={goBack}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  if (currentScreen === 'QuizResult') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <QuizResult
+          quizId={screenParams?.quizId}
+          passedResult={screenParams?.passedResult}
+          passedQuiz={screenParams?.passedQuiz}
+          currentUser={currentUser}
+          token={userToken}
+          onReattempt={() => {
+            if (screenParams?.passedQuiz) {
+              navigate('QuizInterface', { quiz: screenParams.passedQuiz });
+            } else {
+              navigate('Quizzes');
+            }
+          }}
+          onBack={() => navigate('Quizzes')}
         />
       </SafeAreaProvider>
     );
@@ -350,10 +403,21 @@ export function App() {
         )}
 
         {currentScreen === 'Quizzes' && (
-          <CourseSection
-            courses={liveCourses}
+          <QuizList
+            initialType={screenParams?.type}
+            initialExamId={screenParams?.examId}
+            initialExamTitle={screenParams?.examTitle}
             user={currentUser}
-            onCoursePress={handleCoursePress}
+            token={userToken}
+            onStartQuiz={(quiz) => navigate('QuizInterface', { quiz })}
+            onViewResult={(quizId, result, quiz) =>
+              navigate('QuizResult', {
+                quizId,
+                passedResult: result,
+                passedQuiz: quiz,
+              })
+            }
+            onBack={() => navigate('Home')}
           />
         )}
       </UserLayout>

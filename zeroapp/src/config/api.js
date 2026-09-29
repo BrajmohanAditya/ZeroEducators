@@ -77,10 +77,13 @@ export const fetchLiveExams = async (params = {}) => {
   }
 };
 
-export const fetchLiveQuizzes = async (quizType = '') => {
+export const fetchLiveQuizzes = async (quizType = '', examId = '') => {
   try {
     let url = `${BASE_URL}/quiz/getQuizzes`;
-    if (quizType) url += `?quizType=${encodeURIComponent(quizType)}`;
+    const params = [];
+    if (quizType) params.push(`quizType=${encodeURIComponent(quizType)}`);
+    if (examId) params.push(`examId=${encodeURIComponent(examId)}`);
+    if (params.length > 0) url += `?${params.join('&')}`;
 
     const res = await fetch(url, {
       method: 'GET',
@@ -90,6 +93,98 @@ export const fetchLiveQuizzes = async (quizType = '') => {
     return data?.quizzes || [];
   } catch (err) {
     console.warn('[Live API] Error fetching quizzes:', err?.message || err);
+    return [];
+  }
+};
+
+export const fetchQuizById = async (quizId) => {
+  try {
+    const res = await fetch(`${BASE_URL}/quiz/getQuiz/${quizId}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    const data = await res.json();
+    return data?.quiz || null;
+  } catch (err) {
+    console.warn('[Live API] Error fetching quiz by id:', err?.message || err);
+    return null;
+  }
+};
+
+export const fetchQuizQuestions = async (quizId, token = '') => {
+  try {
+    const headers = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const url = `${BASE_URL}/quizQuestion/get/${quizId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+    const data = await res.json();
+    return data?.questions || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching quiz questions:', err?.message || err);
+    return [];
+  }
+};
+
+export const submitQuizResultApi = async (payload, token = '') => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const url = `${BASE_URL}/quizResult/submit${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || 'Failed to submit quiz');
+  }
+  return data;
+};
+
+export const fetchMyQuizResultsApi = async (quizId, token = '') => {
+  try {
+    const headers = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const queryParts = [];
+    if (quizId) queryParts.push(`quizId=${encodeURIComponent(quizId)}`);
+    if (token) queryParts.push(`token=${encodeURIComponent(token)}`);
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    const url = `${BASE_URL}/quizResult/my-results${qs}`;
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+    const data = await res.json();
+    return data?.results || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching quiz results:', err?.message || err);
+    return [];
+  }
+};
+
+export const fetchAllQuizResultsApi = async (quizId, token = '') => {
+  try {
+    const headers = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    const url = `${BASE_URL}/quizResult/all-results/${quizId}${qs}`;
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+    const data = await res.json();
+    return data?.results || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching all quiz results for leaderboard:', err?.message || err);
     return [];
   }
 };
@@ -296,6 +391,10 @@ export default {
   fetchLiveHeroSection,
   fetchLiveExams,
   fetchLiveQuizzes,
+  fetchQuizById,
+  fetchQuizQuestions,
+  submitQuizResultApi,
+  fetchMyQuizResultsApi,
   liveLoginApi,
   liveRegisterApi,
   liveGoogleLoginApi,

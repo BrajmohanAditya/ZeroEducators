@@ -74,10 +74,8 @@ export const HeroSection = ({
         {/* 2x2 Grid: SBI PO, SSC / RBI, IBPS PO */}
         <View style={styles.examsGrid}>
           {displayedExams.map((exam) => (
-            <TouchableOpacity
+            <View
               key={exam._id}
-              activeOpacity={0.75}
-              onPress={() => onExamPress && onExamPress(exam)}
               style={styles.examItem}
             >
               <View style={styles.examImageContainer}>
@@ -94,7 +92,7 @@ export const HeroSection = ({
               <Text style={styles.examItemTitle} numberOfLines={1}>
                 {exam.title}
               </Text>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       </View>
