@@ -232,7 +232,7 @@ const SinglePurchasedCourse = () => {
             className={
               isPdfFullscreen
                 ? "fixed inset-0 z-[99999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none"
-                : "flex-1 min-h-[400px] flex flex-col relative z-10 w-full max-w-5xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-900 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-800 select-none"
+                : "flex-1 min-h-[520px] lg:h-full flex flex-col relative z-10 w-full max-w-full mx-auto rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-800 select-none"
             }
           >
             {activePdf ? (

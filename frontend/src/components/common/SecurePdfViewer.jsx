@@ -109,12 +109,12 @@ const PdfPageItem = memo(
       }
     }, [pdfDoc, pageNum, scale, rotation]);
 
-    // Re-render immediately when scale or rotation changes if currently in viewport
+    // Re-render when scale or rotation changes if currently in viewport
     useEffect(() => {
-      if (isIntersectingRef.current && isRendered) {
+      if (isIntersectingRef.current) {
         renderCanvas();
       }
-    }, [scale, rotation, renderCanvas, isRendered]);
+    }, [scale, rotation, renderCanvas]);
 
     // Lazy load canvas using IntersectionObserver
     useEffect(() => {
@@ -153,12 +153,12 @@ const PdfPageItem = memo(
       <div
         ref={itemRef}
         id={`pdf-page-${pageNum}`}
-        className="relative my-3 flex flex-col items-center select-none"
+        className="relative my-3 flex flex-col items-center select-none w-fit mx-auto shrink-0"
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* Page Container: exact pixel match without squishing */}
         <div
-          className="relative bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-700/60"
+          className="relative bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-700/60 max-w-none"
           style={{
             width: pageSize.width ? `${pageSize.width}px` : "auto",
             height: pageSize.height ? `${pageSize.height}px` : "auto",
@@ -167,7 +167,7 @@ const PdfPageItem = memo(
           {/* Canvas Rendering: Dimensions kept in React style prop so they are never wiped */}
           <canvas
             ref={canvasRef}
-            className="block select-none"
+            className="block select-none max-w-none"
             style={{
               width: pageSize.width ? `${pageSize.width}px` : "100%",
               height: pageSize.height ? `${pageSize.height}px` : "auto",
@@ -208,18 +208,14 @@ const SecurePdfViewer = ({
   const [pdfDoc, setPdfDoc] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
-  const [scale, setScale] = useState(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      return Math.max(0.55, Math.min(1.0, (window.innerWidth - 32) / 600));
-    }
-    return 1.35;
-  });
+  const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [pageInputValue, setPageInputValue] = useState("1");
 
   const containerRef = useRef(null);
+  const baseDocSizeRef = useRef(null);
 
   // Initialize PDF.js worker
   useEffect(() => {
@@ -248,7 +244,35 @@ const SecurePdfViewer = ({
     initPdfJs();
   }, []);
 
-  // Load the PDF document
+  // Stable Fit to View logic (supports "width", "page", or "auto")
+  const fitToView = useCallback((mode = "auto", explicitSize = null) => {
+    const size = explicitSize || baseDocSizeRef.current;
+    if (!containerRef.current || !size?.width) return;
+    const contW = containerRef.current.clientWidth;
+    const contH = containerRef.current.clientHeight;
+    if (contW <= 0) return;
+
+    const padX = contW < 640 ? 20 : 48;
+    const padY = 48;
+    const availW = Math.max(260, contW - padX);
+    const availH = Math.max(260, contH - padY);
+
+    let newScale;
+    if (mode === "page" || (mode === "auto" && size.width > size.height)) {
+      // Landscape slides or full page fit: fit both width and height cleanly
+      const scaleW = availW / size.width;
+      const scaleH = contH > 250 ? availH / size.height : scaleW;
+      newScale = Math.min(scaleW, scaleH);
+    } else {
+      // Fit width for portrait documents
+      newScale = availW / size.width;
+    }
+
+    newScale = Math.max(0.4, Math.min(newScale, 2.5));
+    setScale(parseFloat(newScale.toFixed(2)));
+  }, []);
+
+  // Load the PDF document (strictly depends on pdfUrl ONLY)
   useEffect(() => {
     if (!pdfUrl) return;
 
@@ -282,6 +306,18 @@ const SecurePdfViewer = ({
         if (isMounted) {
           setPdfDoc(doc);
           setNumPages(doc.numPages);
+
+          // Measure first page to determine optimal fit
+          try {
+            const firstPage = await doc.getPage(1);
+            const viewport = firstPage.getViewport({ scale: 1.0 });
+            const docSize = { width: viewport.width, height: viewport.height };
+            baseDocSizeRef.current = docSize;
+            fitToView("auto", docSize);
+          } catch (measureErr) {
+            console.warn("Could not measure first page dimensions:", measureErr);
+          }
+
           setIsLoading(false);
         }
       } catch (err) {
@@ -300,12 +336,26 @@ const SecurePdfViewer = ({
     return () => {
       isMounted = false;
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, fitToView]);
+
+  // Re-fit when entering/exiting fullscreen
+  useEffect(() => {
+    if (!baseDocSizeRef.current) return;
+    const timer = setTimeout(() => {
+      fitToView("auto");
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, fitToView]);
 
   // Page tracking callback
   const handlePageVisible = useCallback((pageNum) => {
-    setCurrentPage(pageNum);
-    setPageInputValue(String(pageNum));
+    setCurrentPage((prev) => {
+      if (prev !== pageNum) {
+        setPageInputValue(String(pageNum));
+        return pageNum;
+      }
+      return prev;
+    });
   }, []);
 
   // Scroll to a specific page
@@ -348,18 +398,19 @@ const SecurePdfViewer = ({
 
   // Zoom handlers
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.15, 2.5));
+    setScale((prev) => Math.min(parseFloat((prev + 0.15).toFixed(2)), 3.0));
   };
 
   const handleZoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.15, 0.6));
+    setScale((prev) => Math.max(parseFloat((prev - 0.15).toFixed(2)), 0.4));
   };
 
   const handleFitWidth = () => {
-    if (!containerRef.current) return;
-    const containerWidth = containerRef.current.clientWidth - 64;
-    const newScale = Math.max(0.6, Math.min(containerWidth / 620, 2.0));
-    setScale(parseFloat(newScale.toFixed(2)));
+    fitToView("width");
+  };
+
+  const handleFitPage = () => {
+    fitToView("page");
   };
 
   const handleRotate = () => {
@@ -404,10 +455,8 @@ const SecurePdfViewer = ({
 
   return (
     <div
-      className={`flex flex-col select-none overflow-hidden bg-slate-950 ${
-        isFullscreen
-          ? "fixed inset-0 z-[99999] w-screen h-screen"
-          : "w-full h-full rounded-3xl border border-slate-800"
+      className={`flex flex-col select-none overflow-hidden bg-slate-950 w-full h-full ${
+        isFullscreen ? "fixed inset-0 z-[99999]" : ""
       }`}
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
@@ -466,19 +515,19 @@ const SecurePdfViewer = ({
         </div>
       </div>
 
-      {/* ── Main Scrollable Viewport Area (Vertical Continuous Scroll via Mouse Wheel) ── */}
+      {/* ── Main Scrollable Viewport Area ── */}
       <div
         ref={containerRef}
-        className="flex-1 w-full overflow-y-auto overflow-x-auto bg-slate-950 flex flex-col items-center py-6 px-2 sm:px-4 relative select-none scroll-smooth custom-scrollbar"
+        className="flex-1 w-full overflow-y-auto overflow-x-auto bg-slate-950 py-6 px-3 sm:px-6 relative select-none scroll-smooth custom-scrollbar"
         onContextMenu={(e) => e.preventDefault()}
       >
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 p-8 my-auto">
+          <div className="flex flex-col items-center justify-center gap-3 text-slate-400 p-8 my-auto min-h-[300px] w-full">
             <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
             <p className="text-sm font-medium">Loading document pages...</p>
           </div>
         ) : loadError ? (
-          <div className="flex flex-col items-center justify-center gap-3 text-red-400 max-w-md text-center p-8 bg-red-950/20 border border-red-900/40 rounded-2xl my-auto">
+          <div className="flex flex-col items-center justify-center gap-3 text-red-400 max-w-md text-center p-8 bg-red-950/20 border border-red-900/40 rounded-2xl mx-auto my-auto">
             <AlertCircle className="w-8 h-8 text-red-400" />
             <p className="text-sm font-semibold">{loadError}</p>
             <p className="text-xs text-slate-400">
@@ -486,8 +535,8 @@ const SecurePdfViewer = ({
             </p>
           </div>
         ) : (
-          /* Render continuous list of all pages */
-          <div className="flex flex-col items-center w-full">
+          /* Render continuous list of all pages with safe auto-centering without left clipping */
+          <div className="w-fit min-w-full flex flex-col items-center mx-auto">
             {Array.from({ length: numPages }, (_, index) => index + 1).map(
               (pageNum) => (
                 <PdfPageItem
@@ -522,7 +571,7 @@ const SecurePdfViewer = ({
             </button>
 
             <div className="flex items-center gap-1.5 text-xs text-slate-300 font-mono">
-              <span>Page</span>
+              <span className="hidden xs:inline">Page</span>
               <input
                 type="text"
                 value={pageInputValue}
@@ -546,25 +595,30 @@ const SecurePdfViewer = ({
           </div>
 
           {/* Zoom and Fit Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={handleZoomOut}
-              disabled={scale <= 0.6}
+              disabled={scale <= 0.4}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
               title="Zoom Out"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
 
-            <span className="text-xs text-slate-300 font-mono min-w-[45px] text-center hidden sm:inline">
+            <button
+              type="button"
+              onClick={() => fitToView("auto")}
+              className="text-xs text-slate-300 font-mono min-w-[48px] px-1.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-center transition cursor-pointer"
+              title="Click to Reset Optimal Fit"
+            >
               {Math.round(scale * 100)}%
-            </span>
+            </button>
 
             <button
               type="button"
               onClick={handleZoomIn}
-              disabled={scale >= 2.5}
+              disabled={scale >= 3.0}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer text-slate-200"
               title="Zoom In"
             >
@@ -574,16 +628,25 @@ const SecurePdfViewer = ({
             <button
               type="button"
               onClick={handleFitWidth}
-              className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden md:inline"
-              title="Fit to Width"
+              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden sm:inline"
+              title="Fit to Container Width"
             >
               Fit Width
             </button>
 
             <button
               type="button"
+              onClick={handleFitPage}
+              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden sm:inline"
+              title="Fit Entire Page to Screen"
+            >
+              Fit Page
+            </button>
+
+            <button
+              type="button"
               onClick={handleRotate}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden sm:inline"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer hidden md:inline"
               title="Rotate Page"
             >
               <RotateCw className="w-4 h-4" />
