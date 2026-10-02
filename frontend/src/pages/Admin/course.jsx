@@ -2,9 +2,29 @@ import CreateCourseDialog from "../../components/Admin/CreateCourseDialog";
 import GrantCourseAccessDialog from "../../components/Admin/GrantCourseAccessDialog";
 import CopyCourseDialog from "../../components/Admin/CopyCourseDialog";
 import TrashCoursesDialog from "../../components/Admin/TrashCoursesDialog";
-import { useGetCourseHook, useDeleteCourseHook, useEditCourseHook, useGetTrashCoursesHook } from "../../hooks/course.hook";
+import ReorderModal from "../../components/Admin/ReorderModal";
+import {
+  useGetCourseHook,
+  useDeleteCourseHook,
+  useEditCourseHook,
+  useGetTrashCoursesHook,
+  useReorderCoursesHook,
+} from "../../hooks/course.hook";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, BookOpen, Video, FileText, UserPlus, Users, Copy, Archive } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  BookOpen,
+  Video,
+  FileText,
+  UserPlus,
+  Users,
+  Copy,
+  Archive,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import { useState } from "react";
 
@@ -15,17 +35,60 @@ const DashboardProducts = () => {
     navigate(`/admindashboard/course-topics/${course._id}`);
   };
   const { mutate: deleteCourse, isPending } = useDeleteCourseHook();
+  const { mutate: reorderCourses, isPending: isReordering } = useReorderCoursesHook();
 
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
   const [accessDialog, setAccessDialog] = useState(null); // { course, tab: 'grant' | 'students' }
   const [copyDialogState, setCopyDialogState] = useState({ isOpen: false, course: null });
   const [trashOpen, setTrashOpen] = useState(false);
+  const [isArrangeOpen, setIsArrangeOpen] = useState(false);
   const { data: trashData } = useGetTrashCoursesHook();
   const trashCount = trashData?.count || 0;
 
   const handleDelete = (id, title) => {
     setDeleteConfirm({ id, title });
+  };
+
+  // Quick 1-step move up
+  const handleMoveUp = (index) => {
+    if (index <= 0 || !data?.courses) return;
+    const list = [...data.courses];
+    const temp = list[index];
+    list[index] = list[index - 1];
+    list[index - 1] = temp;
+    reorderCourses(list.map((c) => c._id));
+  };
+
+  // Quick 1-step move down
+  const handleMoveDown = (index) => {
+    if (!data?.courses || index >= data.courses.length - 1) return;
+    const list = [...data.courses];
+    const temp = list[index];
+    list[index] = list[index + 1];
+    list[index + 1] = temp;
+    reorderCourses(list.map((c) => c._id));
+  };
+
+  // Quick move directly to top (#1)
+  const handleMoveToTop = (index) => {
+    if (index <= 0 || !data?.courses) return;
+    const list = [...data.courses];
+    const [item] = list.splice(index, 1);
+    list.unshift(item);
+    reorderCourses(list.map((c) => c._id));
+  };
+
+  // Save from Arrange Modal
+  const handleSaveArrange = (orderedList) => {
+    reorderCourses(
+      orderedList.map((c) => c._id),
+      {
+        onSuccess: () => {
+          setIsArrangeOpen(false);
+        },
+      }
+    );
   };
 
   return (
@@ -37,10 +100,10 @@ const DashboardProducts = () => {
             Manage Courses
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            View, edit, and manage all active courses.
+            View, edit, arrange order, and manage all active courses.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => setTrashOpen(true)}
             className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer flex items-center gap-2"
@@ -53,6 +116,14 @@ const DashboardProducts = () => {
                 {trashCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setIsArrangeOpen(true)}
+            disabled={!data?.courses || data.courses.length <= 1}
+            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-purple-200 hover:from-purple-700 hover:to-indigo-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Change course sequence (Top to Bottom order)"
+          >
+            <ArrowUpDown className="w-4 h-4" /> Arrange Courses
           </button>
           <button
             onClick={() =>
@@ -91,6 +162,7 @@ const DashboardProducts = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100/50 border-b border-slate-200 text-sm font-semibold text-slate-600">
+                  <th className="p-4 whitespace-nowrap w-24 text-center">Order</th>
                   <th className="p-4 whitespace-nowrap">Course Name</th>
                   <th className="p-4 whitespace-nowrap">Price</th>
                   <th className="p-4 whitespace-nowrap">Students</th>
@@ -99,11 +171,53 @@ const DashboardProducts = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data?.courses?.map((item) => (
+                {data?.courses?.map((item, idx) => (
                   <tr
                     key={item._id}
                     className="hover:bg-slate-50 transition-colors group"
                   >
+                    <td className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span
+                          className="w-7 h-7 flex items-center justify-center rounded-md bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200"
+                          title={`Current Position: #${idx + 1}`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUp(idx)}
+                            disabled={idx === 0 || isReordering}
+                            className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
+                            title="Move 1 step up"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDown(idx)}
+                            disabled={!data?.courses || idx === data.courses.length - 1 || isReordering}
+                            className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
+                            title="Move 1 step down"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMoveToTop(idx)}
+                            disabled={isReordering}
+                            className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition cursor-pointer"
+                            title="Bring to very top (#1)"
+                          >
+                            Top
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
@@ -223,7 +337,7 @@ const DashboardProducts = () => {
                 {/* Empty State Desktop */}
                 {(!data?.courses || data.courses.length === 0) && (
                   <tr>
-                    <td colSpan="5" className="p-12 text-center text-slate-500">
+                    <td colSpan="6" className="p-12 text-center text-slate-500">
                       No courses found. Click "+ Add Course" to create your
                       first one!
                     </td>
@@ -236,11 +350,56 @@ const DashboardProducts = () => {
 
         {/* Mobile Cards View (Hidden on desktop) */}
         <div className="grid grid-cols-1 gap-4 md:hidden">
-          {data?.courses?.map((item) => (
+          {data?.courses?.map((item, idx) => (
             <div
               key={item._id}
               className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-4 shadow-sm hover:border-slate-300 transition-colors"
             >
+              {/* Order Controls Bar on Mobile */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                    #{idx + 1}
+                  </span>
+                  {idx === 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold text-[10px] border border-purple-200 uppercase tracking-wide">
+                      Top
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleMoveToTop(idx)}
+                      disabled={isReordering}
+                      className="px-2 py-1 text-xs font-bold rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition cursor-pointer"
+                      title="Move to top"
+                    >
+                      Make Top
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleMoveUp(idx)}
+                    disabled={idx === 0 || isReordering}
+                    className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Move Up"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveDown(idx)}
+                    disabled={!data?.courses || idx === data.courses.length - 1 || isReordering}
+                    className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Move Down"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
               {/* Card Header */}
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
@@ -368,6 +527,19 @@ const DashboardProducts = () => {
           )}
         </div>
       </div>
+
+      {/* Reorder / Arrange Courses Modal */}
+      {isArrangeOpen && (
+        <ReorderModal
+          isOpen={isArrangeOpen}
+          onClose={() => setIsArrangeOpen(false)}
+          title="Arrange Courses Order"
+          subtitle="Drag or use Position dropdown / arrows to set which course appears on Top."
+          items={data?.courses || []}
+          onSave={handleSaveArrange}
+          isLoading={isReordering}
+        />
+      )}
 
       {/* Grant Access & Enrolled Students Dialog */}
       {accessDialog && (

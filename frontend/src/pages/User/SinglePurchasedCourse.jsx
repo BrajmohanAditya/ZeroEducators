@@ -37,7 +37,9 @@ const SinglePurchasedCourse = () => {
 
   // State for video module
   const [module, setModule] = useState(null);
-  // Direct pre-signed CDN stream URL state
+  // Stream authentication token state
+  const [streamToken, setStreamToken] = useState(null);
+  // Direct pre-signed CDN / stream URL state
   const [videoStreamUrl, setVideoStreamUrl] = useState(null);
   const [isLoadingStream, setIsLoadingStream] = useState(false);
 
@@ -48,7 +50,34 @@ const SinglePurchasedCourse = () => {
   const [openChapters, setOpenChapters] = useState({});
   const [openTopics, setOpenTopics] = useState({});
 
-  // 🚀 Fetch Direct 4-Hour CDN Streaming URL (Bypasses Node.js proxy, zero server load)
+  // 1. Fetch stream authentication token for seamless playback across browsers
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStreamToken = async () => {
+      try {
+        const uId = user?._id;
+        const res = await axios.post(
+          `${baseUrl}/stream-token`,
+          { userId: uId },
+          { withCredentials: true }
+        );
+        if (isMounted && res.data?.token) {
+          setStreamToken(res.data.token);
+        }
+      } catch (err) {
+        console.log("Stream token notice:", err?.message || err);
+      }
+    };
+
+    if (user?._id) {
+      fetchStreamToken();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user, baseUrl]);
+
+  // 2. Generate resilient video stream URL
   useEffect(() => {
     if (!module) {
       setVideoStreamUrl(null);
@@ -65,34 +94,9 @@ const SinglePurchasedCourse = () => {
       return;
     }
 
-    let isMounted = true;
-    setIsLoadingStream(true);
-
-    axios
-      .get(`${baseUrl}/module/stream-url/${encodeURIComponent(videoIdentifier)}`, {
-        withCredentials: true,
-      })
-      .then((res) => {
-        if (isMounted && res.data?.streamUrl) {
-          setVideoStreamUrl(res.data.streamUrl);
-        }
-      })
-      .catch((err) => {
-        console.warn("Direct CDN stream notice, using fallback stream route:", err?.message || err);
-        if (isMounted) {
-          setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}`);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingStream(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [module, baseUrl]);
+    const tokenQuery = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
+    setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`);
+  }, [module, baseUrl, streamToken]);
 
   useEffect(() => {
     if (isPdfCourse) {

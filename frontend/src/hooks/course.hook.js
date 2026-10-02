@@ -33,6 +33,7 @@ import {
   reorderChaptersApi,
   reorderSubjectsApi,
   reorderTopicsApi,
+  reorderCoursesApi,
 } from "../api/course.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -527,6 +528,21 @@ export const useReorderTopicsHook = (courseId) => {
     },
   });
 };
+
+export const useReorderCoursesHook = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reorderCoursesApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Course order updated successfully!");
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || "Failed to reorder courses");
+    },
+  });
+};
+
 
 
 

@@ -42,9 +42,7 @@ const courseSection = () => {
 
   const allCourses = useMemo(() => {
     if (!data?.courses) return [];
-    return [...data.courses].sort((a, b) =>
-      (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" })
-    );
+    return data.courses;
   }, [data?.courses]);
 
   const filteredCourses = useMemo(() => {

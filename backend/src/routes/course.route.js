@@ -35,6 +35,7 @@ import {
   getCourseEnrolledStudents,
   streamCoursePdf,
   copyCourse,
+  reorderCourses,
   reorderChapters,
   reorderSubjects,
   reorderTopics,
@@ -47,6 +48,7 @@ import {
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
+courseRoute.put("/reorder-courses", isLoggedIn, isAdmin, reorderCourses);
 courseRoute.post(
   "/createCourse",
   isLoggedIn,

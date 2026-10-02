@@ -115,8 +115,7 @@ export const getCourse = async (req, res) => {
     const { search } = req.query;
     if (!search || search.trim() === "") {
       const allCourses = await Course.find({ isDeleted: { $ne: true } })
-        .collation({ locale: "en", strength: 2 })
-        .sort({ title: 1 });
+        .sort({ order: 1, createdAt: -1 });
       return res.status(200).json({
         success: true,
         courses: allCourses,
@@ -155,8 +154,7 @@ export const getCourse = async (req, res) => {
     };
 
     const courses = await Course.find(mongoQuery)
-      .collation({ locale: "en", strength: 2 })
-      .sort({ title: 1 })
+      .sort({ order: 1, createdAt: -1 })
       .lean();
 
     const coursesWithEnrolled = await Promise.all(
@@ -2344,6 +2342,39 @@ export const streamMultipartVideoChunk = (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: err.message });
     }
+  }
+};
+
+// Reorder Courses across the platform (Admin Custom Sequence)
+export const reorderCourses = async (req, res, next) => {
+  try {
+    const { courseIds } = req.body;
+
+    if (!Array.isArray(courseIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "courseIds must be an array of course IDs",
+      });
+    }
+
+    const bulkOps = courseIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { $set: { order: index } },
+      },
+    }));
+
+    if (bulkOps.length > 0) {
+      await Course.bulkWrite(bulkOps);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Courses reordered successfully",
+    });
+  } catch (error) {
+    console.error("Error in reorderCourses:", error);
+    next(error);
   }
 };
 

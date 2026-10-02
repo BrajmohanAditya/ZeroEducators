@@ -258,11 +258,15 @@ const SecureVideoPlayer = ({
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play().catch(() => {
-        // playback interruption ignored
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch((err) => {
+        console.log("Playback start notice:", err?.message || err);
       });
     } else {
       videoRef.current.pause();
+      setIsPlaying(false);
     }
   };
 
@@ -648,7 +652,11 @@ const SecureVideoPlayer = ({
           applyPlaybackSpeed(playbackSpeed);
         }}
         onPause={() => setIsPlaying(false)}
-        onWaiting={() => setIsBuffering(true)}
+        onWaiting={() => {
+          if (isPlaying) {
+            setIsBuffering(true);
+          }
+        }}
         onPlaying={() => setIsBuffering(false)}
         onSeeked={() => setIsBuffering(false)}
         onCanPlayThrough={() => setIsBuffering(false)}
@@ -661,6 +669,20 @@ const SecureVideoPlayer = ({
           if (typeof onError === "function") onError(e);
         }}
       />
+
+      {/* ── YouTube-Style Big Center Play Button Overlay (when paused) ── */}
+      {!isPlaying && !isBuffering && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-in fade-in duration-200">
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="p-4 sm:p-5 rounded-full bg-emerald-500/90 hover:bg-emerald-500 text-white shadow-2xl backdrop-blur-xs transition-all transform hover:scale-110 active:scale-95 pointer-events-auto cursor-pointer flex items-center justify-center ring-4 ring-white/20 group/playbtn"
+            title="Play Video"
+          >
+            <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current translate-x-0.5 group-hover/playbtn:scale-105 transition-transform" />
+          </button>
+        </div>
+      )}
 
       {/* ── Centered Buffering Spinner Overlay ── */}
       {isBuffering && (

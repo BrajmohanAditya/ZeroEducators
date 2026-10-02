@@ -56,6 +56,12 @@ const courseSchema = new mongoose.Schema({
     default: "video",
   },
 
+  order: {
+    type: Number,
+    default: 0,
+    index: true,
+  },
+
   modules:[
     {
         type:mongoose.Schema.Types.ObjectId,

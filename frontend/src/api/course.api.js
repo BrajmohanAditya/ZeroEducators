@@ -515,5 +515,18 @@ export const reorderTopicsApi = async ({ courseId, topicIds }) => {
   return res.data;
 };
 
+export const reorderCoursesApi = async (courseIds) => {
+  const res = await axios.put(
+    `${baseUrl}/course/reorder-courses`,
+    { courseIds },
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
+
 
 

@@ -25,6 +25,7 @@ userRoute.post("/change-password", isLoggedIn, changePassword);
 userRoute.post("/forgot-password", forgotPassword);
 userRoute.post("/reset-password", resetPasswordWithOtp);
 userRoute.post("/stream-token", getStreamToken);
+userRoute.get("/stream-token", getStreamToken);
 
 
 
