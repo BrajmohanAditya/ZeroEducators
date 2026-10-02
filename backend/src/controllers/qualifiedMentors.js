@@ -51,7 +51,7 @@ export const createQualifiedMentor = async (req, res, next) => {
 // @route   GET /api/mentor/all
 export const getQualifiedMentors = async (req, res, next) => {
   try {
-    const mentors = await QualifiedMentor.find({}).sort({ createdAt: -1 });
+    const mentors = await QualifiedMentor.find({}).sort({ createdAt: -1 }).lean();
     return res.status(200).json({
       success: true,
       mentors,

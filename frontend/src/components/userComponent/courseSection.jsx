@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   useGetCourseHook,
   useGetAllPurchasedCourseHook,
 } from "../../hooks/course.hook.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Clock,
   Users,
@@ -11,7 +11,6 @@ import {
   Zap,
   Search,
   X,
-  ChevronDown,
   Sparkles,
   BookOpen,
 } from "lucide-react";
@@ -19,22 +18,17 @@ import {
 const courseSection = () => {
   const { data, error, isLoading } = useGetCourseHook();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: purchasedData } = useGetAllPurchasedCourseHook();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    const urlQuery = searchParams.get("search");
+    if (urlQuery !== null) {
+      setSearchQuery(urlQuery);
+    }
+  }, [searchParams]);
 
   const navigateSinglecourse = (id) => {
     navigate(`/singleCourse/${id}`);
@@ -96,140 +90,28 @@ const courseSection = () => {
             </h2>
           </div>
 
-          {/* Search Dropdown Component */}
-          <div ref={dropdownRef} className="relative w-full md:w-[420px]">
-            <div
-              className={`relative flex items-center bg-white border rounded-2xl shadow-sm transition-all duration-200 ${
-                isDropdownOpen
-                  ? "border-emerald-500 ring-4 ring-emerald-500/10 shadow-md"
-                  : "border-slate-300 hover:border-slate-400"
-              }`}
-            >
+          {/* Search Box - Direct Filter (No Dropdown) */}
+          <div className="relative w-full md:w-[380px]">
+            <div className="relative flex items-center bg-white border border-slate-300 hover:border-slate-400 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 rounded-2xl shadow-sm transition-all duration-200">
               <Search className="w-4 h-4 text-slate-400 ml-4 shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
-                onFocus={() => setIsDropdownOpen(true)}
-                onClick={() => setIsDropdownOpen(true)}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsDropdownOpen(true);
-                }}
-                placeholder="Search courses or click for all..."
-                className="w-full py-3 pl-3 pr-2 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search courses..."
+                className="w-full py-3 pl-3 pr-10 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
               />
-              {searchQuery ? (
+              {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 mr-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                  className="absolute right-3 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
                   title="Clear search"
                 >
                   <X className="w-4 h-4" />
                 </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className="p-3 text-slate-400 hover:text-slate-600 mr-1 transition cursor-pointer"
-                title="Toggle course list"
-              >
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    isDropdownOpen ? "rotate-180 text-emerald-600" : ""
-                  }`}
-                />
-              </button>
+              )}
             </div>
-
-            {/* Dropdown Menu showing all courses */}
-            {isDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    {searchQuery.trim()
-                      ? `Matching Courses (${filteredCourses.length})`
-                      : `All Available Courses (${allCourses.length})`}
-                  </span>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
-                    >
-                      Show all
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                  {filteredCourses.length > 0 ? (
-                    filteredCourses.map((course) => {
-                      const isPurchased = purchasedData?.purchasedCourse?.some(
-                        (pc) => pc._id === course._id
-                      );
-                      return (
-                        <div
-                          key={course._id}
-                          onClick={() => {
-                            setIsDropdownOpen(false);
-                            if (isPurchased) {
-                              navigate(`/SinglePurchasedCourse/${course._id}`);
-                            } else {
-                              navigateSinglecourse(course._id);
-                            }
-                          }}
-                          className="p-3 flex items-center gap-3 hover:bg-emerald-50/70 transition cursor-pointer group"
-                        >
-                          <div className="w-14 h-10 rounded-lg overflow-hidden bg-slate-900 shrink-0 border border-slate-200">
-                            <img
-                              src={course.thumbnail}
-                              alt={course.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700">
-                                {course.title}
-                              </h4>
-                              {isPurchased && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 bg-emerald-100 text-emerald-700 rounded-full shrink-0">
-                                  Enrolled
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                              <span>{course.duration || "12 hrs"}</span>
-                              <span>•</span>
-                              <span className="font-bold text-slate-900">
-                                {course.isFree || Number(course.amount) === 0
-                                  ? "FREE"
-                                  : `₹${course.amount}`}
-                              </span>
-                            </div>
-                          </div>
-
-                          <span className="text-xs font-bold text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0">
-                            {isPurchased ? "Open →" : "View →"}
-                          </span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="p-6 text-center text-slate-500">
-                      <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-slate-700">
-                        No courses found matching "{searchQuery}"
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Check the spelling or clear the search
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

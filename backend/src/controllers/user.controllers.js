@@ -149,10 +149,7 @@ export const getUser = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-    // Auto-remove expired courses if plan duration has passed
-    await syncUserCourseExpiry(userId);
-
-    const user = await User.findById(userId).select("-password");
+    let user = req.user;
 
     if (!user) {
       return res.status(401).json({
@@ -161,17 +158,29 @@ export const getUser = async (req, res, next) => {
       });
     }
 
-    let userObj = user.toObject();
+    // Only run auto-expiry sync if non-admin/non-tester actually has enrolled courses
+    if (
+      user.role !== "admin" &&
+      !isTesterEmail(user.email) &&
+      user.purchasedCourse &&
+      user.purchasedCourse.length > 0
+    ) {
+      const updatedUser = await syncUserCourseExpiry(userId, user);
+      if (updatedUser) {
+        user = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+      }
+    }
+
     // Grant all courses to tester email for Google Play review
     if (isTesterEmail(user.email)) {
       const allCourseIds = await Course.find({ isDeleted: { $ne: true } }).distinct("_id");
-      userObj.purchasedCourse = allCourseIds;
+      user.purchasedCourse = allCourseIds;
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       message: "User found",
       success: true,
-      user: userObj,
+      user,
     });
   } catch (error) {
     next(error);

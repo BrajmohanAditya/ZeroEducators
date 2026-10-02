@@ -20,7 +20,7 @@ export const isLoggedIn = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized - Invalid Token" });
     }
 
-    const user = await User.findById(verifyToken.userId).select("-password");
+    const user = await User.findById(verifyToken.userId).select("-password").lean();
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized - User Not Found" });

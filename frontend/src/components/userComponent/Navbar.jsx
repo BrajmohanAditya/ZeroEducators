@@ -83,102 +83,119 @@ const Navbar = () => {
     ];
   }
 
-  return (
-    <div className="sticky top-0 z-50 bg-white min-h-[12vh] w-full flex flex-wrap items-center justify-between px-4 md:px-6 py-3 md:py-0 shadow-md border-b-[3px] border-[#d4af37] gap-y-2">
-      <div
-        className="flex items-center gap-2.5 order-1 cursor-pointer group select-none"
-        onClick={() => navigate("/")}
-      >
-        <img
-          src="/logo3rd.png"
-          alt="Zero Educators Logo"
-          className="h-11 md:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
-        />
+  const renderUserMenu = () => (
+    <Popover>
+      <PopoverTrigger className="flex items-center gap-2 p-1 sm:p-1.5 hover:bg-[#d4af37]/15 rounded-xl transition-all duration-300 group cursor-pointer shrink-0">
+        <Avatar className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 border-2 border-[#d4af37] shadow-xs group-hover:shadow-[0_0_10px_rgba(212,175,55,0.4)] transition-all duration-300">
+          <AvatarImage
+            src={user?.profilePhoto || ""}
+            className="object-cover"
+          />
+          <AvatarFallback className="bg-white w-full h-full text-[#050e08] flex items-center justify-center">
+            <StudentIcon />
+          </AvatarFallback>
+        </Avatar>
 
-        <h1
-          className="text-2xl lg:text-[27px] font-black tracking-tight uppercase flex items-center leading-none"
-          style={{
-            fontFamily: "'Outfit', 'Poppins', sans-serif",
-          }}
+        <div className="hidden lg:block text-left max-w-[100px]">
+          <p className="font-semibold text-xs text-slate-900 leading-tight truncate">
+            {user?.name ? user.name : "Account"}
+          </p>
+        </div>
+
+        <svg
+          className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-slate-600 transition-colors"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          <span className="bg-gradient-to-r from-[#073b75] via-[#0b5cb8] to-[#1976d2] bg-clip-text text-transparent font-black drop-shadow-[0_1px_1px_rgba(7,59,117,0.2)]">
-            ZEROEDUCATORS
-          </span>
-        </h1>
-      </div>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </PopoverTrigger>
 
-      {/* Search Bar in Navbar */}
-      <div className="w-full md:w-auto md:flex-1 flex justify-center order-3 md:order-2">
-        <SearchBar />
-      </div>
+      <PopoverContent className="w-60 sm:w-64 p-1 mt-2 border-slate-200 shadow-2xl rounded-2xl" align="end">
+        <div className="p-3 sm:p-4 border-b border-slate-100">
+          <p className="font-semibold text-slate-900 text-sm tracking-tight truncate">
+            {user?.name || "Welcome back"}
+          </p>
+          <p className="text-xs text-slate-500 font-medium truncate">
+            {user?.email || "Manage your account"}
+          </p>
+        </div>
 
-      <div className="order-2 md:order-3">
-        <Popover>
-          <PopoverTrigger className="flex items-center gap-3 p-2 hover:bg-[#d4af37]/15 rounded-xl transition-all duration-300 group cursor-pointer">
-            <Avatar className="w-10 h-10 border-[3px] border-[#d4af37] shadow-sm group-hover:shadow-[0_0_12px_rgba(212,175,55,0.4)] transition-all duration-300">
-              <AvatarImage
-                src={user?.profilePhoto || ""}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-white w-full h-full text-[#050e08] flex items-center justify-center">
-                <StudentIcon />
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="hidden md:block text-left">
-              <p className="font-semibold text-sm text-slate-900 leading-tight">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : " "}
-              </p>
-            </div>
-
-            <svg
-              className="w-4 h-4 text-slate-400 ml-1 group-hover:text-slate-600 transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="py-2 space-y-1">
+          {navItems.map((item, index) => (
+            <button
+              key={index}
+              onClick={item.onClick}
+              disabled={item.loading}
+              className="group relative w-full flex items-center gap-3 px-3.5 py-2.5 text-left rounded-xl transition-all duration-200 hover:bg-slate-50 hover:shadow-xs text-xs sm:text-sm font-medium text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </PopoverTrigger>
+              <item.icon className="w-4 h-4 text-slate-500 group-hover:text-slate-700 shrink-0" />
+              <span className="truncate">{item.label}</span>
 
-          <PopoverContent className="w-64 p-1 mt-2 border-slate-200 shadow-2xl rounded-2xl">
-            <div className="p-4 border-b border-slate-100">
-              <p className="font-semibold text-slate-900 text-sm tracking-tight">
-                {user?.name || "Welcome back"}
-              </p>
-              <p className="text-xs text-slate-500 font-medium">
-                Manage your account
-              </p>
-            </div>
+              {item.loading && (
+                <div className="absolute right-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 
-            <div className="py-2 space-y-1">
-              {navItems.map((item, index) => (
-                <button
-                  key={index}
-                  onClick={item.onClick}
-                  disabled={item.loading}
-                  className="group relative w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl transition-all duration-200 hover:bg-slate-50 hover:shadow-md text-sm font-medium text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <item.icon className="w-4 h-4 text-slate-500 group-hover:text-slate-700 shrink-0" />
-                  <span className="truncate">{item.label}</span>
+  return (
+    <header className="sticky top-0 z-50 bg-white w-full shadow-sm border-b-[3px] border-[#d4af37]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 md:py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6">
+        
+        {/* Top row: Brand Logo on Left, Profile Avatar on Right on Mobile */}
+        <div className="w-full md:w-auto flex items-center justify-between gap-3 shrink-0">
+          <div
+            className="flex items-center gap-2 cursor-pointer group select-none shrink-0"
+            onClick={() => navigate("/")}
+          >
+            <img
+              src="/logo3rd.png"
+              alt="Zero Educators Logo"
+              className="h-8 sm:h-10 md:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-xs"
+            />
 
-                  {item.loading && (
-                    <div className="absolute right-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+            <h1
+              className="text-lg sm:text-xl lg:text-2xl font-black tracking-tight uppercase flex items-center leading-none"
+              style={{
+                fontFamily: "'Outfit', 'Poppins', sans-serif",
+              }}
+            >
+              <span className="bg-gradient-to-r from-[#073b75] via-[#0b5cb8] to-[#1976d2] bg-clip-text text-transparent font-black drop-shadow-[0_1px_1px_rgba(7,59,117,0.2)]">
+                ZEROEDUCATORS
+              </span>
+            </h1>
+          </div>
+
+          {/* User Profile Trigger on Mobile (< md) */}
+          <div className="md:hidden">
+            {renderUserMenu()}
+          </div>
+        </div>
+
+        {/* Center: Search Bar (Full width row on mobile, centered row on desktop) */}
+        <div className="w-full md:flex-1 md:max-w-xl lg:max-w-2xl flex justify-center">
+          <SearchBar />
+        </div>
+
+        {/* User Profile Trigger on Desktop (>= md) */}
+        <div className="hidden md:flex items-center shrink-0">
+          {renderUserMenu()}
+        </div>
+
       </div>
-    </div>
+    </header>
   );
 };
 

@@ -31,7 +31,7 @@ const DashboardSidebar = () => {
     },
     {
       to: "/admindashboard/heroSection",
-      label: "Banners & Upcomming Exams",
+      label: "Banners & Upcoming",
       icon: FileText,
     },
     {

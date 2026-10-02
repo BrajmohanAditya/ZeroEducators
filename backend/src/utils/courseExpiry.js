@@ -90,11 +90,11 @@ export const calculatePlanExpiry = (planDuration, purchaseDate = new Date()) => 
  * @param {string|mongoose.Types.ObjectId} userId
  * @returns {Promise<User>} Updated user document
  */
-export const syncUserCourseExpiry = async (userId) => {
+export const syncUserCourseExpiry = async (userId, cachedUser = null) => {
   if (!userId) return null;
 
   try {
-    const user = await User.findById(userId);
+    const user = cachedUser || (await User.findById(userId));
     if (!user) return null;
 
     // Never expire courses for admin or demo reviewer
@@ -111,7 +111,10 @@ export const syncUserCourseExpiry = async (userId) => {
     const orders = await Order.find({
       user: userId,
       paymentGateway: { $ne: "failed" },
-    }).sort({ createdAt: -1 });
+    })
+      .select("course expiresAt planDuration createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
 
     const now = new Date();
     const coursesToRemove = [];

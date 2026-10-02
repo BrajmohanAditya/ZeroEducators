@@ -52,7 +52,7 @@ export const createSuccessBoard = async (req, res, next) => {
 // @route   GET /api/successBoard/all
 export const getSuccessBoard = async (req, res, next) => {
   try {
-    const students = await SuccessBoard.find({}).sort({ createdAt: -1 });
+    const students = await SuccessBoard.find({}).sort({ createdAt: -1 }).lean();
     return res.status(200).json({
       success: true,
       students,

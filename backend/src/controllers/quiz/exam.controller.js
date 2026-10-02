@@ -72,18 +72,48 @@ export const getExams = async (req, res, next) => {
 
     const exams = await Exam.find(filter).sort({ createdAt: -1 }).lean();
 
-    // Attach total quizzes count for each exam
-    const examsWithCounts = await Promise.all(
-      exams.map(async (exam) => {
-        const quizCount = await Quiz.countDocuments({
-          $or: [{ examId: exam._id }, { nameOfExam: exam.title }],
-        });
-        return {
-          ...exam,
-          totalQuizzes: quizCount,
-        };
-      })
-    );
+    if (!exams.length) {
+      return res.status(200).json({
+        success: true,
+        exams: [],
+        count: 0,
+      });
+    }
+
+    const examIds = exams.map((e) => e._id);
+    const examTitles = exams.map((e) => e.title);
+
+    const counts = await Quiz.aggregate([
+      {
+        $match: {
+          $or: [
+            { examId: { $in: examIds } },
+            { nameOfExam: { $in: examTitles } },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ["$examId", "$nameOfExam"] },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const countMap = new Map();
+    counts.forEach((c) => {
+      if (c._id) {
+        countMap.set(c._id.toString(), c.count);
+      }
+    });
+
+    const examsWithCounts = exams.map((exam) => ({
+      ...exam,
+      totalQuizzes:
+        countMap.get(exam._id.toString()) ||
+        countMap.get(exam.title) ||
+        0,
+    }));
 
     return res.status(200).json({
       success: true,

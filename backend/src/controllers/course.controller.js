@@ -13,7 +13,6 @@ import { Readable } from "stream";
 import https from "https";
 import { ENV, isTesterEmail } from "../config/env.js";
 import { Course } from "../models/course.model.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import { Modules } from "../models/module.model.js";
@@ -21,9 +20,6 @@ import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
 import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
-
-const genAi = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
-const model = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export const createCourse = async (req, res, next) => {
   try {
@@ -109,13 +105,15 @@ export const createCourse = async (req, res, next) => {
   }
 };
 
-// ai search fiture
+// get courses with direct search
 export const getCourse = async (req, res) => {
   try {
     const { search } = req.query;
     if (!search || search.trim() === "") {
       const allCourses = await Course.find({ isDeleted: { $ne: true } })
-        .sort({ order: 1, createdAt: -1 });
+        .select("-subjects -topics")
+        .sort({ order: 1, createdAt: -1 })
+        .lean();
       return res.status(200).json({
         success: true,
         courses: allCourses,
@@ -123,61 +121,31 @@ export const getCourse = async (req, res) => {
       });
     }
 
-    const prompt = `you are a intelligent assistant for a learning management 
-        platform system. A user is searching for courses. analyze the query and 
-        return the most relevant keyword from these catogeries. 
-
-        - Banking 
-        - Insurance
-        - Accounting
-        - Finance
-
-        only reply with one keyword that best matches the query no explanation 
-
-        user query: ${search}
-        `;
-
-    const result = await model.generateContent(prompt);
-    const aiText =
-      result?.response?.candidates?.[0]?.content?.parts?.[0]?.text
-        ?.trim()
-        .replace(/['"*+-]/g, "") || "";
-
-    const searchTerm = aiText || search;
-
-    const mongoQuery = {
+    const trimmedSearch = search.trim();
+    const query = {
       isDeleted: { $ne: true },
       $or: [
-        { title: { $regex: searchTerm, $options: "i" } },
-        { description: { $regex: searchTerm, $options: "i" } },
+        { title: { $regex: trimmedSearch, $options: "i" } },
+        { description: { $regex: trimmedSearch, $options: "i" } },
       ],
     };
 
-    const courses = await Course.find(mongoQuery)
+    const courses = await Course.find(query)
+      .select("-subjects -topics")
       .sort({ order: 1, createdAt: -1 })
       .lean();
 
-    const coursesWithEnrolled = await Promise.all(
-      courses.map(async (c) => {
-        try {
-          const enrolledCount = await User.countDocuments({
-            purchasedCourse: c._id,
-          });
-          return { ...c, enrolled: enrolledCount };
-        } catch {
-          return { ...c, enrolled: 0 };
-        }
-      })
-    );
-
     return res.status(200).json({
       success: true,
-      courses: coursesWithEnrolled,
+      courses,
       searchTerm: search,
-      count: coursesWithEnrolled.length,
+      count: courses.length,
     });
   } catch (error) {
     console.log(`error from get courses.${error}`);
+    return res
+      .status(500)
+      .json({ success: false, message: "Error fetching courses" });
   }
 };
 
@@ -243,7 +211,11 @@ export const getAllPurchasedCourse = async (req, res) => {
 
     const user = await User.findById(userId)
       .select("-password")
-      .populate("purchasedCourse");
+      .populate({
+        path: "purchasedCourse",
+        match: { isDeleted: { $ne: true } },
+        select: "title description thumbnail amount isFree duration courseType pricingPlans",
+      });
 
     if (!user) {
       return res.status(401).json({
@@ -253,7 +225,9 @@ export const getAllPurchasedCourse = async (req, res) => {
 
     let userObj = user.toObject();
     if (isTesterEmail(user.email)) {
-      const allCourses = await Course.find({ isDeleted: { $ne: true } });
+      const allCourses = await Course.find({ isDeleted: { $ne: true } })
+        .select("title description thumbnail amount isFree duration courseType pricingPlans")
+        .lean();
       userObj.purchasedCourse = allCourses;
     }
 
@@ -426,6 +400,7 @@ export const restoreCourse = async (req, res, next) => {
 export const getTrashCourses = async (req, res, next) => {
   try {
     const trashedCourses = await Course.find({ isDeleted: true })
+      .select("-subjects -topics")
       .sort({ deletedAt: -1 })
       .lean();
 
@@ -1656,6 +1631,12 @@ export const revokeCourseAccess = async (req, res, next) => {
     await User.findByIdAndUpdate(userId, {
       $pull: { purchasedCourse: courseId },
     });
+
+    // Also mark any associated orders as revoked so auto-expiry/sync doesn't re-activate
+    await Order.updateMany(
+      { user: userId, course: courseId },
+      { $set: { paymentGateway: "revoked", expiresAt: new Date(0) } }
+    );
 
     return res.status(200).json({
       success: true,

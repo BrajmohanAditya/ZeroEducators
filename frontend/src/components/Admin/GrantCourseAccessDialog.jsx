@@ -222,14 +222,18 @@ const GrantCourseAccessDialog = ({
     }
   };
 
-  const handleConfirmRevoke = () => {
-    if (!revokeConfirm) return;
+  const handleConfirmRevoke = (userIdToRevoke) => {
+    const targetUserId = userIdToRevoke || revokeConfirm?.id;
+    if (!targetUserId) return;
     revokeAccess(
-      { courseId: selectedCourseId, userId: revokeConfirm.id },
+      { courseId: selectedCourseId, userId: targetUserId },
       {
         onSuccess: () => {
           setRevokeConfirm(null);
           refetchEnrolled();
+        },
+        onError: () => {
+          setRevokeConfirm(null);
         },
       }
     );
@@ -803,21 +807,49 @@ const GrantCourseAccessDialog = ({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          disabled={isRevoking}
-                          onClick={() => {
-                            setRevokeConfirm({
-                              id: s._id,
-                              name: s.name,
-                              title: currentCourse?.title || "this course",
-                            });
-                          }}
-                          className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200 cursor-pointer shrink-0 inline-flex items-center gap-1"
-                          title="Revoke Course Access"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Revoke
-                        </button>
+                        {revokeConfirm?.id === s._id ? (
+                          <div className="flex items-center gap-1.5 shrink-0 bg-red-50 p-1.5 rounded-lg border border-red-200">
+                            <span className="text-[11px] font-bold text-red-700">Sure?</span>
+                            <button
+                              type="button"
+                              disabled={isRevoking}
+                              onClick={() => handleConfirmRevoke(s._id)}
+                              className="px-2.5 py-1 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-md transition shadow-xs cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                            >
+                              {isRevoking ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" /> Revoking...
+                                </>
+                              ) : (
+                                "Yes, Revoke"
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isRevoking}
+                              onClick={() => setRevokeConfirm(null)}
+                              className="px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-md transition cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isRevoking}
+                            onClick={() => {
+                              setRevokeConfirm({
+                                id: s._id,
+                                name: s.name,
+                                title: currentCourse?.title || "this course",
+                              });
+                            }}
+                            className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200 cursor-pointer shrink-0 inline-flex items-center gap-1"
+                            title="Revoke Course Access"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Revoke
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -835,15 +867,6 @@ const GrantCourseAccessDialog = ({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Revoke Confirmation Dialog */}
-      <DeleteAlertbox
-        isOpen={Boolean(revokeConfirm)}
-        itemName={`access for ${revokeConfirm?.name} from ${revokeConfirm?.title}`}
-        isDeleting={isRevoking}
-        onCancel={() => setRevokeConfirm(null)}
-        onConfirm={handleConfirmRevoke}
-      />
     </>
   );
 };

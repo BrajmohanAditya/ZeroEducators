@@ -1,39 +1,49 @@
-import React from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
+import React, { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
 import Login from "../pages/Auth/Login";
 import Register from "../pages/Auth/Register";
 import Home from "../pages/User/Home";
 import { ProtectedRoutes } from "./protectedRoute";
-import DashboardProducts from "../pages/Admin/course";
-import Dashboard from "../pages/Admin/dashboard";
 import UserLayout from "../layout/userLayout";
-import ModulePage from "../pages/Admin/module";
-import TopicPdfManager from "../pages/Admin/TopicPdfManager";
-import SingleCourse from "@/pages/User/SingleCourse";
-import PaymenSuccess from "@/pages/User/PaymenSuccess";
-import YourAllPurchasedCourse from "@/pages/User/yourAllPurchasedCourse";
-import SinglePurchasedCourse from "@/pages/User/SinglePurchasedCourse";
-import VerifyOtp from "@/pages/Auth/verifyOtp";
-import HeroSectionManagement from "@/pages/Admin/heroSection";
-import QuizManagement from "@/pages/Admin/Quiz.management";
-import QuizeInterface from "@/pages/User/quize/quize.interface";
-import QuizeDetail from "@/pages/User/quize/quize.detail";
-import QuizResult from "@/pages/User/quize/quize.result";
-import PremiumStudent from "@/pages/Admin/premiumStudent";
-import SuccessBoard from "@/pages/Admin/Success.board";
-import QualifiedMentors from "@/pages/Admin/qualifiedMentors";
-import EbookCreate from "@/pages/Admin/ebook";
-import AllEbooks from "@/pages/User/eBooks.jsx/All.eBook";
-import EbookQuestionPractice from "@/pages/User/eBooks.jsx/eBook.ui";
-import CouponManagement from "@/pages/Admin/CouponManagement";
-import TermsAndConditions from "@/pages/User/TermsAndConditions";
-import PrivacyPolicy from "@/pages/User/PrivacyPolicy";
-import AnalyticsDashboard from "@/pages/Admin/AnalyticsDashboard";
-// UserLayout wraps routes that SHOULD have the top Navbar
+
+// Lazy-loaded routes for performance & code-splitting
+const SingleCourse = lazy(() => import("@/pages/User/SingleCourse"));
+const YourAllPurchasedCourse = lazy(() => import("@/pages/User/yourAllPurchasedCourse"));
+const SinglePurchasedCourse = lazy(() => import("@/pages/User/SinglePurchasedCourse"));
+const QuizeDetail = lazy(() => import("@/pages/User/quize/quize.detail"));
+const QuizResult = lazy(() => import("@/pages/User/quize/quize.result"));
+const QuizeInterface = lazy(() => import("@/pages/User/quize/quize.interface"));
+const QualifiedMentors = lazy(() => import("@/pages/Admin/qualifiedMentors"));
+const AllEbooks = lazy(() => import("@/pages/User/eBooks.jsx/All.eBook"));
+const EbookQuestionPractice = lazy(() => import("@/pages/User/eBooks.jsx/eBook.ui"));
+const TermsAndConditions = lazy(() => import("@/pages/User/TermsAndConditions"));
+const PrivacyPolicy = lazy(() => import("@/pages/User/PrivacyPolicy"));
+const VerifyOtp = lazy(() => import("@/pages/Auth/verifyOtp"));
+const PaymenSuccess = lazy(() => import("@/pages/User/PaymenSuccess"));
+
+// Admin pages (only loaded when admin visits)
+const Dashboard = lazy(() => import("../pages/Admin/dashboard"));
+const DashboardProducts = lazy(() => import("../pages/Admin/course"));
+const ModulePage = lazy(() => import("../pages/Admin/module"));
+const TopicPdfManager = lazy(() => import("../pages/Admin/TopicPdfManager"));
+const HeroSectionManagement = lazy(() => import("@/pages/Admin/heroSection"));
+const QuizManagement = lazy(() => import("@/pages/Admin/Quiz.management"));
+const PremiumStudent = lazy(() => import("@/pages/Admin/premiumStudent"));
+const SuccessBoard = lazy(() => import("@/pages/Admin/Success.board"));
+const EbookCreate = lazy(() => import("@/pages/Admin/ebook"));
+const CouponManagement = lazy(() => import("@/pages/Admin/CouponManagement"));
+const AnalyticsDashboard = lazy(() => import("@/pages/Admin/AnalyticsDashboard"));
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-3 border-[#0b5cb8] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 const MainRoutes = () => {
   return (
-    <Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
       {/* --- User Routes (Wrapped with Navbar) --- */}
       <Route element={<UserLayout />}>
         <Route path="/" element={<Home />} />
@@ -247,6 +257,7 @@ const MainRoutes = () => {
         }
       />
     </Routes>
+    </Suspense>
   );
 };
 

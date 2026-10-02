@@ -20,11 +20,13 @@ import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
 import couponRoute from "./src/routes/coupon.route.js";
 import videoInteractionRoute from "./src/routes/videoInteraction.route.js";
 import analyticsRoute from "./src/routes/analytics.route.js";
+import compression from "compression";
 import { startCourseCleanupJob } from "./src/jobs/courseCleanup.job.js";
 import { startDbBackupSchedule } from "./src/jobs/dbBackup.job.js";
 
 const app = express();
 
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

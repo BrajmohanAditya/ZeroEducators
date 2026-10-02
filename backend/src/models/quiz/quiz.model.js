@@ -78,4 +78,7 @@ const quizSchema = new mongoose.Schema(
   },
 );
 
+quizSchema.index({ examId: 1, createdAt: 1 });
+quizSchema.index({ quizType: 1, isFreeDemo: 1, price: 1 });
+
 export const Quiz = mongoose.model("Quiz", quizSchema);

@@ -40,4 +40,6 @@ const examSchema = new mongoose.Schema(
   }
 );
 
+examSchema.index({ category: 1, createdAt: -1 });
+
 export const Exam = mongoose.model("Exam", examSchema);
