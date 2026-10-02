@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import Hls from "hls.js";
 import {
   ShieldCheck,
   Loader2,
@@ -166,45 +165,59 @@ const SecureVideoPlayer = ({
   const isHls = typeof src === "string" && src.includes(".m3u8");
   const effectiveSrc = isHls ? src : getQualityUrl(src, quality);
 
-  // HLS.js adaptive bitrate streaming setup
+  // HLS.js adaptive bitrate streaming setup (lazy-loaded on-demand for .m3u8 streams)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isHls || !src) return;
 
-    if (Hls.isSupported()) {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 30,
-        maxBufferLength: 30,
-      });
-      hlsRef.current = hls;
-      hls.loadSource(src);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (quality === "auto") {
-          hls.currentLevel = -1; // Adaptive mode
-        } else {
-          const targetHeight = parseInt(quality, 10);
-          const levelIdx = hls.levels.findIndex((lvl) => lvl.height === targetHeight);
-          if (levelIdx !== -1) {
-            hls.currentLevel = levelIdx;
+    let isSubscribed = true;
+    import("hls.js")
+      .then(({ default: Hls }) => {
+        if (!isSubscribed || !video) return;
+        if (Hls && Hls.isSupported()) {
+          if (hlsRef.current) {
+            hlsRef.current.destroy();
           }
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 30,
+            maxBufferLength: 30,
+          });
+          hlsRef.current = hls;
+          hls.loadSource(src);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (quality === "auto") {
+              hls.currentLevel = -1; // Adaptive mode
+            } else {
+              const targetHeight = parseInt(quality, 10);
+              const levelIdx = hls.levels.findIndex((lvl) => lvl.height === targetHeight);
+              if (levelIdx !== -1) {
+                hls.currentLevel = levelIdx;
+              }
+            }
+          });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          // Native Safari HLS
+          video.src = src;
+        }
+      })
+      .catch((err) => {
+        console.warn("HLS loader notice, falling back to native player:", err?.message || err);
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = src;
         }
       });
 
-      return () => {
-        hls.destroy();
+    return () => {
+      isSubscribed = false;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
         hlsRef.current = null;
-      };
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native Safari HLS
-      video.src = src;
-    }
+      }
+    };
   }, [src, isHls]);
 
   // Settings Panel state: false | true
