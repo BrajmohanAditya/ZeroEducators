@@ -763,6 +763,7 @@ const SecureVideoPlayer = ({
         visible={true}
         transparent={false}
         animationType="fade"
+        supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
         onRequestClose={() => setIsFullscreen(false)}
       >
         <StatusBar hidden={true} />

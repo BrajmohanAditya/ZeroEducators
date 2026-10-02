@@ -226,6 +226,9 @@ const SecureVideoPlayer = ({
   const handleTimeUpdate = () => {
     const vid = videoRef.current;
     if (!vid) return;
+    if (isBuffering) {
+      setIsBuffering(false);
+    }
     setCurrentTime(vid.currentTime);
     if (!duration || !isFinite(duration)) {
       updateDuration();
@@ -409,7 +412,7 @@ const SecureVideoPlayer = ({
     return () => clearInterval(interval);
   }, []);
 
-  // 3. Fullscreen sync
+  // 3. Fullscreen sync & Screen Orientation unlock listener
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isCurrentFs = Boolean(
@@ -419,6 +422,15 @@ const SecureVideoPlayer = ({
         document.msFullscreenElement
       );
       setIsFullscreen(isCurrentFs);
+
+      // If user exited fullscreen via back button, ESC, or swipe gesture, restore orientation
+      if (!isCurrentFs && window.screen?.orientation?.unlock) {
+        try {
+          window.screen.orientation.unlock();
+        } catch {
+          // ignore
+        }
+      }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -440,7 +452,25 @@ const SecureVideoPlayer = ({
         } else if (el?.msRequestFullscreen) {
           await el.msRequestFullscreen();
         }
+
+        // 🚀 Automatically lock to landscape mode on mobile/tablet devices
+        if (window.screen?.orientation?.lock) {
+          try {
+            await window.screen.orientation.lock("landscape");
+          } catch (orientErr) {
+            console.log("Landscape orientation note:", orientErr?.message || orientErr);
+          }
+        }
       } else {
+        // Unlock orientation back to portrait / auto
+        if (window.screen?.orientation?.unlock) {
+          try {
+            window.screen.orientation.unlock();
+          } catch {
+            // ignore
+          }
+        }
+
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
@@ -614,11 +644,14 @@ const SecureVideoPlayer = ({
         onProgress={updateBuffered}
         onPlay={() => {
           setIsPlaying(true);
+          setIsBuffering(false);
           applyPlaybackSpeed(playbackSpeed);
         }}
         onPause={() => setIsPlaying(false)}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => setIsBuffering(false)}
+        onSeeked={() => setIsBuffering(false)}
+        onCanPlayThrough={() => setIsBuffering(false)}
         onCanPlay={() => {
           setIsBuffering(false);
           updateDuration();

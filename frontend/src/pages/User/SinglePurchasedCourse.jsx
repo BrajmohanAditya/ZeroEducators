@@ -15,6 +15,7 @@ import {
   Lock,
 } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 import SecurePdfViewer from "@/components/common/SecurePdfViewer";
 import SecureVideoPlayer from "@/components/common/SecureVideoPlayer";
 import VideoInteractionSection from "@/components/common/VideoInteractionSection";
@@ -36,6 +37,9 @@ const SinglePurchasedCourse = () => {
 
   // State for video module
   const [module, setModule] = useState(null);
+  // Direct pre-signed CDN stream URL state
+  const [videoStreamUrl, setVideoStreamUrl] = useState(null);
+  const [isLoadingStream, setIsLoadingStream] = useState(false);
 
   // State for PDF document
   const [activePdf, setActivePdf] = useState(null);
@@ -43,6 +47,52 @@ const SinglePurchasedCourse = () => {
   const [openSubjects, setOpenSubjects] = useState({});
   const [openChapters, setOpenChapters] = useState({});
   const [openTopics, setOpenTopics] = useState({});
+
+  // 🚀 Fetch Direct 4-Hour CDN Streaming URL (Bypasses Node.js proxy, zero server load)
+  useEffect(() => {
+    if (!module) {
+      setVideoStreamUrl(null);
+      return;
+    }
+
+    const videoIdentifier =
+      module.moduleId ||
+      (module._id && String(module._id).length === 24 ? module._id : null) ||
+      module.Video_id;
+
+    if (!videoIdentifier) {
+      setVideoStreamUrl(module.Video || null);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingStream(true);
+
+    axios
+      .get(`${baseUrl}/module/stream-url/${encodeURIComponent(videoIdentifier)}`, {
+        withCredentials: true,
+      })
+      .then((res) => {
+        if (isMounted && res.data?.streamUrl) {
+          setVideoStreamUrl(res.data.streamUrl);
+        }
+      })
+      .catch((err) => {
+        console.warn("Direct CDN stream notice, using fallback stream route:", err?.message || err);
+        if (isMounted) {
+          setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}`);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingStream(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [module, baseUrl]);
 
   useEffect(() => {
     if (isPdfCourse) {
@@ -267,21 +317,20 @@ const SinglePurchasedCourse = () => {
               className="w-full aspect-video flex items-center justify-center relative rounded-xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5 shrink-0"
               onContextMenu={(e) => e.preventDefault()}
             >
-              {module?.Video || module?.Video_id ? (
+              {videoStreamUrl ? (
                 <SecureVideoPlayer
-                  videoKey={module._id || module.Video_id}
-                  src={
-                    module.moduleId || module._id
-                      ? `${baseUrl}/module/stream/${module.moduleId || module._id}`
-                      : module.Video_id
-                      ? `${baseUrl}/module/stream/${encodeURIComponent(module.Video_id)}`
-                      : module.Video
-                  }
+                  videoKey={module._id || module.Video_id || videoStreamUrl}
+                  src={videoStreamUrl}
                   user={user}
                   onError={(e) => {
                     console.warn("Secure video playback notice:", e?.type || e);
                   }}
                 />
+              ) : isLoadingStream ? (
+                <div className="flex flex-col items-center justify-center p-12 bg-black w-full h-full text-white">
+                  <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
+                  <span className="text-xs text-neutral-400 font-medium">Connecting to high-speed stream...</span>
+                </div>
               ) : (
                 <div className="text-center flex flex-col items-center justify-center p-12 animate-in fade-in duration-500 bg-white w-full h-full">
                   <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 ring-1 ring-slate-100 shadow-sm">
