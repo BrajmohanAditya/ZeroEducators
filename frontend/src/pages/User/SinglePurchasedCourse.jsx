@@ -42,6 +42,13 @@ const SinglePurchasedCourse = () => {
   // Direct pre-signed CDN / stream URL state
   const [videoStreamUrl, setVideoStreamUrl] = useState(null);
   const [isLoadingStream, setIsLoadingStream] = useState(false);
+  const [selectedQuality, setSelectedQuality] = useState(() => {
+    try {
+      return localStorage.getItem("zero_video_quality") || "auto";
+    } catch {
+      return "auto";
+    }
+  });
 
   // State for PDF document
   const [activePdf, setActivePdf] = useState(null);
@@ -95,12 +102,16 @@ const SinglePurchasedCourse = () => {
       return;
     }
 
-    const fetchDirectCdnUrl = async () => {
+    const fetchDirectCdnUrl = async (targetQuality = selectedQuality) => {
       try {
         setIsLoadingStream(true);
-        const tokenParam = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
+        const tokenPart = streamToken ? `token=${encodeURIComponent(streamToken)}` : "";
+        const qualityPart = targetQuality && targetQuality !== "auto" ? `quality=${targetQuality}` : "";
+        const queryParams = [qualityPart, tokenPart].filter(Boolean);
+        const queryString = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+
         const res = await axios.get(
-          `${baseUrl}/module/stream-url/${encodeURIComponent(videoIdentifier)}${tokenParam}`,
+          `${baseUrl}/module/stream-url/${encodeURIComponent(videoIdentifier)}${queryString}`,
           { withCredentials: true }
         );
         if (isMounted && res.data?.streamUrl) {
@@ -119,12 +130,12 @@ const SinglePurchasedCourse = () => {
       }
     };
 
-    fetchDirectCdnUrl();
+    fetchDirectCdnUrl(selectedQuality);
 
     return () => {
       isMounted = false;
     };
-  }, [module, baseUrl, streamToken]);
+  }, [module, baseUrl, streamToken, selectedQuality]);
 
   useEffect(() => {
     if (isPdfCourse) {
@@ -354,6 +365,9 @@ const SinglePurchasedCourse = () => {
                   videoKey={module._id || module.Video_id || videoStreamUrl}
                   src={videoStreamUrl}
                   user={user}
+                  onQualityChange={(newQuality) => {
+                    setSelectedQuality(newQuality);
+                  }}
                   onError={(e) => {
                     console.warn("Secure video playback notice:", e?.type || e);
                   }}

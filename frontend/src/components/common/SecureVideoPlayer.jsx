@@ -49,7 +49,15 @@ const qualityOptions = [
  */
 const getQualityUrl = (originalSrc, targetQuality) => {
   if (!originalSrc || typeof originalSrc !== "string") return "";
-  if (originalSrc.includes(".m3u8")) return originalSrc;
+  // CRITICAL: NEVER tamper with S3 pre-signed URLs or HLS manifests! Doing so breaks the cryptographic AWS SigV4 signature!
+  if (
+    originalSrc.includes(".m3u8") ||
+    originalSrc.includes("X-Amz-") ||
+    originalSrc.includes("zata.ai") ||
+    originalSrc.includes("amazonaws.com")
+  ) {
+    return originalSrc;
+  }
   try {
     const isRelative = !originalSrc.startsWith("http://") && !originalSrc.startsWith("https://");
     const parsed = new URL(originalSrc, window.location.origin);
@@ -93,6 +101,7 @@ const SecureVideoPlayer = ({
   user,
   videoKey,
   onError,
+  onQualityChange,
   className = "",
 }) => {
   const videoRef = useRef(null);
@@ -445,6 +454,9 @@ const SecureVideoPlayer = ({
       const savedTime = videoRef.current.currentTime;
       const wasPlaying = !videoRef.current.paused;
       pendingSeekRef.current = { time: savedTime, play: wasPlaying };
+      if (typeof onQualityChange === "function") {
+        onQualityChange(newQuality);
+      }
     }
 
     const chosen = qualityOptions.find((q) => q.id === newQuality);

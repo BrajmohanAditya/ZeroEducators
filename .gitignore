@@ -5,6 +5,8 @@ node_modules/
 logs
 *.log
 temp_uploads/
+temp_transcode*/
+*.mp4
 
 # env files
 .env
