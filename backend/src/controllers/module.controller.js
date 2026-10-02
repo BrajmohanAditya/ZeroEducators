@@ -6,6 +6,7 @@ import { uploadToZata as uploadToB2, s3Client } from "../config/zata.js";
 import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV, isTesterEmail } from "../config/env.js";
+import { applyFaststart } from "../utils/faststart.js";
 import fs from "fs";
 
 export const moduleUploadProgressMap = new Map();
@@ -50,15 +51,29 @@ export const createModule = async (req, res) => {
       });
     }
 
+    let uploadFilePath = tempFilePath;
+    let optimizedTempPath = null;
+
+    // 🚀 FastStart Optimization: Move moov atom to the beginning for zero-buffer instant streaming
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      optimizedTempPath = `${tempFilePath}-faststart.mp4`;
+      const isOptimized = await applyFaststart(tempFilePath, optimizedTempPath);
+      if (isOptimized && fs.existsSync(optimizedTempPath)) {
+        uploadFilePath = optimizedTempPath;
+      }
+    }
+
+    const finalUploadSize = uploadFilePath ? fs.statSync(uploadFilePath).size : fileSize;
+
     // Upload to Zata S3 using multipart chunked upload with live progress callback
     const { url: videoUrl, fileKey: videoId } = await uploadToB2(
-      tempFilePath || req.file.buffer,
+      uploadFilePath || req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       "courseModule",
       (loaded, total) => {
         if (uploadId) {
-          const totalBytes = total || fileSize || 1;
+          const totalBytes = total || finalUploadSize || 1;
           const percent = Math.min(100, Math.round((loaded * 100) / totalBytes));
           moduleUploadProgressMap.set(uploadId, {
             status: "saving_to_cloud",
@@ -70,12 +85,13 @@ export const createModule = async (req, res) => {
       }
     );
 
-    // Remove temporary file from local disk after successful S3 upload
+    // Remove temporary files from local disk after successful S3 upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, (err) => {
-        if (err) console.error("Error removing temp video file:", err);
-      });
+      fs.unlink(tempFilePath, () => {});
       tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     const module = await Modules.create({
