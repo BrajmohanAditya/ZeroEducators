@@ -1,4 +1,3 @@
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { execFile } from "child_process";
 import fs from "fs";
 
@@ -10,10 +9,19 @@ import fs from "fs";
  * @param {string} outputPath - path to optimized MP4
  * @returns {Promise<boolean>} - true if succeeded, false if failed
  */
-export const applyFaststart = (inputPath, outputPath) => {
+export const applyFaststart = async (inputPath, outputPath) => {
+  let ffmpegPath = "ffmpeg";
+  try {
+    const installer = await import("@ffmpeg-installer/ffmpeg");
+    if (installer?.default?.path) {
+      ffmpegPath = installer.default.path;
+    }
+  } catch {
+    // If installer package is not yet loaded, fallback gracefully to system ffmpeg
+  }
+
   return new Promise((resolve) => {
     try {
-      const ffmpegPath = ffmpegInstaller?.path || "ffmpeg";
       execFile(
         ffmpegPath,
         ["-y", "-i", inputPath, "-c", "copy", "-movflags", "+faststart", outputPath],

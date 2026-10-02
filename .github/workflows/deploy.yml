@@ -36,9 +36,7 @@ jobs:
 
             echo "--- Updating Backend ---"
             cd backend
-            if [ ! -d "node_modules" ]; then
-              npm install --prefer-offline --no-audit --no-fund
-            fi
+            npm install --prefer-offline --no-audit --no-fund
             pm2 restart zeroeducators-backend || pm2 start index.js --name zeroeducators-backend
             cd ..
 
