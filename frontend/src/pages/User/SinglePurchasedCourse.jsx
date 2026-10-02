@@ -77,8 +77,9 @@ const SinglePurchasedCourse = () => {
     };
   }, [user, baseUrl]);
 
-  // 2. Generate resilient video stream URL
+  // 2. Fetch direct S3 CDN stream URL (0% Node.js server load during video playback)
   useEffect(() => {
+    let isMounted = true;
     if (!module) {
       setVideoStreamUrl(null);
       return;
@@ -94,8 +95,35 @@ const SinglePurchasedCourse = () => {
       return;
     }
 
-    const tokenQuery = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
-    setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`);
+    const fetchDirectCdnUrl = async () => {
+      try {
+        setIsLoadingStream(true);
+        const tokenParam = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
+        const res = await axios.get(
+          `${baseUrl}/module/stream-url/${encodeURIComponent(videoIdentifier)}${tokenParam}`,
+          { withCredentials: true }
+        );
+        if (isMounted && res.data?.streamUrl) {
+          setVideoStreamUrl(res.data.streamUrl);
+        }
+      } catch (err) {
+        // Fallback to stream route if direct URL fetch fails
+        if (isMounted) {
+          const tokenQuery = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
+          setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStream(false);
+        }
+      }
+    };
+
+    fetchDirectCdnUrl();
+
+    return () => {
+      isMounted = false;
+    };
   }, [module, baseUrl, streamToken]);
 
   useEffect(() => {

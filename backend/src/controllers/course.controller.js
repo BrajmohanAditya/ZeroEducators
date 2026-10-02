@@ -20,6 +20,8 @@ import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
 import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
+import { applyFaststart } from "../utils/faststart.js";
+import { generateMultiQualityAsync } from "../utils/videoTranscoder.js";
 
 export const createCourse = async (req, res, next) => {
   try {
@@ -725,15 +727,29 @@ export const addVideoToTopic = async (req, res, next) => {
       });
     }
 
+    let uploadFilePath = tempFilePath;
+    let optimizedTempPath = null;
+
+    // 🚀 FastStart Optimization: Move moov atom to the beginning for zero-buffer instant streaming
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      optimizedTempPath = `${tempFilePath}-faststart.mp4`;
+      const isOptimized = await applyFaststart(tempFilePath, optimizedTempPath);
+      if (isOptimized && fs.existsSync(optimizedTempPath)) {
+        uploadFilePath = optimizedTempPath;
+      }
+    }
+
+    const finalUploadSize = uploadFilePath ? fs.statSync(uploadFilePath).size : fileSize;
+
     // Upload to Zata S3 using multipart chunked upload with live progress callback
     const { url: videoUrl, fileKey: videoId } = await uploadToB2(
-      tempFilePath || req.file.buffer,
+      uploadFilePath || req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       "courseModule",
       (loaded, total) => {
         if (uploadId) {
-          const totalBytes = total || fileSize || 1;
+          const totalBytes = total || finalUploadSize || 1;
           const percent = Math.min(100, Math.round((loaded * 100) / totalBytes));
           moduleUploadProgressMap.set(uploadId, {
             status: "saving_to_cloud",
@@ -745,12 +761,20 @@ export const addVideoToTopic = async (req, res, next) => {
       }
     );
 
-    // Remove temporary file from local disk after upload
+    // Trigger background generation for lower-bandwidth variants (360p, 480p)
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      generateMultiQualityAsync(uploadFilePath, videoId);
+    }
+
+    // Remove temporary files from local disk after upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, (err) => {
         if (err) console.error("Error removing temp video file:", err);
       });
       tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     // Create a Modules entry for streaming and permissions
@@ -1307,15 +1331,29 @@ export const addVideoToChapter = async (req, res, next) => {
       });
     }
 
+    let uploadFilePath = tempFilePath;
+    let optimizedTempPath = null;
+
+    // 🚀 FastStart Optimization: Move moov atom to the beginning for zero-buffer instant streaming
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      optimizedTempPath = `${tempFilePath}-faststart.mp4`;
+      const isOptimized = await applyFaststart(tempFilePath, optimizedTempPath);
+      if (isOptimized && fs.existsSync(optimizedTempPath)) {
+        uploadFilePath = optimizedTempPath;
+      }
+    }
+
+    const finalUploadSize = uploadFilePath ? fs.statSync(uploadFilePath).size : fileSize;
+
     // Upload to Zata S3 using multipart chunked upload with live progress callback
     const { url: videoUrl, fileKey: videoId } = await uploadToB2(
-      tempFilePath || req.file.buffer,
+      uploadFilePath || req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       "courseModule",
       (loaded, total) => {
         if (uploadId) {
-          const totalBytes = total || fileSize || 1;
+          const totalBytes = total || finalUploadSize || 1;
           const percent = Math.min(100, Math.round((loaded * 100) / totalBytes));
           moduleUploadProgressMap.set(uploadId, {
             status: "saving_to_cloud",
@@ -1327,12 +1365,20 @@ export const addVideoToChapter = async (req, res, next) => {
       }
     );
 
-    // Remove temporary file from local disk after upload
+    // Trigger background generation for lower-bandwidth variants (360p, 480p)
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      generateMultiQualityAsync(uploadFilePath, videoId);
+    }
+
+    // Remove temporary files from local disk after upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, (err) => {
         if (err) console.error("Error removing temp video file:", err);
       });
       tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     // Create a Modules entry for streaming and permissions

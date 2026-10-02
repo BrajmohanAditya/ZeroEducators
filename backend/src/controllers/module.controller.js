@@ -7,7 +7,11 @@ import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV, isTesterEmail } from "../config/env.js";
 import { applyFaststart } from "../utils/faststart.js";
+import { generateMultiQualityAsync } from "../utils/videoTranscoder.js";
 import fs from "fs";
+import path from "path";
+
+const qualityVariantCache = new Map();
 
 export const moduleUploadProgressMap = new Map();
 
@@ -84,6 +88,11 @@ export const createModule = async (req, res) => {
         }
       }
     );
+
+    // Trigger background generation for lower-bandwidth variants (360p, 480p)
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      generateMultiQualityAsync(uploadFilePath, videoId);
+    }
 
     // Remove temporary files from local disk after successful S3 upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
@@ -276,14 +285,21 @@ export const getModuleStreamUrl = async (req, res) => {
     const { moduleId } = req.params;
     const user = req.user;
 
+    const requestedQuality = req.query.quality; // '360p' | '480p' | '720p'
+    const cacheKey = `${moduleId}_${requestedQuality || "main"}`;
+
     // Fast memory cache check (valid for 3.5 hours)
-    const cached = streamUrlCache.get(moduleId);
+    const cached = streamUrlCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return res.status(200).json({ success: true, streamUrl: cached.url });
     }
 
     const { module, videoId, courseId } = await resolveVideoDetails(moduleId);
     if (!module || !videoId) {
+      // If external video URL
+      if (module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+        return res.status(200).json({ success: true, streamUrl: module.Video });
+      }
       return res.status(404).json({ message: "Module not found" });
     }
 
@@ -292,14 +308,34 @@ export const getModuleStreamUrl = async (req, res) => {
       return res.status(403).json({ message: "Access denied. Course not enrolled." });
     }
 
+    let activeKey = videoId;
+    if (requestedQuality === "360p" || requestedQuality === "480p") {
+      const ext = path.extname(videoId) || ".mp4";
+      const variantKey = `${videoId.replace(ext, "")}_${requestedQuality}${ext}`;
+      let hasVariant = qualityVariantCache.get(variantKey);
+      if (hasVariant === undefined) {
+        try {
+          await s3Client.send(new HeadObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: variantKey }));
+          hasVariant = true;
+          qualityVariantCache.set(variantKey, true);
+        } catch {
+          hasVariant = false;
+          qualityVariantCache.set(variantKey, false);
+        }
+      }
+      if (hasVariant) {
+        activeKey = variantKey;
+      }
+    }
+
     const getObjectCmd = new GetObjectCommand({
       Bucket: ENV.ZATA_BUCKET_NAME,
-      Key: videoId,
+      Key: activeKey,
     });
 
     const directCdnUrl = await getSignedUrl(s3Client, getObjectCmd, { expiresIn: 14400 }); // 4 hours valid
     if (directCdnUrl) {
-      streamUrlCache.set(moduleId, {
+      streamUrlCache.set(cacheKey, {
         url: directCdnUrl,
         expiresAt: Date.now() + 3.5 * 60 * 60 * 1000,
       });
@@ -339,23 +375,61 @@ export const streamModuleVideo = async (req, res) => {
       return res.status(403).json({ message: "Access denied. Course not enrolled." });
     }
 
-    // If client explicitly requested direct 302 redirect
-    if (req.query.redirect === "true") {
-      const cached = streamUrlCache.get(moduleId);
-      if (cached && Date.now() < cached.expiresAt) {
-        return res.redirect(302, cached.url);
+    // 🚀 ZERO LATENCY DIRECT CDN STREAMING (Eliminates Double-Hop Backend Proxy)
+    // By default, deliver direct high-speed pre-signed S3/CDN URL via 302 redirect.
+    // The mobile/browser will stream directly from Zata S3 at full CDN speed without stressing Node.js.
+    if (req.query.proxy !== "true") {
+      // If module.Video is an external URL (e.g. Cloudinary or direct CDN)
+      if (!videoId && module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+        return res.redirect(302, module.Video);
       }
-      const getObjectCmd = new GetObjectCommand({
-        Bucket: ENV.ZATA_BUCKET_NAME,
-        Key: videoId,
-      });
-      const directCdnUrl = await getSignedUrl(s3Client, getObjectCmd, { expiresIn: 14400 });
-      if (directCdnUrl) {
-        streamUrlCache.set(moduleId, {
-          url: directCdnUrl,
-          expiresAt: Date.now() + 3.5 * 60 * 60 * 1000,
-        });
-        return res.redirect(302, directCdnUrl);
+
+      if (videoId) {
+        let activeKey = videoId;
+        const requestedQuality = req.query.quality; // '360p' | '480p' | '720p'
+
+        // Check if a lower-bitrate variant is requested (e.g. 360p or 480p)
+        if (requestedQuality === "360p" || requestedQuality === "480p") {
+          const ext = path.extname(videoId) || ".mp4";
+          const variantKey = `${videoId.replace(ext, "")}_${requestedQuality}${ext}`;
+          
+          let hasVariant = qualityVariantCache.get(variantKey);
+          if (hasVariant === undefined) {
+            try {
+              await s3Client.send(new HeadObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: variantKey }));
+              hasVariant = true;
+              qualityVariantCache.set(variantKey, true);
+            } catch {
+              hasVariant = false;
+              qualityVariantCache.set(variantKey, false);
+            }
+          }
+          if (hasVariant) {
+            activeKey = variantKey;
+          }
+        }
+
+        const cacheKey = `${moduleId}_${requestedQuality || "main"}`;
+        const cached = streamUrlCache.get(cacheKey);
+        if (cached && Date.now() < cached.expiresAt) {
+          return res.redirect(302, cached.url);
+        }
+        try {
+          const getObjectCmd = new GetObjectCommand({
+            Bucket: ENV.ZATA_BUCKET_NAME,
+            Key: activeKey,
+          });
+          const directCdnUrl = await getSignedUrl(s3Client, getObjectCmd, { expiresIn: 14400 });
+          if (directCdnUrl) {
+            streamUrlCache.set(cacheKey, {
+              url: directCdnUrl,
+              expiresAt: Date.now() + 3.5 * 60 * 60 * 1000,
+            });
+            return res.redirect(302, directCdnUrl);
+          }
+        } catch (signErr) {
+          console.warn("[Stream Module] Pre-signed redirect generation notice, falling back to proxy:", signErr?.message || signErr);
+        }
       }
     }
 

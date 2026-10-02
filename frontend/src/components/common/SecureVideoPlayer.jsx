@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Hls from "hls.js";
 import {
   ShieldCheck,
   Loader2,
@@ -37,11 +38,31 @@ const speedOptions = [
  * Video Quality Options
  */
 const qualityOptions = [
-  { id: "auto", label: "Auto (Recommended - 720p HD)", shortLabel: "Auto", badge: "HD" },
+  { id: "auto", label: "Auto (Recommended - Adaptive)", shortLabel: "Auto", badge: "Auto" },
   { id: "720p", label: "720p (HD)", shortLabel: "720p", badge: "HD" },
   { id: "480p", label: "480p (Data Saver)", shortLabel: "480p", badge: "SD" },
   { id: "360p", label: "360p (Low Data)", shortLabel: "360p", badge: "SD" },
 ];
+
+/**
+ * Appends or updates the quality query param in a video streaming URL
+ */
+const getQualityUrl = (originalSrc, targetQuality) => {
+  if (!originalSrc || typeof originalSrc !== "string") return "";
+  if (originalSrc.includes(".m3u8")) return originalSrc;
+  try {
+    const isRelative = !originalSrc.startsWith("http://") && !originalSrc.startsWith("https://");
+    const parsed = new URL(originalSrc, window.location.origin);
+    if (targetQuality && targetQuality !== "auto") {
+      parsed.searchParams.set("quality", targetQuality);
+    } else {
+      parsed.searchParams.delete("quality");
+    }
+    return isRelative ? `${parsed.pathname}${parsed.search}` : parsed.toString();
+  } catch {
+    return originalSrc;
+  }
+};
 
 /**
  * Helper to format seconds into M:SS or H:MM:SS
@@ -80,6 +101,8 @@ const SecureVideoPlayer = ({
   const progressBarRef = useRef(null);
   const toastTimeoutRef = useRef(null);
   const controlsTimerRef = useRef(null);
+  const pendingSeekRef = useRef(null);
+  const hlsRef = useRef(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -130,6 +153,50 @@ const SecureVideoPlayer = ({
       return "auto";
     }
   });
+
+  const isHls = typeof src === "string" && src.includes(".m3u8");
+  const effectiveSrc = isHls ? src : getQualityUrl(src, quality);
+
+  // HLS.js adaptive bitrate streaming setup
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isHls || !src) return;
+
+    if (Hls.isSupported()) {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+      }
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+        maxBufferLength: 30,
+      });
+      hlsRef.current = hls;
+      hls.loadSource(src);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (quality === "auto") {
+          hls.currentLevel = -1; // Adaptive mode
+        } else {
+          const targetHeight = parseInt(quality, 10);
+          const levelIdx = hls.levels.findIndex((lvl) => lvl.height === targetHeight);
+          if (levelIdx !== -1) {
+            hls.currentLevel = levelIdx;
+          }
+        }
+      });
+
+      return () => {
+        hls.destroy();
+        hlsRef.current = null;
+      };
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Native Safari HLS
+      video.src = src;
+    }
+  }, [src, isHls]);
 
   // Settings Panel state: false | true
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -219,6 +286,17 @@ const SecureVideoPlayer = ({
     if (videoRef.current) {
       videoRef.current.volume = volume;
       videoRef.current.muted = isMuted;
+      // Seamlessly restore playback position when switching quality
+      if (pendingSeekRef.current) {
+        const { time, play } = pendingSeekRef.current;
+        pendingSeekRef.current = null;
+        if (typeof time === "number" && isFinite(time) && time > 0) {
+          videoRef.current.currentTime = time;
+        }
+        if (play) {
+          videoRef.current.play().catch(() => {});
+        }
+      }
     }
   };
 
@@ -342,7 +420,7 @@ const SecureVideoPlayer = ({
     );
   };
 
-  // Handle quality change
+  // Handle quality change with real stream switching
   const handleQualityChange = (newQuality) => {
     setQuality(newQuality);
     try {
@@ -351,6 +429,24 @@ const SecureVideoPlayer = ({
       // ignore
     }
     setIsSettingsOpen(false);
+
+    if (hlsRef.current) {
+      if (newQuality === "auto") {
+        hlsRef.current.currentLevel = -1; // HLS Adaptive mode
+      } else {
+        const targetHeight = parseInt(newQuality, 10);
+        const levelIdx = hlsRef.current.levels.findIndex((lvl) => lvl.height === targetHeight);
+        if (levelIdx !== -1) {
+          hlsRef.current.currentLevel = levelIdx;
+        }
+      }
+    } else if (videoRef.current) {
+      // Seamless MP4 quality switch: preserve current playback position and state
+      const savedTime = videoRef.current.currentTime;
+      const wasPlaying = !videoRef.current.paused;
+      pendingSeekRef.current = { time: savedTime, play: wasPlaying };
+    }
+
     const chosen = qualityOptions.find((q) => q.id === newQuality);
     triggerToast(
       `Quality: ${chosen?.shortLabel || newQuality}`,
@@ -624,12 +720,12 @@ const SecureVideoPlayer = ({
         key={videoKey}
         ref={videoRef}
         className="h-full w-full object-contain bg-black select-none pointer-events-auto cursor-pointer"
-        src={src}
+        src={isHls ? undefined : effectiveSrc}
         poster={poster}
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="auto"
+        preload="metadata"
         autoPlay
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}

@@ -199,10 +199,11 @@ export const uploadToZata = async (
   originalName,
   mimeType,
   folder = "uploads",
-  onProgress = null
+  onProgress = null,
+  customKey = null
 ) => {
   const cleanFileName = originalName ? originalName.replace(/\s+/g, "_") : "file";
-  const uniqueKey = `${folder}/${Date.now()}-${cleanFileName}`;
+  const uniqueKey = customKey || `${folder}/${Date.now()}-${cleanFileName}`;
 
   let body = fileInput;
 
