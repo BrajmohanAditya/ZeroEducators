@@ -3,14 +3,14 @@ import { Course } from "../models/course.model.js";
 import { Modules } from "../models/module.model.js";
 import { User } from "../models/user.model.js";
 import { uploadToZata as uploadToB2, s3Client } from "../config/zata.js";
-import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV, isTesterEmail } from "../config/env.js";
 import { applyFaststart } from "../utils/faststart.js";
 import fs from "fs";
 import path from "path";
 
-const qualityVariantCache = new Map();
+
 
 export const moduleUploadProgressMap = new Map();
 
@@ -302,52 +302,8 @@ export const getModuleStreamUrl = async (req, res) => {
       return res.status(403).json({ message: "Access denied. Course not enrolled." });
     }
 
-    // Priority 1: If module.Video is already an HLS master manifest
-    if (module?.Video && module.Video.includes("master.m3u8")) {
-      return res.status(200).json({ success: true, streamUrl: module.Video });
-    }
-
-    // Priority 2: Check if HLS was generated in S3 for this video
-    const ext = path.extname(videoId) || ".mp4";
-    const baseName = path.basename(videoId, ext);
-    const folder = path.dirname(videoId);
-    const hlsMasterKey = `${folder}/hls/${baseName}/master.m3u8`;
-    const hlsCacheKey = `hls_ready_${hlsMasterKey}`;
-    let hasHls = qualityVariantCache.get(hlsCacheKey);
-    if (hasHls === undefined) {
-      try {
-        await s3Client.send(new HeadObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: hlsMasterKey }));
-        hasHls = true;
-        qualityVariantCache.set(hlsCacheKey, true);
-      } catch {
-        hasHls = false;
-        qualityVariantCache.set(hlsCacheKey, false);
-      }
-    }
-    if (hasHls) {
-      const hlsUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}/${hlsMasterKey}`;
-      return res.status(200).json({ success: true, streamUrl: hlsUrl });
-    }
-
-    let activeKey = videoId;
-    if (requestedQuality === "360p" || requestedQuality === "480p") {
-      const ext = path.extname(videoId) || ".mp4";
-      const variantKey = `${videoId.replace(ext, "")}_${requestedQuality}${ext}`;
-      let hasVariant = qualityVariantCache.get(variantKey);
-      if (hasVariant === undefined) {
-        try {
-          await s3Client.send(new HeadObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: variantKey }));
-          hasVariant = true;
-          qualityVariantCache.set(variantKey, true);
-        } catch {
-          hasVariant = false;
-          qualityVariantCache.set(variantKey, false);
-        }
-      }
-      if (hasVariant) {
-        activeKey = variantKey;
-      }
-    }
+    // Direct pre-signed URL for the uploaded video (no server-side transcoding)
+    const activeKey = videoId;
 
     const getObjectCmd = new GetObjectCommand({
       Bucket: ENV.ZATA_BUCKET_NAME,

@@ -110,7 +110,6 @@ const SecureVideoPlayer = ({
   const toastTimeoutRef = useRef(null);
   const controlsTimerRef = useRef(null);
   const pendingSeekRef = useRef(null);
-  const hlsRef = useRef(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -162,85 +161,8 @@ const SecureVideoPlayer = ({
     }
   });
 
-  const isHls = typeof src === "string" && src.includes(".m3u8");
-  const effectiveSrc = isHls ? src : getQualityUrl(src, quality);
+  const effectiveSrc = getQualityUrl(src, quality);
 
-  // HLS.js adaptive bitrate streaming setup (lazy-loaded on-demand for .m3u8 streams)
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !isHls || !src) return;
-
-    let isSubscribed = true;
-    import("hls.js")
-      .then(({ default: Hls }) => {
-        if (!isSubscribed || !video) return;
-        if (Hls && Hls.isSupported()) {
-          if (hlsRef.current) {
-            hlsRef.current.destroy();
-          }
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,   // VOD ke liye false — bada buffer rakhta hai
-            backBufferLength: 60,    // 60s peeche ka buffer rakho
-            maxBufferLength: 120,    // 2 minute aage tak buffer karo
-            maxMaxBufferLength: 300, // extreme case mein 5 min tak
-          });
-          hlsRef.current = hls;
-          hls.loadSource(src);
-          hls.attachMedia(video);
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (quality === "auto") {
-              hls.currentLevel = -1; // Adaptive mode
-            } else {
-              const targetHeight = parseInt(quality, 10);
-              const levelIdx = hls.levels.findIndex((lvl) => lvl.height === targetHeight);
-              if (levelIdx !== -1) {
-                hls.currentLevel = levelIdx;
-              }
-            }
-          });
-
-          // HLS Fatal Error Auto-Recovery
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (!data.fatal) return; // non-fatal errors ignore karo
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              // Network error — retry karo
-              console.warn("[HLS] Network error, retrying...", data.details);
-              hls.startLoad();
-            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-              // Media decode error — recover karo
-              console.warn("[HLS] Media error, recovering...", data.details);
-              hls.recoverMediaError();
-            } else {
-              // Unrecoverable — destroy karo aur native fallback try karo
-              console.error("[HLS] Unrecoverable error:", data.details);
-              hls.destroy();
-              if (video.canPlayType("application/vnd.apple.mpegurl")) {
-                video.src = src;
-              }
-            }
-          });
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          // Native Safari HLS
-          video.src = src;
-        }
-      })
-      .catch((err) => {
-        console.warn("HLS loader notice, falling back to native player:", err?.message || err);
-        if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = src;
-        }
-      });
-
-    return () => {
-      isSubscribed = false;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [src, isHls]);
 
   // Settings Panel state: false | true
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -474,19 +396,7 @@ const SecureVideoPlayer = ({
     }
     setIsSettingsOpen(false);
 
-    if (hlsRef.current) {
-      // HLS quality switch — spinner dikhao jab tak naya level buffer na ho
-      setIsBuffering(true);
-      if (newQuality === "auto") {
-        hlsRef.current.currentLevel = -1; // HLS Adaptive mode
-      } else {
-        const targetHeight = parseInt(newQuality, 10);
-        const levelIdx = hlsRef.current.levels.findIndex((lvl) => lvl.height === targetHeight);
-        if (levelIdx !== -1) {
-          hlsRef.current.currentLevel = levelIdx;
-        }
-      }
-    } else if (videoRef.current) {
+    if (videoRef.current) {
       // MP4 quality switch — spinner dikhao jab tak nayi file load na ho
       setIsBuffering(true);
       const savedTime = videoRef.current.currentTime;
@@ -770,7 +680,7 @@ const SecureVideoPlayer = ({
         key={videoKey}
         ref={videoRef}
         className="h-full w-full object-contain bg-black select-none pointer-events-auto cursor-pointer"
-        src={isHls ? undefined : effectiveSrc}
+        src={effectiveSrc}
         poster={poster}
         disablePictureInPicture
         disableRemotePlayback
