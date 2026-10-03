@@ -89,9 +89,10 @@ export const createModule = async (req, res) => {
       }
     );
 
-    // Trigger background generation for lower-bandwidth variants (360p, 480p)
+    // Trigger background HLS + MP4-fallback generation
     if (uploadFilePath && fs.existsSync(uploadFilePath)) {
-      generateMultiQualityAsync(uploadFilePath, videoId);
+      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
+      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl);
     }
 
     // Remove temporary files from local disk after successful S3 upload

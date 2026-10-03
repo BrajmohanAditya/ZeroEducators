@@ -180,9 +180,10 @@ const SecureVideoPlayer = ({
           }
           const hls = new Hls({
             enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 30,
-            maxBufferLength: 30,
+            lowLatencyMode: false,   // VOD ke liye false — bada buffer rakhta hai
+            backBufferLength: 60,    // 60s peeche ka buffer rakho
+            maxBufferLength: 120,    // 2 minute aage tak buffer karo
+            maxMaxBufferLength: 300, // extreme case mein 5 min tak
           });
           hlsRef.current = hls;
           hls.loadSource(src);
@@ -196,6 +197,27 @@ const SecureVideoPlayer = ({
               const levelIdx = hls.levels.findIndex((lvl) => lvl.height === targetHeight);
               if (levelIdx !== -1) {
                 hls.currentLevel = levelIdx;
+              }
+            }
+          });
+
+          // HLS Fatal Error Auto-Recovery
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            if (!data.fatal) return; // non-fatal errors ignore karo
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              // Network error — retry karo
+              console.warn("[HLS] Network error, retrying...", data.details);
+              hls.startLoad();
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              // Media decode error — recover karo
+              console.warn("[HLS] Media error, recovering...", data.details);
+              hls.recoverMediaError();
+            } else {
+              // Unrecoverable — destroy karo aur native fallback try karo
+              console.error("[HLS] Unrecoverable error:", data.details);
+              hls.destroy();
+              if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                video.src = src;
               }
             }
           });
@@ -453,6 +475,8 @@ const SecureVideoPlayer = ({
     setIsSettingsOpen(false);
 
     if (hlsRef.current) {
+      // HLS quality switch — spinner dikhao jab tak naya level buffer na ho
+      setIsBuffering(true);
       if (newQuality === "auto") {
         hlsRef.current.currentLevel = -1; // HLS Adaptive mode
       } else {
@@ -463,7 +487,8 @@ const SecureVideoPlayer = ({
         }
       }
     } else if (videoRef.current) {
-      // Seamless MP4 quality switch: preserve current playback position and state
+      // MP4 quality switch — spinner dikhao jab tak nayi file load na ho
+      setIsBuffering(true);
       const savedTime = videoRef.current.currentTime;
       const wasPlaying = !videoRef.current.paused;
       pendingSeekRef.current = { time: savedTime, play: wasPlaying };
@@ -760,7 +785,7 @@ const SecureVideoPlayer = ({
           setCurrentTime(0);
           setDuration(0);
           setBufferedEnd(0);
-          setIsBuffering(false);
+          setIsBuffering(true); // load shuru hote hi spinner dikhao
         }}
         onLoadedMetadata={handleLoadedMetadata}
         onLoadedData={updateDuration}
@@ -773,8 +798,13 @@ const SecureVideoPlayer = ({
           applyPlaybackSpeed(playbackSpeed);
         }}
         onPause={() => setIsPlaying(false)}
-        onWaiting={() => {
-          if (isPlaying) {
+        onWaiting={() => setIsBuffering(true)}  // always show — playing check hata diya
+        onStalled={() => setIsBuffering(true)}  // network stall ka event
+        onSuspend={() => {
+          // suspend = browser ne temporarily download roka (normal hai agar buffer full hai)
+          // sirf tab spinner dikhao jab video chal rahi ho aur buffer khatam ho
+          const vid = videoRef.current;
+          if (vid && !vid.paused && vid.readyState < 3) {
             setIsBuffering(true);
           }
         }}
