@@ -6,6 +6,7 @@ logs
 *.log
 temp_uploads/
 temp_transcode*/
+temp_hls*/
 *.mp4
 
 # env files

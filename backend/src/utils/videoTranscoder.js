@@ -202,7 +202,7 @@ export const transcodeToHls = async (inputPath, primaryKey, s3BaseUrl) => {
         ? "application/vnd.apple.mpegurl"
         : "video/mp2t";
       try {
-        await uploadToB2(localPath, file, mimeType, "", null, s3Key);
+        await uploadToB2(localPath, file, mimeType, "", null, s3Key, "public-read");
       } catch (uploadErr) {
         console.warn(`[HLS] Upload failed (${s3Key}):`, uploadErr.message);
       }
@@ -225,7 +225,7 @@ export const transcodeToHls = async (inputPath, primaryKey, s3BaseUrl) => {
 
   const masterS3Key = `${s3HlsPrefix}/master.m3u8`;
   try {
-    await uploadToB2(masterLocalPath, "master.m3u8", "application/vnd.apple.mpegurl", "", null, masterS3Key);
+    await uploadToB2(masterLocalPath, "master.m3u8", "application/vnd.apple.mpegurl", "", null, masterS3Key, "public-read");
     console.log(`[HLS] ✓ Master manifest uploaded: ${masterS3Key}`);
   } catch (err) {
     console.error("[HLS] Master upload failed:", err.message);

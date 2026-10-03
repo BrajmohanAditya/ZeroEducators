@@ -200,7 +200,8 @@ export const uploadToZata = async (
   mimeType,
   folder = "uploads",
   onProgress = null,
-  customKey = null
+  customKey = null,
+  acl = null
 ) => {
   const cleanFileName = originalName ? originalName.replace(/\s+/g, "_") : "file";
   const uniqueKey = customKey || `${folder}/${Date.now()}-${cleanFileName}`;
@@ -212,15 +213,23 @@ export const uploadToZata = async (
     body = fs.createReadStream(fileInput);
   }
 
+  // Auto-grant public-read for HLS stream manifests and .ts segments so players can stream directly without SigV4 collisions
+  const resolvedAcl = acl || (uniqueKey.includes("/hls/") ? "public-read" : undefined);
+
+  const uploadParams = {
+    Bucket: ENV.ZATA_BUCKET_NAME,
+    Key: uniqueKey,
+    Body: body,
+    ContentType: mimeType,
+  };
+  if (resolvedAcl) {
+    uploadParams.ACL = resolvedAcl;
+  }
+
   // Upload using @aws-sdk/lib-storage (automatically performs multipart chunking for large files/videos)
   const parallelUploads3 = new Upload({
     client: s3Client,
-    params: {
-      Bucket: ENV.ZATA_BUCKET_NAME,
-      Key: uniqueKey,
-      Body: body,
-      ContentType: mimeType,
-    },
+    params: uploadParams,
     partSize: 20 * 1024 * 1024, // 20MB chunk size (fewer parts, higher throughput)
     queueSize: 6, // 6 concurrent part uploads
     leavePartsOnError: false,

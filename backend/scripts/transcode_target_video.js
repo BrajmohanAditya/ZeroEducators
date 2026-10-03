@@ -19,10 +19,16 @@
 
 import fs from "fs";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { s3Client, uploadToZata as uploadToB2 } from "../src/config/zata.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV } from "../src/config/env.js";
 import { transcodeToHls, transcodeToQuality } from "../src/utils/videoTranscoder.js";
+import { connectDB } from "../src/config/db.js";
+import { Modules } from "../src/models/module.model.js";
+import { Course } from "../src/models/course.model.js";
 
 const TARGET_KEY = process.argv[2] || "courseModule/1789059095751-8696.mp4";
 
@@ -35,6 +41,8 @@ async function run() {
   console.log(`📄  Target: ${TARGET_KEY}`);
   console.log(`${"=".repeat(60)}\n`);
 
+  await connectDB();
+
   // ── Step 1: Download original video from S3 ───────────────────────────────
   const tempDir   = path.resolve("./temp_transcode_manual");
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -45,14 +53,11 @@ async function run() {
   console.log(`[1/4] Downloading ${TARGET_KEY} from S3...`);
   try {
     const getCmd = new GetObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: TARGET_KEY });
-    const s3Res  = await s3Client.send(getCmd);
-    const ws     = fs.createWriteStream(tempInput);
+    const signedUrl = await getSignedUrl(s3Client, getCmd, { expiresIn: 7200 });
 
-    await new Promise((resolve, reject) => {
-      s3Res.Body.pipe(ws);
-      s3Res.Body.on("error", reject);
-      ws.on("finish", resolve);
-    });
+    const execFileAsync = promisify(execFile);
+    console.log("    Streaming via curl with retry support...");
+    await execFileAsync("curl.exe", ["-s", "-L", "--retry", "5", "--retry-delay", "2", "-o", tempInput, signedUrl]);
 
     const sizeMb = (fs.statSync(tempInput).size / (1024 * 1024)).toFixed(2);
     console.log(`✓  Downloaded ${sizeMb} MB\n`);
@@ -105,10 +110,35 @@ async function run() {
   console.log(`\n${"=".repeat(60)}`);
   console.log(`✅  COMPLETE!`);
   if (masterUrl) {
-    console.log(`\n🔗  HLS URL to save in DB:`);
+    console.log(`\n🔗  Updating MongoDB with HLS URL:`);
     console.log(`    ${masterUrl}`);
+
+    try {
+      const modRes = await Modules.updateMany(
+        { Video_id: TARGET_KEY },
+        { $set: { Video: masterUrl } }
+      );
+      console.log(`✓  Updated ${modRes.modifiedCount} document(s) in Modules collection`);
+
+      const topicRes = await Course.updateMany(
+        { "topics.videos.Video_id": TARGET_KEY },
+        { $set: { "topics.$[].videos.$[v].Video": masterUrl } },
+        { arrayFilters: [{ "v.Video_id": TARGET_KEY }] }
+      );
+      console.log(`✓  Updated ${topicRes.modifiedCount} document(s) in Course topics`);
+
+      const subRes = await Course.updateMany(
+        { "subjects.chapters.videos.Video_id": TARGET_KEY },
+        { $set: { "subjects.$[].chapters.$[].videos.$[v].Video": masterUrl } },
+        { arrayFilters: [{ "v.Video_id": TARGET_KEY }] }
+      );
+      console.log(`✓  Updated ${subRes.modifiedCount} document(s) in Course subjects`);
+    } catch (dbErr) {
+      console.error("✗  Failed to update MongoDB:", dbErr.message);
+    }
   }
   console.log(`${"=".repeat(60)}\n`);
+  process.exit(0);
 }
 
 run().catch((err) => {

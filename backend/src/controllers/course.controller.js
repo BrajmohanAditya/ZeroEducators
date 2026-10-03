@@ -761,12 +761,6 @@ export const addVideoToTopic = async (req, res, next) => {
       }
     );
 
-    // Trigger background HLS + MP4-fallback generation
-    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
-      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
-      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl);
-    }
-
     // Remove temporary files from local disk after upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, (err) => {
@@ -802,6 +796,24 @@ export const addVideoToTopic = async (req, res, next) => {
     course.modules.push(moduleDoc._id);
 
     await course.save();
+
+    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
+      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
+        try {
+          await Modules.findByIdAndUpdate(moduleDoc._id, { Video: hlsUrl });
+          await Course.updateOne(
+            { _id: courseId, "topics.videos.Video_id": videoId },
+            { $set: { "topics.$[].videos.$[v].Video": hlsUrl } },
+            { arrayFilters: [{ "v.Video_id": videoId }] }
+          );
+          console.log(`[HLS] ✓ Automatically updated Course topic video ${videoId} with HLS URL: ${hlsUrl}`);
+        } catch (dbErr) {
+          console.error(`[HLS] Error updating Course/Module with HLS URL:`, dbErr?.message);
+        }
+      });
+    }
 
     if (uploadId) {
       moduleUploadProgressMap.set(uploadId, {
@@ -1366,12 +1378,6 @@ export const addVideoToChapter = async (req, res, next) => {
       }
     );
 
-    // Trigger background HLS + MP4-fallback generation
-    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
-      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
-      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl);
-    }
-
     // Remove temporary files from local disk after upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, (err) => {
@@ -1407,6 +1413,24 @@ export const addVideoToChapter = async (req, res, next) => {
     course.modules.push(moduleDoc._id);
 
     await course.save();
+
+    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
+      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
+        try {
+          await Modules.findByIdAndUpdate(moduleDoc._id, { Video: hlsUrl });
+          await Course.updateOne(
+            { _id: courseId, "subjects.chapters.videos.Video_id": videoId },
+            { $set: { "subjects.$[].chapters.$[].videos.$[v].Video": hlsUrl } },
+            { arrayFilters: [{ "v.Video_id": videoId }] }
+          );
+          console.log(`[HLS] ✓ Automatically updated Course subject chapter video ${videoId} with HLS URL: ${hlsUrl}`);
+        } catch (dbErr) {
+          console.error(`[HLS] Error updating Course/Module with HLS URL:`, dbErr?.message);
+        }
+      });
+    }
 
     if (uploadId) {
       moduleUploadProgressMap.set(uploadId, {

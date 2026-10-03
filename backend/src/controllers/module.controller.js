@@ -89,12 +89,6 @@ export const createModule = async (req, res) => {
       }
     );
 
-    // Trigger background HLS + MP4-fallback generation
-    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
-      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
-      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl);
-    }
-
     // Remove temporary files from local disk after successful S3 upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, () => {});
@@ -114,6 +108,19 @@ export const createModule = async (req, res) => {
     await Course.findByIdAndUpdate(courseId, {
       $push: { modules: module._id },
     });
+
+    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
+      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
+      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
+        try {
+          await Modules.findByIdAndUpdate(module._id, { Video: hlsUrl });
+          console.log(`[HLS] ✓ Automatically updated Module ${module._id} with HLS URL: ${hlsUrl}`);
+        } catch (dbErr) {
+          console.error(`[HLS] Error updating Module ${module._id} with HLS URL:`, dbErr?.message);
+        }
+      });
+    }
 
     if (uploadId) {
       moduleUploadProgressMap.set(uploadId, {
@@ -307,6 +314,33 @@ export const getModuleStreamUrl = async (req, res) => {
     const hasAccess = await checkUserAccess(courseId, user);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied. Course not enrolled." });
+    }
+
+    // Priority 1: If module.Video is already an HLS master manifest
+    if (module?.Video && module.Video.includes("master.m3u8")) {
+      return res.status(200).json({ success: true, streamUrl: module.Video });
+    }
+
+    // Priority 2: Check if HLS was generated in S3 for this video
+    const ext = path.extname(videoId) || ".mp4";
+    const baseName = path.basename(videoId, ext);
+    const folder = path.dirname(videoId);
+    const hlsMasterKey = `${folder}/hls/${baseName}/master.m3u8`;
+    const hlsCacheKey = `hls_ready_${hlsMasterKey}`;
+    let hasHls = qualityVariantCache.get(hlsCacheKey);
+    if (hasHls === undefined) {
+      try {
+        await s3Client.send(new HeadObjectCommand({ Bucket: ENV.ZATA_BUCKET_NAME, Key: hlsMasterKey }));
+        hasHls = true;
+        qualityVariantCache.set(hlsCacheKey, true);
+      } catch {
+        hasHls = false;
+        qualityVariantCache.set(hlsCacheKey, false);
+      }
+    }
+    if (hasHls) {
+      const hlsUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}/${hlsMasterKey}`;
+      return res.status(200).json({ success: true, streamUrl: hlsUrl });
     }
 
     let activeKey = videoId;
