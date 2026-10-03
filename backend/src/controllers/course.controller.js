@@ -761,17 +761,6 @@ export const addVideoToTopic = async (req, res, next) => {
       }
     );
 
-    // Remove temporary files from local disk after upload
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, (err) => {
-        if (err) console.error("Error removing temp video file:", err);
-      });
-      tempFilePath = null;
-    }
-    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
-      fs.unlink(optimizedTempPath, () => {});
-    }
-
     // Create a Modules entry for streaming and permissions
     const moduleDoc = await Modules.create({
       courseId,
@@ -797,7 +786,7 @@ export const addVideoToTopic = async (req, res, next) => {
 
     await course.save();
 
-    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    // Trigger background HLS + MP4-fallback generation with automatic DB update BEFORE unlinking
     if (uploadFilePath && fs.existsSync(uploadFilePath)) {
       const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
       generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
@@ -813,6 +802,17 @@ export const addVideoToTopic = async (req, res, next) => {
           console.error(`[HLS] Error updating Course/Module with HLS URL:`, dbErr?.message);
         }
       });
+    }
+
+    // Remove temporary files from local disk AFTER passing to background transcoder
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlink(tempFilePath, (err) => {
+        if (err) console.error("Error removing temp video file:", err);
+      });
+      tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     if (uploadId) {
@@ -1378,17 +1378,6 @@ export const addVideoToChapter = async (req, res, next) => {
       }
     );
 
-    // Remove temporary files from local disk after upload
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, (err) => {
-        if (err) console.error("Error removing temp video file:", err);
-      });
-      tempFilePath = null;
-    }
-    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
-      fs.unlink(optimizedTempPath, () => {});
-    }
-
     // Create a Modules entry for streaming and permissions
     const moduleDoc = await Modules.create({
       courseId,
@@ -1414,7 +1403,7 @@ export const addVideoToChapter = async (req, res, next) => {
 
     await course.save();
 
-    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    // Trigger background HLS + MP4-fallback generation with automatic DB update BEFORE unlinking
     if (uploadFilePath && fs.existsSync(uploadFilePath)) {
       const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
       generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
@@ -1430,6 +1419,17 @@ export const addVideoToChapter = async (req, res, next) => {
           console.error(`[HLS] Error updating Course/Module with HLS URL:`, dbErr?.message);
         }
       });
+    }
+
+    // Remove temporary files from local disk AFTER passing to background transcoder
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlink(tempFilePath, (err) => {
+        if (err) console.error("Error removing temp video file:", err);
+      });
+      tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     if (uploadId) {

@@ -89,15 +89,6 @@ export const createModule = async (req, res) => {
       }
     );
 
-    // Remove temporary files from local disk after successful S3 upload
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, () => {});
-      tempFilePath = null;
-    }
-    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
-      fs.unlink(optimizedTempPath, () => {});
-    }
-
     const module = await Modules.create({
       courseId,
       title,
@@ -109,7 +100,7 @@ export const createModule = async (req, res) => {
       $push: { modules: module._id },
     });
 
-    // Trigger background HLS + MP4-fallback generation with automatic DB update
+    // Trigger background HLS + MP4-fallback generation with automatic DB update BEFORE unlinking
     if (uploadFilePath && fs.existsSync(uploadFilePath)) {
       const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
       generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
@@ -120,6 +111,15 @@ export const createModule = async (req, res) => {
           console.error(`[HLS] Error updating Module ${module._id} with HLS URL:`, dbErr?.message);
         }
       });
+    }
+
+    // Remove temporary files from local disk AFTER passing to background transcoder
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlink(tempFilePath, () => {});
+      tempFilePath = null;
+    }
+    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
+      fs.unlink(optimizedTempPath, () => {});
     }
 
     if (uploadId) {
