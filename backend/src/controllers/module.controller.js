@@ -7,7 +7,6 @@ import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV, isTesterEmail } from "../config/env.js";
 import { applyFaststart } from "../utils/faststart.js";
-import { generateMultiQualityAsync } from "../utils/videoTranscoder.js";
 import fs from "fs";
 import path from "path";
 
@@ -100,20 +99,7 @@ export const createModule = async (req, res) => {
       $push: { modules: module._id },
     });
 
-    // Trigger background HLS + MP4-fallback generation with automatic DB update BEFORE unlinking
-    if (uploadFilePath && fs.existsSync(uploadFilePath)) {
-      const s3BaseUrl = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}`;
-      generateMultiQualityAsync(uploadFilePath, videoId, s3BaseUrl, async (hlsUrl) => {
-        try {
-          await Modules.findByIdAndUpdate(module._id, { Video: hlsUrl });
-          console.log(`[HLS] ✓ Automatically updated Module ${module._id} with HLS URL: ${hlsUrl}`);
-        } catch (dbErr) {
-          console.error(`[HLS] Error updating Module ${module._id} with HLS URL:`, dbErr?.message);
-        }
-      });
-    }
-
-    // Remove temporary files from local disk AFTER passing to background transcoder
+    // Remove temporary files from local disk after successful S3 upload
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlink(tempFilePath, () => {});
       tempFilePath = null;
