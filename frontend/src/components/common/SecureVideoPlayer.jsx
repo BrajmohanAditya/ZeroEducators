@@ -48,24 +48,24 @@ const qualityOptions = [
  */
 const getQualityUrl = (originalSrc, targetQuality) => {
   if (!originalSrc || typeof originalSrc !== "string") return "";
-  // CRITICAL: NEVER tamper with S3 pre-signed URLs or HLS manifests! Doing so breaks the cryptographic AWS SigV4 signature!
+  // CRITICAL: S3 / Zata / pre-signed URLs ko kabhi mutate mat karo —
+  // yeh cryptographic SigV4 signature tod deta hai aur buffering/403 errors cause karta hai.
+  // Koi bhi http(s) URL jo hum serve karte hain direct return karo.
   if (
-    originalSrc.includes(".m3u8") ||
-    originalSrc.includes("X-Amz-") ||
-    originalSrc.includes("zata.ai") ||
-    originalSrc.includes("amazonaws.com")
+    originalSrc.startsWith("http://") ||
+    originalSrc.startsWith("https://")
   ) {
-    return originalSrc;
+    return originalSrc; // Direct URL — no tampering
   }
+  // Only modify relative URLs (local dev / proxy routes)
   try {
-    const isRelative = !originalSrc.startsWith("http://") && !originalSrc.startsWith("https://");
     const parsed = new URL(originalSrc, window.location.origin);
     if (targetQuality && targetQuality !== "auto") {
       parsed.searchParams.set("quality", targetQuality);
     } else {
       parsed.searchParams.delete("quality");
     }
-    return isRelative ? `${parsed.pathname}${parsed.search}` : parsed.toString();
+    return `${parsed.pathname}${parsed.search}`;
   } catch {
     return originalSrc;
   }
@@ -775,8 +775,7 @@ const SecureVideoPlayer = ({
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="metadata"
-        autoPlay
+        preload="auto"   // 'auto' = browser jitna ho sake utna aage buffer kare (MP4 ke liye critical)
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
@@ -785,10 +784,13 @@ const SecureVideoPlayer = ({
           setCurrentTime(0);
           setDuration(0);
           setBufferedEnd(0);
-          setIsBuffering(true); // load shuru hote hi spinner dikhao
+          setIsBuffering(true);
         }}
         onLoadedMetadata={handleLoadedMetadata}
-        onLoadedData={updateDuration}
+        onLoadedData={() => {
+          updateDuration();
+          setIsBuffering(false); // metadata + data loaded = ready to play
+        }}
         onDurationChange={updateDuration}
         onTimeUpdate={handleTimeUpdate}
         onProgress={updateBuffered}
@@ -798,18 +800,27 @@ const SecureVideoPlayer = ({
           applyPlaybackSpeed(playbackSpeed);
         }}
         onPause={() => setIsPlaying(false)}
-        onWaiting={() => setIsBuffering(true)}  // always show — playing check hata diya
-        onStalled={() => setIsBuffering(true)}  // network stall ka event
+        onWaiting={() => setIsBuffering(true)}
+        onStalled={() => setIsBuffering(true)}
         onSuspend={() => {
-          // suspend = browser ne temporarily download roka (normal hai agar buffer full hai)
-          // sirf tab spinner dikhao jab video chal rahi ho aur buffer khatam ho
+          // suspend = browser ne download temporarily roka
+          // Agar enough data hai (readyState >= 3 = HAVE_FUTURE_DATA) to spinner mat dikhao
           const vid = videoRef.current;
           if (vid && !vid.paused && vid.readyState < 3) {
             setIsBuffering(true);
+          } else {
+            // Buffer kaafi hai — spinner hatao agar dikh raha ho
+            setIsBuffering(false);
           }
         }}
         onPlaying={() => setIsBuffering(false)}
-        onSeeked={() => setIsBuffering(false)}
+        onSeeked={() => {
+          // Seek ke baad check karo ki data hai ya nahi
+          const vid = videoRef.current;
+          if (vid && vid.readyState >= 3) {
+            setIsBuffering(false);
+          }
+        }}
         onCanPlayThrough={() => setIsBuffering(false)}
         onCanPlay={() => {
           setIsBuffering(false);

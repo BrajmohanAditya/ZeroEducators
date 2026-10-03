@@ -102,7 +102,7 @@ const SinglePurchasedCourse = () => {
       return;
     }
 
-    const fetchDirectCdnUrl = async (targetQuality = selectedQuality) => {
+    const fetchDirectCdnUrl = async (targetQuality = selectedQuality, retryCount = 0) => {
       try {
         setIsLoadingStream(true);
         const tokenPart = streamToken ? `token=${encodeURIComponent(streamToken)}` : "";
@@ -118,10 +118,18 @@ const SinglePurchasedCourse = () => {
           setVideoStreamUrl(res.data.streamUrl);
         }
       } catch (err) {
-        // Fallback to stream route if direct URL fetch fails
-        if (isMounted) {
-          const tokenQuery = streamToken ? `?token=${encodeURIComponent(streamToken)}` : "";
-          setVideoStreamUrl(`${baseUrl}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`);
+        // CDN URL fetch fail hua — retry karo ek baar (2s baad), proxy fallback mat karo
+        if (isMounted && retryCount < 1) {
+          console.warn("[Video] CDN URL fetch failed, retrying in 2s...", err?.message);
+          setTimeout(() => {
+            if (isMounted) fetchDirectCdnUrl(targetQuality, retryCount + 1);
+          }, 2000);
+          return; // finally block skip karo — retry handle karega
+        }
+        // Retry bhi fail — DB mein stored direct URL try karo (agar CDN URL hai)
+        if (isMounted && module.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+          console.warn("[Video] Using stored DB video URL as last resort");
+          setVideoStreamUrl(module.Video);
         }
       } finally {
         if (isMounted) {
