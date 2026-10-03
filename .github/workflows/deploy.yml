@@ -31,6 +31,12 @@ jobs:
               echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
             fi
 
+            # 2. Ensure ffmpeg is installed on EC2 for HLS video transcoding
+            if ! command -v ffmpeg &> /dev/null; then
+              echo "Installing system ffmpeg on EC2 server..."
+              sudo apt-get update -y && sudo apt-get install -y ffmpeg
+            fi
+
             echo "Pulling latest code from GitHub..."
             git pull origin main
 

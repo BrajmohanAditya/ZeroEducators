@@ -7,14 +7,24 @@ import { uploadToZata as uploadToB2 } from "../config/zata.js";
  * Resolves FFmpeg executable path
  */
 export const getFfmpegPath = async () => {
+  // 1. Prefer native system ffmpeg (fastest and most reliable on EC2 Linux)
+  try {
+    const { execSync } = await import("child_process");
+    execSync("ffmpeg -version", { stdio: "ignore" });
+    return "ffmpeg";
+  } catch {}
+
+  // 2. Fall back to @ffmpeg-installer with guaranteed executable permissions
   try {
     const installer = await import("@ffmpeg-installer/ffmpeg");
-    if (installer?.default?.path) {
+    if (installer?.default?.path && fs.existsSync(installer.default.path)) {
+      try {
+        fs.chmodSync(installer.default.path, "755");
+      } catch {}
       return installer.default.path;
     }
-  } catch {
-    // fallback to system ffmpeg
-  }
+  } catch {}
+
   return "ffmpeg";
 };
 
