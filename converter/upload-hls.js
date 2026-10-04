@@ -66,7 +66,10 @@ async function uploadHlsFolder(outputDir, remoteFolder = "courseModule/hls") {
     forcePathStyle: true,
   });
 
-  const files = fs.readdirSync(outputDir).filter(f => f.endsWith(".m3u8") || f.endsWith(".ts"));
+  const files = fs
+    .readdirSync(outputDir)
+    .filter((f) => f.endsWith(".m3u8") || f.endsWith(".ts"));
+
   if (files.length === 0) {
     console.error(`\n❌ No .m3u8 or .ts files found in: ${outputDir}`);
     return null;
@@ -75,37 +78,50 @@ async function uploadHlsFolder(outputDir, remoteFolder = "courseModule/hls") {
   const total = files.length;
   console.log(`\n☁️  Uploading ${total} HLS files to Zata S3 (${bucketName})...`);
 
-  const folderName = `${Date.now()}-${path.basename(outputDir).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  const folderName = `${Date.now()}-${path
+    .basename(outputDir)
+    .replace(/[^a-zA-Z0-9_-]/g, "_")}`;
   const s3Prefix = `${remoteFolder}/${folderName}`;
 
   let uploadedCount = 0;
+  const CONCURRENCY = 10;
+  let fileIndex = 0;
 
-  for (const file of files) {
-    const filePath = path.join(outputDir, file);
-    const s3Key = `${s3Prefix}/${file}`;
-    const contentType = file.endsWith(".m3u8")
-      ? "application/vnd.apple.mpegurl"
-      : "video/mp2t";
+  async function uploadWorker() {
+    while (fileIndex < files.length) {
+      const currentIndex = fileIndex++;
+      const file = files[currentIndex];
+      const filePath = path.join(outputDir, file);
+      const s3Key = `${s3Prefix}/${file}`;
+      const contentType = file.endsWith(".m3u8")
+        ? "application/vnd.apple.mpegurl"
+        : "video/mp2t";
 
-    const fileBuffer = fs.readFileSync(filePath);
+      const fileBuffer = fs.readFileSync(filePath);
 
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: s3Key,
-        Body: fileBuffer,
-        ContentType: contentType,
-        ACL: "public-read",
-      })
-    );
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: s3Key,
+          Body: fileBuffer,
+          ContentType: contentType,
+          ACL: "public-read",
+        })
+      );
 
-    uploadedCount++;
-    process.stdout.write(
-      `\r📤 Uploading: ${uploadedCount}/${total} files [${Math.round(
-        (uploadedCount / total) * 100
-      )}%]`
-    );
+      uploadedCount++;
+      const percent = Math.round((uploadedCount / total) * 100);
+      process.stdout.write(
+        `\r📤 Uploading [${CONCURRENCY}x Parallel]: ${uploadedCount}/${total} files [${percent}%]`
+      );
+    }
   }
+
+  const workers = Array(Math.min(CONCURRENCY, files.length))
+    .fill(0)
+    .map(() => uploadWorker());
+
+  await Promise.all(workers);
 
   const masterM3u8Url = `${endpoint}/${bucketName}/${s3Prefix}/index.m3u8`;
   console.log("\n\n🎉 ALL HLS FILES UPLOADED TO ZATA S3!");

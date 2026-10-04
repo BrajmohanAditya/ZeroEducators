@@ -347,10 +347,10 @@ const SecureVideoPlayer = ({
         shutterColor="transparent"
         preventsDisplaySleepDuringVideoPlayback={true}
         bufferConfig={{
-          minBufferMs: 15000,
-          maxBufferMs: 60000,
-          bufferForPlaybackMs: 2500,
-          bufferForPlaybackAfterRebufferMs: 4000,
+          minBufferMs: 5000,              // Was 15000 — video start hone ke liye sirf 5s buffer chahiye
+          maxBufferMs: 30000,             // Was 60000 — 30s kaafi hai, 60s se budget phones crash hote the
+          bufferForPlaybackMs: 1500,      // Was 2500 — video 1.5s mein start ho (fast startup)
+          bufferForPlaybackAfterRebufferMs: 3000, // Was 4000 — rebuffer ke baad 3s mein resume
         }}
         playInBackground={false}
         playWhenInactive={false}

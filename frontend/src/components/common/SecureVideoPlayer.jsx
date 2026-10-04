@@ -253,14 +253,21 @@ const SecureVideoPlayer = ({
         }
         const hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: false,        // false = better for pre-recorded lectures (not live)
-          maxBufferLength: 60,          // Buffer 60 seconds ahead (smooth playback)
-          maxMaxBufferLength: 120,      // Allow up to 120s buffer on fast connections
-          backBufferLength: 30,         // Keep 30s behind current position
-          maxBufferSize: 60 * 1000 * 1000, // 60MB max buffer size
-          startLevel: -1,              // Auto quality selection at start
-          abrEwmaDefaultEstimate: 5000000, // Assume 5Mbps initially (optimistic)
-          progressive: true,           // Start playing as soon as first segment loads
+          lowLatencyMode: false,           // false = better for pre-recorded lectures (not live)
+          maxBufferLength: 30,             // Buffer 30s ahead (sweet spot for mobile & desktop)
+          maxMaxBufferLength: 60,          // Max 60s on fast connections (was 120s — caused mobile tab crashes)
+          backBufferLength: 15,            // Keep 15s behind current position (was 30s)
+          maxBufferSize: 20 * 1000 * 1000, // 20MB max buffer (was 60MB — budget phones (2-3GB RAM) crashed)
+          startLevel: -1,                  // Auto quality selection at start
+          abrEwmaDefaultEstimate: 1500000, // Assume 1.5Mbps initially = India average 4G (was 5Mbps — caused startup buffering)
+          abrBandWidthFactor: 0.85,        // Use 85% of measured bandwidth (safety margin for unstable networks)
+          abrBandWidthUpFactor: 0.7,       // Conservative upshift (don't rush to 720p on a brief speed spike)
+          progressive: true,               // Start playing as soon as first segment loads
+          fragLoadingTimeOut: 20000,       // 20s timeout per .ts segment (was default 20s, explicit)
+          manifestLoadingTimeOut: 15000,   // 15s timeout for .m3u8 manifest
+          levelLoadingTimeOut: 15000,      // 15s timeout for quality level manifests
+          fragLoadingMaxRetry: 4,          // Retry failed .ts segments up to 4 times
+          manifestLoadingMaxRetry: 3,      // Retry failed manifest up to 3 times
         });
         hlsRef.current = hls;
 
