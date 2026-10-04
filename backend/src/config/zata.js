@@ -273,11 +273,15 @@ export const deleteFromZata = async (fileKey) => {
       }
       cleanKey = pathname;
     } catch {}
-  }
-
   try {
-    // If it's an HLS stream (e.g. contains /hls/ or ends with .m3u8)
-    if (cleanKey.includes("/hls/") || cleanKey.endsWith(".m3u8")) {
+    // If it's an HLS stream, folder, or directory key without file extension
+    const isFolderOrHls =
+      cleanKey.includes("/hls/") ||
+      cleanKey.endsWith(".m3u8") ||
+      cleanKey.endsWith("/") ||
+      !path.extname(cleanKey);
+
+    if (isFolderOrHls) {
       let folderPrefix = cleanKey;
       if (folderPrefix.endsWith("/index.m3u8")) {
         folderPrefix = folderPrefix.replace("/index.m3u8", "");

@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import Hls from "hls.js";
+import HlsLib from "hls.js";
+
+// Resilient HLS reference: prioritize global window.Hls if loaded via CDN, fallback to bundled HlsLib
+const Hls = typeof window !== "undefined" && window.Hls ? window.Hls : HlsLib;
 import {
   ShieldCheck,
   Loader2,
