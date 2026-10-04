@@ -42,9 +42,8 @@ jobs:
 
             echo "--- Updating Frontend ---"
             cd frontend
-            if [ ! -d "node_modules" ]; then
-              npm install --prefer-offline --no-audit --no-fund
-            fi
+            echo "Installing frontend dependencies (always, to ensure new packages are installed)..."
+            npm install --prefer-offline --no-audit --no-fund
 
             echo "Building frontend with memory optimization..."
             export NODE_OPTIONS="--max-old-space-size=1024"
