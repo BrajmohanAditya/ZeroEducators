@@ -39,21 +39,33 @@ export const configureBucketCors = async () => {
       CORSConfiguration: {
         CORSRules: [
           {
+            // Rule 1: Wildcard for HLS streaming — allows ANY browser to directly
+            // fetch .m3u8 and .ts files from Zata S3 without going through EC2 proxy.
+            // This eliminates the double-trip bottleneck that caused buffering.
             AllowedHeaders: ["*"],
-            AllowedMethods: ["PUT", "POST", "GET", "HEAD"],
+            AllowedMethods: ["GET", "HEAD"],
+            AllowedOrigins: ["*"],
+            ExposeHeaders: ["Content-Length", "Content-Type", "ETag"],
+            MaxAgeSeconds: 86400, // 24 hours browser preflight cache
+          },
+          {
+            // Rule 2: Full access for our own domains (upload, put, post)
+            AllowedHeaders: ["*"],
+            AllowedMethods: ["PUT", "POST", "GET", "HEAD", "DELETE"],
             AllowedOrigins: [
               "https://zeroeducators.com",
               "https://www.zeroeducators.com",
               "http://localhost:5173",
               "http://localhost:3000",
             ],
-            ExposeHeaders: ["ETag", "x-amz-request-id"],
+            ExposeHeaders: ["ETag", "x-amz-request-id", "Content-Length"],
             MaxAgeSeconds: 3600,
           },
         ],
       },
     });
     await s3Client.send(corsCommand);
+    console.log("[Zata S3] CORS configured: HLS direct streaming enabled");
   } catch (err) {
     console.warn("[Zata S3] CORS rule notice:", err?.message || err);
   }

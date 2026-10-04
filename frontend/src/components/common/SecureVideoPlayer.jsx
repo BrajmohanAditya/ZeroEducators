@@ -229,33 +229,14 @@ const SecureVideoPlayer = ({
     };
   }, [isPlaying, isSettingsOpen]);
 
-  // Setup HLS (.m3u8) dynamically ONLY when stream is HLS
-  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:5000/api";
-
+  // Resolve HLS stream URL — use direct Zata S3 URL (no backend proxy)
+  // CORS is configured on Zata S3 bucket to allow all origins for GET/HEAD,
+  // so browser can stream .m3u8 and .ts chunks directly without going through EC2.
+  // This removes the double-trip bottleneck: Student → EC2 → Zata → EC2 → Student
+  // Now it's:                                 Student → Zata S3 directly
   const resolveStreamUrl = (rawSrc) => {
     if (!rawSrc || typeof rawSrc !== "string") return rawSrc;
-    // If already proxied through backend, return as is
-    if (rawSrc.includes("/module/hls/")) return rawSrc;
-
-    // If it's a direct Zata S3 HLS link, route it through our backend in-memory HLS stream proxy
-    // to bypass Zata's duplicate CORS headers (http://localhost:5173, http://localhost:5173)
-    if (rawSrc.endsWith(".m3u8") || rawSrc.includes("/hls/")) {
-      try {
-        const urlObj = new URL(rawSrc);
-        let pathname = urlObj.pathname.replace(/^\/+/, "");
-        const parts = pathname.split("/");
-        if (parts[0] === "zerozeroeducators") {
-          parts.shift();
-          pathname = parts.join("/");
-        }
-        return `${baseUrl}/module/hls/${pathname}`;
-      } catch {
-        const match = rawSrc.match(/(courseModule|courses)\/.+/);
-        if (match) {
-          return `${baseUrl}/module/hls/${match[0]}`;
-        }
-      }
-    }
+    // Direct URL — return as-is (Zata S3 CORS allows browser to fetch directly)
     return rawSrc;
   };
 
@@ -272,9 +253,14 @@ const SecureVideoPlayer = ({
         }
         const hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90,
-          maxBufferLength: 30,
+          lowLatencyMode: false,        // false = better for pre-recorded lectures (not live)
+          maxBufferLength: 60,          // Buffer 60 seconds ahead (smooth playback)
+          maxMaxBufferLength: 120,      // Allow up to 120s buffer on fast connections
+          backBufferLength: 30,         // Keep 30s behind current position
+          maxBufferSize: 60 * 1000 * 1000, // 60MB max buffer size
+          startLevel: -1,              // Auto quality selection at start
+          abrEwmaDefaultEstimate: 5000000, // Assume 5Mbps initially (optimistic)
+          progressive: true,           // Start playing as soon as first segment loads
         });
         hlsRef.current = hls;
 
