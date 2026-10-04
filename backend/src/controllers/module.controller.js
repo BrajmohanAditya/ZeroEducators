@@ -302,6 +302,11 @@ export const getModuleStreamUrl = async (req, res) => {
       return res.status(403).json({ message: "Access denied. Course not enrolled." });
     }
 
+    // Direct HLS (.m3u8) or external video URL (serves public manifest without tampering relative .ts segments)
+    if (module?.Video && (module.Video.includes(".m3u8") || module.Video.includes("/hls/"))) {
+      return res.status(200).json({ success: true, streamUrl: module.Video });
+    }
+
     // Direct pre-signed URL for the uploaded video (no server-side transcoding)
     const activeKey = videoId;
 
@@ -356,8 +361,11 @@ export const streamModuleVideo = async (req, res) => {
     // By default, deliver direct high-speed pre-signed S3/CDN URL via 302 redirect.
     // The mobile/browser will stream directly from Zata S3 at full CDN speed without stressing Node.js.
     if (req.query.proxy !== "true") {
-      // If module.Video is an external URL (e.g. Cloudinary or direct CDN)
-      if (!videoId && module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://"))) {
+      // If module.Video is an HLS URL or external direct CDN URL
+      if (
+        (module?.Video && (module.Video.includes(".m3u8") || module.Video.includes("/hls/"))) ||
+        (!videoId && module?.Video && (module.Video.startsWith("http://") || module.Video.startsWith("https://")))
+      ) {
         return res.redirect(302, module.Video);
       }
 
