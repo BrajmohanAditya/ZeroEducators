@@ -273,6 +273,8 @@ export const deleteFromZata = async (fileKey) => {
       }
       cleanKey = pathname;
     } catch {}
+  }
+
   try {
     // If it's an HLS stream, folder, or directory key without file extension
     const isFolderOrHls =
