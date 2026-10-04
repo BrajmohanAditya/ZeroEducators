@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Hls from "hls.js";
 import {
   ShieldCheck,
   Loader2,
@@ -110,6 +111,7 @@ const SecureVideoPlayer = ({
   const toastTimeoutRef = useRef(null);
   const controlsTimerRef = useRef(null);
   const pendingSeekRef = useRef(null);
+  const hlsRef = useRef(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -217,6 +219,76 @@ const SecureVideoPlayer = ({
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     };
   }, [isPlaying, isSettingsOpen]);
+
+  // Setup HLS (.m3u8) or standard MP4 stream dynamically
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !effectiveSrc) return;
+
+    const isHls =
+      effectiveSrc.includes(".m3u8") ||
+      effectiveSrc.includes("/hls/") ||
+      effectiveSrc.includes("format=m3u8");
+
+    if (isHls) {
+      if (Hls.isSupported()) {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+        }
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90,
+          maxBufferLength: 30,
+        });
+        hlsRef.current = hls;
+
+        hls.loadSource(effectiveSrc);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsBuffering(false);
+          updateDuration();
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.warn("[HLS] Network notice, recovering...", data.details);
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.warn("[HLS] Media error, recovering...", data.details);
+                hls.recoverMediaError();
+                break;
+              default:
+                console.warn("[HLS] Fatal error, destroying instance:", data.details);
+                hls.destroy();
+                break;
+            }
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Native HLS for Safari / iOS WebKit
+        video.src = effectiveSrc;
+      }
+    } else {
+      // Standard MP4 stream
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.src = effectiveSrc;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [effectiveSrc, videoKey]);
 
   // Resilient duration updater
   const updateDuration = () => {
@@ -396,7 +468,18 @@ const SecureVideoPlayer = ({
     }
     setIsSettingsOpen(false);
 
-    if (videoRef.current) {
+    // If HLS stream is active, switch quality level adaptively in hls.js
+    if (hlsRef.current && hlsRef.current.levels && hlsRef.current.levels.length > 0) {
+      if (newQuality === "auto") {
+        hlsRef.current.currentLevel = -1; // Auto adaptive
+      } else {
+        const targetHeight = parseInt(newQuality, 10);
+        const matchIdx = hlsRef.current.levels.findIndex(
+          (lvl) => lvl.height === targetHeight
+        );
+        hlsRef.current.currentLevel = matchIdx !== -1 ? matchIdx : -1;
+      }
+    } else if (videoRef.current) {
       // MP4 quality switch — spinner dikhao jab tak nayi file load na ho
       setIsBuffering(true);
       const savedTime = videoRef.current.currentTime;
@@ -680,12 +763,11 @@ const SecureVideoPlayer = ({
         key={videoKey}
         ref={videoRef}
         className="h-full w-full object-contain bg-black select-none pointer-events-auto cursor-pointer"
-        src={effectiveSrc}
         poster={poster}
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="auto"   // 'auto' = browser jitna ho sake utna aage buffer kare (MP4 ke liye critical)
+        preload="metadata"
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
