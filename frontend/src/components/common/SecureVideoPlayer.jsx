@@ -164,6 +164,12 @@ const SecureVideoPlayer = ({
   });
 
   const effectiveSrc = getQualityUrl(src, quality);
+  const isHls = Boolean(
+    effectiveSrc &&
+      (effectiveSrc.includes(".m3u8") ||
+        effectiveSrc.includes("/hls/") ||
+        effectiveSrc.includes("format=m3u8"))
+  );
 
 
   // Settings Panel state: false | true
@@ -220,15 +226,10 @@ const SecureVideoPlayer = ({
     };
   }, [isPlaying, isSettingsOpen]);
 
-  // Setup HLS (.m3u8) or standard MP4 stream dynamically
+  // Setup HLS (.m3u8) dynamically ONLY when stream is HLS
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !effectiveSrc) return;
-
-    const isHls =
-      effectiveSrc.includes(".m3u8") ||
-      effectiveSrc.includes("/hls/") ||
-      effectiveSrc.includes("format=m3u8");
 
     if (isHls) {
       if (Hls.isSupported()) {
@@ -274,12 +275,11 @@ const SecureVideoPlayer = ({
         video.src = effectiveSrc;
       }
     } else {
-      // Standard MP4 stream
+      // Standard MP4 stream: clean up any Hls instance so native src takes over
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
-      video.src = effectiveSrc;
     }
 
     return () => {
@@ -288,7 +288,7 @@ const SecureVideoPlayer = ({
         hlsRef.current = null;
       }
     };
-  }, [effectiveSrc, videoKey]);
+  }, [effectiveSrc, isHls, videoKey]);
 
   // Resilient duration updater
   const updateDuration = () => {
@@ -763,6 +763,7 @@ const SecureVideoPlayer = ({
         key={videoKey}
         ref={videoRef}
         className="h-full w-full object-contain bg-black select-none pointer-events-auto cursor-pointer"
+        src={isHls ? undefined : effectiveSrc}
         poster={poster}
         disablePictureInPicture
         disableRemotePlayback
