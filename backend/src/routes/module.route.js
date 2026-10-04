@@ -1,6 +1,12 @@
 import express from "express";
 import { isAdmin, isLoggedIn } from "../middlewares/auth.middleware.js";
-import { createModule, getUploadProgress, streamModuleVideo, getModuleStreamUrl } from "../controllers/module.controller.js";
+import {
+  createModule,
+  getUploadProgress,
+  streamModuleVideo,
+  getModuleStreamUrl,
+  streamHlsContent,
+} from "../controllers/module.controller.js";
 import { videoUpload, formatUploadError } from "../middlewares/videoUpload.js";
 
 const moduleRoute = express.Router();
@@ -8,6 +14,7 @@ const moduleRoute = express.Router();
 moduleRoute.get("/progress/:uploadId", getUploadProgress);
 moduleRoute.get("/stream-url/:moduleId", isLoggedIn, getModuleStreamUrl);
 moduleRoute.get("/stream/:moduleId", isLoggedIn, streamModuleVideo);
+moduleRoute.get("/hls/*key", streamHlsContent);
 
 moduleRoute.post(
   "/createModule",

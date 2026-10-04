@@ -45,6 +45,7 @@ import {
   completeMultipartVideoUpload,
   abortMultipartVideoUpload,
   streamMultipartVideoChunk,
+  initiateHlsFolderUpload,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -159,6 +160,9 @@ courseRoute.post("/video/multipart/part-urls", isLoggedIn, isAdmin, getMultipart
 courseRoute.post("/video/multipart/complete", isLoggedIn, isAdmin, completeMultipartVideoUpload);
 courseRoute.post("/video/multipart/abort", isLoggedIn, isAdmin, abortMultipartVideoUpload);
 courseRoute.put("/video/multipart/stream-chunk", isLoggedIn, isAdmin, streamMultipartVideoChunk);
+
+// HLS Folder Upload Routes
+courseRoute.post("/video/hls/initiate-upload", isLoggedIn, isAdmin, initiateHlsFolderUpload);
 
 courseRoute.post(
   "/:courseId/subject/:subjectId/chapter/:chapterId/video",

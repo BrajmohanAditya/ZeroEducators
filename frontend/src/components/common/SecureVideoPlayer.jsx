@@ -227,9 +227,40 @@ const SecureVideoPlayer = ({
   }, [isPlaying, isSettingsOpen]);
 
   // Setup HLS (.m3u8) dynamically ONLY when stream is HLS
+  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:5000/api";
+
+  const resolveStreamUrl = (rawSrc) => {
+    if (!rawSrc || typeof rawSrc !== "string") return rawSrc;
+    // If already proxied through backend, return as is
+    if (rawSrc.includes("/module/hls/")) return rawSrc;
+
+    // If it's a direct Zata S3 HLS link, route it through our backend in-memory HLS stream proxy
+    // to bypass Zata's duplicate CORS headers (http://localhost:5173, http://localhost:5173)
+    if (rawSrc.endsWith(".m3u8") || rawSrc.includes("/hls/")) {
+      try {
+        const urlObj = new URL(rawSrc);
+        let pathname = urlObj.pathname.replace(/^\/+/, "");
+        const parts = pathname.split("/");
+        if (parts[0] === "zerozeroeducators") {
+          parts.shift();
+          pathname = parts.join("/");
+        }
+        return `${baseUrl}/module/hls/${pathname}`;
+      } catch {
+        const match = rawSrc.match(/(courseModule|courses)\/.+/);
+        if (match) {
+          return `${baseUrl}/module/hls/${match[0]}`;
+        }
+      }
+    }
+    return rawSrc;
+  };
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !effectiveSrc) return;
+
+    const streamSource = resolveStreamUrl(effectiveSrc);
 
     if (isHls) {
       if (Hls.isSupported()) {
@@ -244,7 +275,7 @@ const SecureVideoPlayer = ({
         });
         hlsRef.current = hls;
 
-        hls.loadSource(effectiveSrc);
+        hls.loadSource(streamSource);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -272,7 +303,7 @@ const SecureVideoPlayer = ({
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         // Native HLS for Safari / iOS WebKit
-        video.src = effectiveSrc;
+        video.src = streamSource;
       }
     } else {
       // Standard MP4 stream: clean up any Hls instance so native src takes over
@@ -497,26 +528,40 @@ const SecureVideoPlayer = ({
     );
   };
 
-  // 1. Fetch User Public IP Address reliably
+  // 1. Fetch User Public IP Address reliably (with sessionStorage caching)
   useEffect(() => {
     let isMounted = true;
+
+    // Check cached IP first to avoid unnecessary network calls
+    try {
+      const cached = sessionStorage.getItem("cached_user_ip");
+      if (cached) {
+        setIpAddress(cached);
+        return;
+      }
+    } catch {
+      // sessionStorage might fail in restricted iframe / storage
+    }
 
     const fetchIp = async () => {
       const apis = [
         "https://api.ipify.org?format=json",
-        "https://ipapi.co/json/",
         "https://api64.ipify.org?format=json",
-        "https://httpbin.org/ip",
+        "https://api.seeip.org/jsonip",
       ];
 
       for (const url of apis) {
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
           if (res.ok) {
             const data = await res.json();
             const foundIp = data.ip || data.origin;
             if (foundIp && isMounted) {
-              setIpAddress(foundIp.split(",")[0].trim());
+              const cleanIp = foundIp.split(",")[0].trim();
+              setIpAddress(cleanIp);
+              try {
+                sessionStorage.setItem("cached_user_ip", cleanIp);
+              } catch {}
               return;
             }
           }

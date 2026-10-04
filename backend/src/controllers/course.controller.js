@@ -7,6 +7,7 @@ import {
   getMultipartPartUrls,
   completeMultipartUpload,
   abortMultipartUpload,
+  getHlsBatchPresignedUrls,
 } from "../config/zata.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
@@ -16,6 +17,9 @@ import { Course } from "../models/course.model.js";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import { Modules } from "../models/module.model.js";
+import { VideoComment } from "../models/videoComment.model.js";
+import { VideoLike } from "../models/videoLike.model.js";
+import { VideoRating } from "../models/videoRating.model.js";
 import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
@@ -852,29 +856,61 @@ export const deleteVideoFromTopic = async (req, res, next) => {
 
     const video = topic.videos.id(videoId);
     if (!video) {
-      return res.status(404).json({ success: false, message: "Video not found in topic" });
+      await Course.findByIdAndUpdate(
+        courseId,
+        { $pull: { "topics.$[t].videos": { _id: videoId } } },
+        { arrayFilters: [{ "t._id": topicId }] }
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Video deleted successfully from topic",
+      });
     }
 
-    // Delete from S3
-    if (video.Video_id) {
-      await deleteFromB2(video.Video_id);
-    }
+    const videoKey = video.Video_id;
+    const moduleId = video.moduleId;
 
-    // Delete associated Modules document if exists
-    if (video.moduleId) {
-      await Modules.findByIdAndDelete(video.moduleId);
-      course.modules.pull(video.moduleId);
-    } else {
-      await Modules.findOneAndDelete({ Video_id: video.Video_id });
-    }
+    // 1. Atomically remove video from topic and course modules
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $pull: {
+          "topics.$[t].videos": { _id: videoId },
+          ...(moduleId ? { modules: moduleId } : {}),
+        },
+      },
+      {
+        arrayFilters: [{ "t._id": topicId }],
+        new: true,
+      }
+    );
 
-    topic.videos.pull(videoId);
-    await course.save();
+    // 2. Clean up module document and related interactions
+    const targetVideoIds = [String(videoId), moduleId ? String(moduleId) : null].filter(Boolean);
+    if (moduleId) {
+      Modules.findByIdAndDelete(moduleId).catch(() => {});
+    } else if (videoKey) {
+      Modules.findOneAndDelete({ Video_id: videoKey }).catch(() => {});
+    }
+    VideoComment.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
+    VideoLike.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
+    VideoRating.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
+
+    // 3. Delete from S3 in background
+    if (videoKey) {
+      (async () => {
+        try {
+          await deleteFromB2(videoKey);
+        } catch (err) {
+          console.warn("[deleteVideoFromTopic] S3 delete warning:", err.message);
+        }
+      })();
+    }
 
     return res.status(200).json({
       success: true,
       message: "Video deleted successfully from topic",
-      course,
+      course: updatedCourse,
     });
   } catch (error) {
     next(error);
@@ -1066,40 +1102,65 @@ export const deleteChapter = async (req, res, next) => {
 
     const chapter = subject.chapters.id(chapterId);
     if (!chapter) {
-      return res.status(404).json({ success: false, message: "Chapter not found" });
+      await Course.findByIdAndUpdate(
+        courseId,
+        { $pull: { "subjects.$[s].chapters": { _id: chapterId } } },
+        { arrayFilters: [{ "s._id": subjectId }] }
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Chapter deleted successfully",
+      });
     }
 
-    // Clean up PDFs
-    if (chapter.pdfs && chapter.pdfs.length > 0) {
-      for (const pdf of chapter.pdfs) {
-        if (pdf.pdf_id) {
-          await deleteFromB2(pdf.pdf_id);
+    // Collect keys for background deletion
+    const pdfKeys = (chapter.pdfs || []).map((p) => p.pdf_id).filter(Boolean);
+    const videoKeys = (chapter.videos || []).map((v) => v.Video_id).filter(Boolean);
+    const moduleIds = (chapter.videos || []).map((v) => v.moduleId).filter(Boolean);
+
+    // Atomically pull chapter and modules from course
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $pull: {
+          "subjects.$[s].chapters": { _id: chapterId },
+          ...(moduleIds.length > 0 ? { modules: { $in: moduleIds } } : {}),
+        },
+      },
+      {
+        arrayFilters: [{ "s._id": subjectId }],
+        new: true,
+      }
+    );
+
+    // Clean up Modules collection and interactions
+    if (moduleIds.length > 0) {
+      Modules.deleteMany({ _id: { $in: moduleIds } }).catch(() => {});
+    }
+    const chapterVideoIds = (chapter.videos || [])
+      .map((v) => String(v._id))
+      .concat(moduleIds.map(String));
+    if (chapterVideoIds.length > 0) {
+      VideoComment.deleteMany({ videoId: { $in: chapterVideoIds } }).catch(() => {});
+      VideoLike.deleteMany({ videoId: { $in: chapterVideoIds } }).catch(() => {});
+      VideoRating.deleteMany({ videoId: { $in: chapterVideoIds } }).catch(() => {});
+    }
+
+    // Clean up S3 in background without blocking response
+    (async () => {
+      for (const k of [...pdfKeys, ...videoKeys]) {
+        try {
+          await deleteFromB2(k);
+        } catch (e) {
+          console.warn("[deleteChapter] Cleanup S3 warning:", e.message);
         }
       }
-    }
-
-    // Clean up Videos
-    if (chapter.videos && chapter.videos.length > 0) {
-      for (const video of chapter.videos) {
-        if (video.Video_id) {
-          await deleteFromB2(video.Video_id);
-        }
-        if (video.moduleId) {
-          await Modules.findByIdAndDelete(video.moduleId);
-          course.modules.pull(video.moduleId);
-        } else if (video.Video_id) {
-          await Modules.findOneAndDelete({ Video_id: video.Video_id });
-        }
-      }
-    }
-
-    subject.chapters.pull(chapterId);
-    await course.save();
+    })();
 
     return res.status(200).json({
       success: true,
       message: "Chapter and its contents deleted successfully",
-      course,
+      course: updatedCourse,
     });
   } catch (error) {
     next(error);
@@ -1222,17 +1283,36 @@ export const deletePdfFromChapter = async (req, res, next) => {
     }
 
     const pdf = chapter.pdfs.id(pdfId);
-    if (pdf && pdf.pdf_id) {
-      await deleteFromB2(pdf.pdf_id);
-    }
+    const pdfKey = pdf?.pdf_id;
 
-    chapter.pdfs.pull(pdfId);
-    await course.save();
+    // Atomically pull PDF from chapter
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $pull: {
+          "subjects.$[s].chapters.$[c].pdfs": { _id: pdfId },
+        },
+      },
+      {
+        arrayFilters: [{ "s._id": subjectId }, { "c._id": chapterId }],
+        new: true,
+      }
+    );
+
+    if (pdfKey) {
+      (async () => {
+        try {
+          await deleteFromB2(pdfKey);
+        } catch (b2Err) {
+          console.warn("[deletePdfFromChapter] Cleanup S3 warning:", b2Err.message);
+        }
+      })();
+    }
 
     return res.status(200).json({
       success: true,
       message: "PDF deleted successfully from chapter",
-      course,
+      course: updatedCourse,
     });
   } catch (error) {
     next(error);
@@ -1456,41 +1536,76 @@ export const deleteVideoFromChapter = async (req, res, next) => {
 
     const video = chapter.videos.id(videoId);
     if (!video) {
-      return res.status(404).json({ success: false, message: "Video not found in chapter" });
-    }
-
-    // Delete from S3 only if not reused in another course or chapter
-    if (video.Video_id) {
-      try {
-        const isUsedElsewhere = await Course.exists({
-          $or: [
-            { "subjects.chapters.videos.Video_id": video.Video_id, "subjects.chapters.videos._id": { $ne: videoId } },
-            { "topics.videos.Video_id": video.Video_id },
-          ],
-        });
-        if (!isUsedElsewhere) {
-          await deleteFromB2(video.Video_id);
+      // In case video is already removed from chapter, ensure cleanup and return success
+      await Course.findByIdAndUpdate(
+        courseId,
+        {
+          $pull: {
+            "subjects.$[s].chapters.$[c].videos": { _id: videoId },
+          },
+        },
+        {
+          arrayFilters: [{ "s._id": subjectId }, { "c._id": chapterId }],
         }
-      } catch (b2Err) {
-        console.warn("Could not delete from B2:", b2Err.message);
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Video deleted successfully from chapter",
+      });
+    }
+
+    const videoKey = video.Video_id;
+    const moduleId = video.moduleId;
+
+    // 1. Atomically remove video from chapter and course.modules without Mongoose version locking
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $pull: {
+          "subjects.$[s].chapters.$[c].videos": { _id: videoId },
+          ...(moduleId ? { modules: moduleId } : {}),
+        },
+      },
+      {
+        arrayFilters: [{ "s._id": subjectId }, { "c._id": chapterId }],
+        new: true,
       }
-    }
+    );
 
-    // Delete associated Modules document if exists
-    if (video.moduleId) {
-      await Modules.findByIdAndDelete(video.moduleId);
-      course.modules.pull(video.moduleId);
-    } else {
-      await Modules.findOneAndDelete({ Video_id: video.Video_id });
+    // 2. Delete module document and related interactions (comments, likes, ratings)
+    const targetVideoIds = [String(videoId), moduleId ? String(moduleId) : null].filter(Boolean);
+    if (moduleId) {
+      Modules.findByIdAndDelete(moduleId).catch(() => {});
+    } else if (videoKey) {
+      Modules.findOneAndDelete({ Video_id: videoKey }).catch(() => {});
     }
+    VideoComment.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
+    VideoLike.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
+    VideoRating.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
 
-    chapter.videos.pull(videoId);
-    await course.save();
+    // 3. Delete from S3 in background so frontend receives an instant 200 OK
+    if (videoKey) {
+      (async () => {
+        try {
+          const isUsedElsewhere = await Course.exists({
+            $or: [
+              { "subjects.chapters.videos.Video_id": videoKey },
+              { "topics.videos.Video_id": videoKey },
+            ],
+          });
+          if (!isUsedElsewhere) {
+            await deleteFromB2(videoKey);
+          }
+        } catch (b2Err) {
+          console.warn("[deleteVideoFromChapter] Cleanup S3 warning:", b2Err.message);
+        }
+      })();
+    }
 
     return res.status(200).json({
       success: true,
       message: "Video deleted successfully from chapter",
-      course,
+      course: updatedCourse,
     });
   } catch (error) {
     next(error);
@@ -2319,15 +2434,22 @@ export const streamMultipartVideoChunk = (req, res) => {
     }
 
     const parsed = new URL(targetUrl);
+    const headers = {
+      "Content-Type": req.headers["content-type"] || "application/octet-stream",
+    };
+    if (req.headers["content-length"]) {
+      headers["Content-Length"] = req.headers["content-length"];
+    }
+    if (targetUrl.includes("/hls/") || targetUrl.includes(".m3u8") || targetUrl.includes(".ts")) {
+      headers["x-amz-acl"] = "public-read";
+    }
+
     const proxyReq = https.request(
       {
         hostname: parsed.hostname,
         path: parsed.pathname + parsed.search,
         method: "PUT",
-        headers: {
-          "Content-Type": req.headers["content-type"] || "application/octet-stream",
-          "Content-Length": req.headers["content-length"],
-        },
+        headers,
       },
       (proxyRes) => {
         let body = "";
@@ -2336,7 +2458,12 @@ export const streamMultipartVideoChunk = (req, res) => {
         });
         proxyRes.on("end", () => {
           const etag = proxyRes.headers["etag"];
-          res.writeHead(proxyRes.statusCode || 200, {
+          if (proxyRes.statusCode >= 400) {
+            console.error(`[Stream Chunk Error] S3 status ${proxyRes.statusCode}:`, body);
+            res.writeHead(proxyRes.statusCode, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ success: false, message: body || "Upload failed" }));
+          }
+          res.writeHead(200, {
             "Content-Type": "application/json",
             ETag: etag || "",
           });
@@ -2394,7 +2521,48 @@ export const reorderCourses = async (req, res, next) => {
   }
 };
 
+/**
+ * Initiate Batch Presigned URLs for HLS Folder Upload
+ */
+export const initiateHlsFolderUpload = async (req, res, next) => {
+  try {
+    const { folderName, files, courseId, courseTitle, chapterName, subjectName } = req.body;
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ success: false, message: "files array is required" });
+    }
 
+    const hasM3u8 = files.some((f) => {
+      const name = typeof f === "string" ? f : f.name;
+      return name && name.endsWith(".m3u8");
+    });
 
+    if (!hasM3u8) {
+      return res.status(400).json({
+        success: false,
+        message: "The selected folder must contain an index.m3u8 playlist file",
+      });
+    }
 
+    // Organize Course & Chapter wise on Zata S3
+    let customPrefix = null;
+    if (courseTitle || courseId) {
+      const cleanCourse = (courseTitle || courseId).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50);
+      const cleanChapter = (chapterName || subjectName || "chapter").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50);
+      customPrefix = `courses/${cleanCourse}/${cleanChapter}/hls`;
+    }
+
+    const result = await getHlsBatchPresignedUrls(folderName, files, customPrefix);
+    return res.status(200).json({
+      success: true,
+      message: "Batch presigned URLs generated successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error initiating HLS folder upload:", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Failed to initiate HLS folder upload",
+    });
+  }
+};
 

@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Loader2,
   FolderPlus,
+  FolderUp,
+  FolderCheck,
   BookOpen,
   UploadCloud,
   ChevronDown,
@@ -54,12 +56,15 @@ import {
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
 import ReorderModal from "@/components/Admin/ReorderModal";
+import SecureVideoPlayer from "@/components/common/SecureVideoPlayer";
 import {
   initiateMultipartVideoUploadApi,
   getMultipartVideoPartUrlsApi,
   completeMultipartVideoUploadApi,
   abortMultipartVideoUploadApi,
   uploadPartToS3Api,
+  initiateHlsFolderUploadApi,
+  uploadHlsFileToS3Api,
 } from "@/api/course.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -182,10 +187,14 @@ const TopicPdfManager = () => {
 
   // Video Upload Modal State
   const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
-  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' | 'link'
+  const [videoAddMode, setVideoAddMode] = useState("hls"); // 'hls' | 'file' | 'link'
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
+  const [hlsFolderFiles, setHlsFolderFiles] = useState([]);
+  const [hlsFolderName, setHlsFolderName] = useState("");
+  const [hlsTotalBytes, setHlsTotalBytes] = useState(0);
+  const hlsFolderInputRef = useRef(null);
   const [copiedVideoId, setCopiedVideoId] = useState(null);
   const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'direct' | 'saving' | 'done'
   const [directProgress, setDirectProgress] = useState(0);
@@ -194,6 +203,39 @@ const TopicPdfManager = () => {
   const [uploadSpeed, setUploadSpeed] = useState("");
   const [partInfo, setPartInfo] = useState({ current: 0, total: 0 });
   const wakeLockRef = useRef(null);
+
+  const handleHlsFolderChange = (e) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    const hasM3u8 = selectedFiles.some(
+      (f) => f.name === "index.m3u8" || f.name.endsWith(".m3u8")
+    );
+    if (!hasM3u8) {
+      toast.error("Invalid HLS folder! Must contain an 'index.m3u8' playlist file.");
+      return;
+    }
+
+    let detectedFolderName = "hls_lecture";
+    if (selectedFiles[0]?.webkitRelativePath) {
+      detectedFolderName = selectedFiles[0].webkitRelativePath.split("/")[0];
+    }
+
+    const totalSize = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+    setHlsFolderFiles(selectedFiles);
+    setHlsFolderName(detectedFolderName);
+    setHlsTotalBytes(totalSize);
+
+    if (!videoTitle.trim()) {
+      setVideoTitle(
+        detectedFolderName
+          .replace(/_hls$/i, "")
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      );
+    }
+    toast.success(`HLS folder loaded: ${selectedFiles.length} files (${formatFileSize(totalSize)})`);
+  };
 
   const requestWakeLock = async () => {
     try {
@@ -448,6 +490,9 @@ const TopicPdfManager = () => {
             setVideoTitle("");
             setVideoUrl("");
             setVideoFile(null);
+            setHlsFolderFiles([]);
+            setHlsFolderName("");
+            setHlsTotalBytes(0);
             setActiveChapterForVideoUpload(null);
           },
           onError: (err) => {
@@ -455,6 +500,184 @@ const TopicPdfManager = () => {
           },
         }
       );
+      return;
+    }
+
+    // Upload Converted HLS Folder Mode
+    if (videoAddMode === "hls") {
+      if (!hlsFolderFiles || hlsFolderFiles.length === 0) {
+        toast.error("Please choose a converted HLS folder containing index.m3u8");
+        return;
+      }
+
+      const currentChapter = { ...activeChapterForVideoUpload };
+      const currentTitle = videoTitle.trim();
+      const filesToUpload = [...hlsFolderFiles];
+      const totalBytes = hlsTotalBytes;
+      const totalFiles = filesToUpload.length;
+
+      setUploadPhase("direct");
+      setDirectProgress(0);
+      setDirectLoaded(0);
+      setDirectTotal(totalBytes);
+      setUploadSpeed("");
+      setPartInfo({ current: 0, total: totalFiles });
+      requestWakeLock();
+
+      try {
+        // Step 1: Request Batch Presigned URLs from Backend
+        const fileMetadataList = filesToUpload.map((f) => ({
+          name: f.name,
+          type: f.type,
+        }));
+
+        const presignRes = await initiateHlsFolderUploadApi({
+          folderName: hlsFolderName || "lecture_hls",
+          files: fileMetadataList,
+          courseId,
+          courseTitle: course?.title,
+          chapterName: currentChapter?.title || currentChapter?.chapterName || "chapter",
+        });
+
+        if (!presignRes?.success || !presignRes?.data?.urls) {
+          throw new Error(presignRes?.message || "Failed to generate upload URLs");
+        }
+
+        const { folderPrefix, masterM3u8Url, urls } = presignRes.data;
+        const presignedMap = new Map();
+        urls.forEach((item) => presignedMap.set(item.name, item));
+
+        // Step 2: Upload all segments and index.m3u8 concurrently with auto-retry
+        let uploadedCount = 0;
+        let uploadedBytes = 0;
+        let lastTime = Date.now();
+        let lastLoaded = 0;
+
+        const queue = [...filesToUpload];
+        const CONCURRENCY = 4;
+        let activeWorkers = 0;
+
+        const uploadSingleFileWithRetry = async (fileObj, attempt = 1) => {
+          const item = presignedMap.get(fileObj.name);
+          if (!item) {
+            throw new Error(`Missing presigned URL for ${fileObj.name}`);
+          }
+
+          try {
+            await uploadHlsFileToS3Api({
+              presignedUrl: item.presignedUrl,
+              file: fileObj,
+              contentType: item.contentType,
+            });
+
+            uploadedCount++;
+            uploadedBytes += fileObj.size;
+            const percent =
+              totalBytes > 0
+                ? Math.min(100, Math.round((uploadedBytes * 100) / totalBytes))
+                : Math.round((uploadedCount * 100) / totalFiles);
+
+            setDirectProgress(percent);
+            setDirectLoaded(uploadedBytes);
+            setPartInfo({ current: uploadedCount, total: totalFiles });
+
+            const now = Date.now();
+            const diffSec = (now - lastTime) / 1000;
+            if (diffSec >= 0.5) {
+              const speed = (uploadedBytes - lastLoaded) / diffSec;
+              setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
+              lastLoaded = uploadedBytes;
+              lastTime = now;
+            }
+          } catch (err) {
+            if (attempt < 4) {
+              console.warn(`File ${fileObj.name} retry attempt ${attempt}/3...`, err);
+              await new Promise((r) => setTimeout(r, 1000));
+              return uploadSingleFileWithRetry(fileObj, attempt + 1);
+            }
+            throw new Error(`Upload failed for ${fileObj.name}: ${err.message}`);
+          }
+        };
+
+        await new Promise((resolve, reject) => {
+          let hasError = false;
+
+          const next = () => {
+            if (hasError) return;
+            if (queue.length === 0 && activeWorkers === 0) {
+              return resolve();
+            }
+
+            while (activeWorkers < CONCURRENCY && queue.length > 0) {
+              const nextFile = queue.shift();
+              activeWorkers++;
+              uploadSingleFileWithRetry(nextFile)
+                .then(() => {
+                  activeWorkers--;
+                  next();
+                })
+                .catch((err) => {
+                  hasError = true;
+                  reject(err);
+                });
+            }
+          };
+
+          next();
+        });
+
+        // Step 3: Save lecture metadata into course database
+        setUploadPhase("saving");
+        addVideoToChapter(
+          {
+            courseId,
+            subjectId: currentChapter.subjectId,
+            chapterId: currentChapter.chapterId,
+            data: {
+              title: currentTitle,
+              videoUrl: masterM3u8Url,
+              videoId: folderPrefix,
+            },
+          },
+          {
+            onSuccess: () => {
+              releaseWakeLock();
+              setUploadPhase("done");
+              setDirectProgress(100);
+              if (currentChapter?.chapterId) {
+                setExpandedChapters((prev) => ({
+                  ...prev,
+                  [currentChapter.chapterId]: true,
+                }));
+              }
+              queryClient.invalidateQueries(["getSingleCourse", courseId]);
+              queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+              queryClient.invalidateQueries(["getCourse"]);
+              toast.success("HLS Video folder uploaded and saved to chapter successfully!");
+              setTimeout(() => {
+                setVideoTitle("");
+                setVideoFile(null);
+                setVideoUrl("");
+                setHlsFolderFiles([]);
+                setHlsFolderName("");
+                setHlsTotalBytes(0);
+                setActiveChapterForVideoUpload(null);
+                setUploadPhase("idle");
+              }, 1200);
+            },
+            onError: (err) => {
+              releaseWakeLock();
+              setUploadPhase("idle");
+              toast.error(err?.response?.data?.message || "Failed to save video lecture");
+            },
+          }
+        );
+      } catch (err) {
+        releaseWakeLock();
+        setUploadPhase("idle");
+        console.error("HLS Upload error:", err);
+        toast.error(err.message || "Failed to upload HLS folder to cloud storage");
+      }
       return;
     }
 
@@ -660,10 +883,15 @@ const TopicPdfManager = () => {
   const handleConfirmDelete = () => {
     if (!deleteConfirm) return;
 
+    const callbacks = {
+      onSuccess: () => setDeleteConfirm(null),
+      onSettled: () => setDeleteConfirm(null),
+    };
+
     if (deleteConfirm.type === "subject") {
       deleteSubject(
         { courseId, subjectId: deleteConfirm.id },
-        { onSuccess: () => setDeleteConfirm(null) }
+        callbacks
       );
     } else if (deleteConfirm.type === "chapter") {
       deleteChapter(
@@ -672,7 +900,7 @@ const TopicPdfManager = () => {
           subjectId: deleteConfirm.subjectId,
           chapterId: deleteConfirm.id,
         },
-        { onSuccess: () => setDeleteConfirm(null) }
+        callbacks
       );
     } else if (deleteConfirm.type === "video") {
       deleteVideoFromChapter(
@@ -682,7 +910,7 @@ const TopicPdfManager = () => {
           chapterId: deleteConfirm.chapterId,
           videoId: deleteConfirm.id,
         },
-        { onSuccess: () => setDeleteConfirm(null) }
+        callbacks
       );
     } else if (deleteConfirm.type === "pdf") {
       deletePdfFromChapter(
@@ -692,12 +920,12 @@ const TopicPdfManager = () => {
           chapterId: deleteConfirm.chapterId,
           pdfId: deleteConfirm.id,
         },
-        { onSuccess: () => setDeleteConfirm(null) }
+        callbacks
       );
     } else if (deleteConfirm.type === "legacyTopic") {
       deleteTopic(
         { courseId, topicId: deleteConfirm.id },
-        { onSuccess: () => setDeleteConfirm(null) }
+        callbacks
       );
     }
   };
@@ -1742,30 +1970,42 @@ const TopicPdfManager = () => {
           </DialogHeader>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex p-1 bg-slate-100 rounded-xl mt-1">
+          <div className="flex p-1 bg-slate-100 rounded-xl mt-1 gap-1">
             <button
               type="button"
-              disabled={uploadPhase === "local" || uploadPhase === "cloud"}
+              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
+              onClick={() => setVideoAddMode("hls")}
+              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                videoAddMode === "hls"
+                  ? "bg-white text-blue-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <FolderUp className="w-3.5 h-3.5 text-blue-600" /> HLS Folder ⚡
+            </button>
+            <button
+              type="button"
+              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
               onClick={() => setVideoAddMode("file")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 videoAddMode === "file"
                   ? "bg-white text-blue-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <UploadCloud className="w-3.5 h-3.5" /> Upload File
+              <UploadCloud className="w-3.5 h-3.5" /> Single MP4
             </button>
             <button
               type="button"
-              disabled={uploadPhase === "local" || uploadPhase === "cloud"}
+              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
               onClick={() => setVideoAddMode("link")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 videoAddMode === "link"
                   ? "bg-white text-blue-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <LinkIcon className="w-3.5 h-3.5" /> Paste Video Link / Reuse
+              <LinkIcon className="w-3.5 h-3.5" /> Paste Link
             </button>
           </div>
 
@@ -1780,13 +2020,84 @@ const TopicPdfManager = () => {
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
                 required
-                disabled={uploadPhase === "local" || uploadPhase === "cloud"}
+                disabled={uploadPhase === "direct" || uploadPhase === "saving"}
                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
               />
             </div>
 
-            {videoAddMode === "file" ? (
-              /* Option: Upload File */
+            {videoAddMode === "hls" ? (
+              /* Option 1: Converted HLS Folder */
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Select Converted HLS Folder <span className="text-red-500">*</span>
+                </label>
+
+                {hlsFolderFiles.length === 0 ? (
+                  <div
+                    onClick={() => {
+                      if (uploadPhase === "idle") {
+                        hlsFolderInputRef.current?.click();
+                      }
+                    }}
+                    className="border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/50 hover:bg-blue-50/80 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <FolderUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        Click to select Converted HLS Folder
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Select the folder created by converter (contains <code>index.m3u8</code> and <code>.ts</code> chunks)
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-300 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                        <FolderCheck className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{hlsFolderName}</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          {hlsFolderFiles.length} files • {formatFileSize(hlsTotalBytes)} • index.m3u8 detected ✅
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={uploadPhase === "direct" || uploadPhase === "saving"}
+                      onClick={() => {
+                        setHlsFolderFiles([]);
+                        setHlsFolderName("");
+                        setHlsTotalBytes(0);
+                        if (hlsFolderInputRef.current) hlsFolderInputRef.current.value = "";
+                      }}
+                      className="text-xs font-semibold text-slate-500 hover:text-red-600 px-2 py-1 cursor-pointer transition"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={hlsFolderInputRef}
+                  type="file"
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  onChange={handleHlsFolderChange}
+                  className="hidden"
+                />
+
+                <p className="text-[11px] text-slate-500">
+                  ⚡ <strong>Buffer-Free Streaming:</strong> Chunks upload directly to S3. When deleted from course, the entire folder is cleaned up automatically!
+                </p>
+              </div>
+            ) : videoAddMode === "file" ? (
+              /* Option 2: Upload File */
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                   Select Video File <span className="text-red-500">*</span>
@@ -1796,7 +2107,7 @@ const TopicPdfManager = () => {
                   accept="video/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.mkv"
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   required={videoAddMode === "file"}
-                  disabled={uploadPhase === "local" || uploadPhase === "cloud"}
+                  disabled={uploadPhase === "direct" || uploadPhase === "saving"}
                   className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer disabled:bg-slate-100"
                 />
                 {videoFile && (
@@ -1804,10 +2115,9 @@ const TopicPdfManager = () => {
                     File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
                   </p>
                 )}
-
               </div>
             ) : (
-              /* Option 1: Paste Link */
+              /* Option 3: Paste Link */
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                   Video URL / Direct Link <span className="text-red-500">*</span>
@@ -1815,7 +2125,7 @@ const TopicPdfManager = () => {
                 <div className="relative">
                   <input
                     type="url"
-                    placeholder="https://... (paste existing video link)"
+                    placeholder="https://... (paste existing video link or .m3u8)"
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                     required={videoAddMode === "link"}
@@ -1841,13 +2151,13 @@ const TopicPdfManager = () => {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  ⚡ <strong>Instant Link:</strong> Copy any existing video link from another course/chapter and paste it here. It will be added instantly without re-uploading!
+                  ⚡ <strong>Instant Link:</strong> Copy any existing video link from another course/chapter or external HLS link.
                 </p>
               </div>
             )}
 
-            {/* Upload Progress Status Indicator (Only in File Mode) */}
-            {videoAddMode === "file" && uploadPhase !== "idle" && (
+            {/* Upload Progress Status Indicator (in File or HLS Mode) */}
+            {uploadPhase !== "idle" && (
               <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-bold text-slate-700">
@@ -1858,11 +2168,11 @@ const TopicPdfManager = () => {
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                       )}
                       {uploadPhase === "saving"
-                        ? "Assembling & Finalizing..."
+                        ? "Assembling & Finalizing in Course..."
                         : directProgress >= 100
                         ? "Upload Complete!"
                         : partInfo.total > 0
-                        ? `⚡ Direct Fast Upload (Part ${partInfo.current}/${partInfo.total})`
+                        ? `⚡ ${videoAddMode === "hls" ? "Uploading Chunks" : "Direct Fast Upload"} (${partInfo.current}/${partInfo.total})`
                         : "⚡ Direct Fast Upload"}
                     </span>
                     <div className="flex items-center gap-2">
@@ -1908,7 +2218,10 @@ const TopicPdfManager = () => {
                   setVideoTitle("");
                   setVideoFile(null);
                   setVideoUrl("");
-                  setVideoAddMode("file");
+                  setHlsFolderFiles([]);
+                  setHlsFolderName("");
+                  setHlsTotalBytes(0);
+                  setVideoAddMode("hls");
                   setUploadPhase("idle");
                 }}
                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
@@ -1929,6 +2242,31 @@ const TopicPdfManager = () => {
                   ) : (
                     <>
                       <LinkIcon className="w-4 h-4" /> Link Video Instantly
+                    </>
+                  )}
+                </button>
+              ) : videoAddMode === "hls" ? (
+                <button
+                  type="submit"
+                  disabled={
+                    uploadPhase === "direct" ||
+                    uploadPhase === "saving" ||
+                    hlsFolderFiles.length === 0 ||
+                    !videoTitle.trim()
+                  }
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50 shadow-xs"
+                >
+                  {uploadPhase === "direct" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading HLS ({partInfo.current}/{partInfo.total})...
+                    </>
+                  ) : uploadPhase === "saving" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Finalizing...
+                    </>
+                  ) : (
+                    <>
+                      <FolderUp className="w-4 h-4" /> Upload HLS Folder
                     </>
                   )}
                 </button>
@@ -2052,26 +2390,26 @@ const TopicPdfManager = () => {
           if (!open) setPreviewVideo(null);
         }}
       >
-        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black">
-          <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-            <h3 className="font-bold text-sm truncate">{previewVideo?.title}</h3>
-          </div>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black border-slate-800">
+          <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between space-y-0">
+            <DialogTitle className="font-bold text-sm truncate text-white">
+              {previewVideo?.title || "Video Preview"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Lecture video preview player
+            </DialogDescription>
+          </DialogHeader>
           {previewVideo && (
             <div className="w-full aspect-video bg-black flex items-center justify-center">
-              <video
+              <SecureVideoPlayer
                 src={
-                  previewVideo.moduleId || previewVideo._id
+                  previewVideo.Video ||
+                  (previewVideo.moduleId || previewVideo._id
                     ? `${baseUrl}/module/stream/${previewVideo.moduleId || previewVideo._id}`
-                    : previewVideo.Video
+                    : "")
                 }
-                controls
-                autoPlay
+                videoKey={previewVideo._id || previewVideo.moduleId}
                 className="w-full h-full"
-                onError={(e) => {
-                  if (previewVideo.Video && e.currentTarget.src !== previewVideo.Video) {
-                    e.currentTarget.src = previewVideo.Video;
-                  }
-                }}
               />
             </div>
           )}

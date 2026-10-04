@@ -1,6 +1,8 @@
 import {
   S3Client,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   PutBucketCorsCommand,
   CreateMultipartUploadCommand,
@@ -12,6 +14,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Upload } from "@aws-sdk/lib-storage";
 import { ENV } from "./env.js";
 import fs from "fs";
+import path from "path";
 
 // Initialize S3 Client with Zata.ai S3 Endpoint
 export const s3Client = new S3Client({
@@ -253,16 +256,123 @@ export const uploadToZata = async (
 };
 
 /**
- * Delete a file from Zata Cloud Storage
- * @param {string} fileKey - the uniqueKey saved in DB (e.g. "courses/12345-image.png")
+ * Delete a file or an entire HLS folder from Zata Cloud Storage
+ * @param {string} fileKey - the uniqueKey saved in DB (e.g. "courses/12345-image.png" or "courseModule/hls/173000-xyz")
  */
 export const deleteFromZata = async (fileKey) => {
   if (!fileKey) return;
-  const command = new DeleteObjectCommand({
-    Bucket: ENV.ZATA_BUCKET_NAME,
-    Key: fileKey,
-  });
-  return await s3Client.send(command);
+
+  // Clean if a full URL was passed instead of relative S3 key
+  let cleanKey = fileKey;
+  if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
+    try {
+      const urlObj = new URL(cleanKey);
+      let pathname = urlObj.pathname.replace(/^\/+/, "");
+      if (pathname.startsWith(ENV.ZATA_BUCKET_NAME + "/")) {
+        pathname = pathname.substring(ENV.ZATA_BUCKET_NAME.length + 1);
+      }
+      cleanKey = pathname;
+    } catch {}
+  }
+
+  try {
+    // If it's an HLS stream (e.g. contains /hls/ or ends with .m3u8)
+    if (cleanKey.includes("/hls/") || cleanKey.endsWith(".m3u8")) {
+      let folderPrefix = cleanKey;
+      if (folderPrefix.endsWith("/index.m3u8")) {
+        folderPrefix = folderPrefix.replace("/index.m3u8", "");
+      } else if (folderPrefix.endsWith(".m3u8")) {
+        folderPrefix = folderPrefix.substring(0, folderPrefix.lastIndexOf("/"));
+      }
+
+      if (!folderPrefix.endsWith("/")) {
+        folderPrefix += "/";
+      }
+
+      let continuationToken = undefined;
+      let totalDeleted = 0;
+      do {
+        const listCmd = new ListObjectsV2Command({
+          Bucket: ENV.ZATA_BUCKET_NAME,
+          Prefix: folderPrefix,
+          ContinuationToken: continuationToken,
+        });
+
+        const listed = await s3Client.send(listCmd);
+        if (listed.Contents && listed.Contents.length > 0) {
+          const deleteParams = {
+            Bucket: ENV.ZATA_BUCKET_NAME,
+            Delete: {
+              Objects: listed.Contents.map((obj) => ({ Key: obj.Key })),
+              Quiet: true,
+            },
+          };
+          await s3Client.send(new DeleteObjectsCommand(deleteParams));
+          totalDeleted += listed.Contents.length;
+        }
+        continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+      } while (continuationToken);
+
+      if (totalDeleted > 0) {
+        console.log(`[Zata S3] Deleted ${totalDeleted} HLS files for folder: ${folderPrefix}`);
+      }
+    }
+
+    // Always attempt deleting the specific key as well
+    const command = new DeleteObjectCommand({
+      Bucket: ENV.ZATA_BUCKET_NAME,
+      Key: cleanKey,
+    });
+    return await s3Client.send(command);
+  } catch (err) {
+    console.error(`[Zata S3] Error deleting ${fileKey}:`, err);
+    throw err;
+  }
+};
+
+/**
+ * Generate Presigned URLs for batch uploading an HLS folder directly to Zata S3
+ */
+export const getHlsBatchPresignedUrls = async (folderName, fileList = [], customPrefix = null) => {
+  const cleanFolderName = folderName
+    ? folderName.replace(/[^a-zA-Z0-9_-]/g, "_")
+    : "lecture_hls";
+  const s3Prefix = customPrefix
+    ? `${customPrefix.replace(/^\/+|\/+$/g, "")}/${Date.now()}-${cleanFolderName}`
+    : `courses/hls/${Date.now()}-${cleanFolderName}`;
+
+  const urls = await Promise.all(
+    fileList.map(async (item) => {
+      const fileName = typeof item === "string" ? path.basename(item) : path.basename(item.name);
+      const s3Key = `${s3Prefix}/${fileName}`;
+      const contentType = fileName.endsWith(".m3u8")
+        ? "application/vnd.apple.mpegurl"
+        : "video/mp2t";
+
+      const command = new PutObjectCommand({
+        Bucket: ENV.ZATA_BUCKET_NAME,
+        Key: s3Key,
+        ContentType: contentType,
+        ACL: "public-read",
+      });
+
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 7200 });
+      return {
+        name: fileName,
+        key: s3Key,
+        presignedUrl,
+        contentType,
+      };
+    })
+  );
+
+  const masterM3u8Url = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}/${s3Prefix}/index.m3u8`;
+
+  return {
+    folderPrefix: s3Prefix,
+    masterM3u8Url,
+    urls,
+  };
 };
 
 // Aliases for convenience
@@ -270,3 +380,4 @@ export const uploadToB2 = uploadToZata;
 export const deleteFromB2 = deleteFromZata;
 export const uploadToStorage = uploadToZata;
 export const deleteFromStorage = deleteFromZata;
+

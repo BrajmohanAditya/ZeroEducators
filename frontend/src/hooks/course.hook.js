@@ -411,6 +411,9 @@ export const useDeleteVideoFromChapterHook = (courseId) => {
       toast.success(data?.message || "Video deleted successfully");
     },
     onError: (err) => {
+      queryClient.invalidateQueries(["getSingleCourse", courseId]);
+      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
       toast.error(err.response?.data?.message || "Failed to delete video");
     },
   });

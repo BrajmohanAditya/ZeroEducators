@@ -538,3 +538,71 @@ export const streamModuleVideo = async (req, res) => {
   }
 };
 
+/**
+ * ⚡ Ultra-Fast In-Memory HLS Stream Proxy
+ * Streams .m3u8 manifests and .ts chunks directly from Zata S3 via memory pipe.
+ * Completely eliminates browser CORS restrictions and duplicate headers with 0 disk I/O.
+ */
+export const streamHlsContent = async (req, res) => {
+  try {
+    let s3Key = Array.isArray(req.params.key)
+      ? req.params.key.join("/")
+      : req.params.key || req.params[0];
+    if (!s3Key) {
+      return res.status(400).json({ message: "Invalid HLS file key" });
+    }
+
+    s3Key = s3Key.replace(/^\/+/, "");
+
+    const isM3u8 = s3Key.endsWith(".m3u8");
+    const contentType = isM3u8 ? "application/vnd.apple.mpegurl" : "video/mp2t";
+
+    const command = new GetObjectCommand({
+      Bucket: ENV.ZATA_BUCKET_NAME,
+      Key: s3Key,
+    });
+
+    const s3Response = await s3Client.send(command);
+
+    const headers = {
+      "Content-Type": contentType,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+      "Cache-Control": isM3u8 ? "no-cache" : "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    if (s3Response.ContentLength) {
+      headers["Content-Length"] = s3Response.ContentLength;
+    }
+
+    res.writeHead(200, headers);
+
+    let isClosed = false;
+    res.on("close", () => {
+      isClosed = true;
+      if (s3Response?.Body && typeof s3Response.Body.destroy === "function") {
+        s3Response.Body.destroy();
+      }
+    });
+
+    s3Response.Body.on("error", (err) => {
+      if (!isClosed && !res.headersSent) {
+        console.error("HLS stream pipe error:", err?.message || err);
+        res.status(500).json({ message: "HLS streaming error" });
+      }
+    });
+
+    s3Response.Body.pipe(res);
+  } catch (error) {
+    if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+      return res.status(404).json({ message: "HLS file not found" });
+    }
+    console.error("[HLS Stream Error]:", error.message || error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Failed to stream HLS content" });
+    }
+  }
+};
+
