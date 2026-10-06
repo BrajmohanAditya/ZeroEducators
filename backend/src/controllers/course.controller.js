@@ -25,6 +25,7 @@ import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
 import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
 import { applyFaststart } from "../utils/faststart.js";
+import { createBunnyVideo, getBunnyHlsUrl } from "../config/bunny.js";
 
 export const createCourse = async (req, res, next) => {
   try {
@@ -1359,11 +1360,16 @@ export const addVideoToChapter = async (req, res, next) => {
         }
       }
 
+      const isBunny = cleanUrl.includes("b-cdn.net") || cleanUrl.includes("bunnycdn.com") || req.body.isBunny;
+      const bunnyGuid = isBunny ? (req.body.bunnyGuid || resolvedVideoId) : undefined;
+
       const moduleDoc = await Modules.create({
         courseId,
         title: title.trim(),
         Video: cleanUrl,
         Video_id: resolvedVideoId,
+        bunnyGuid,
+        bunnyStatus: isBunny ? "processing" : undefined,
       });
 
       if (!chapter.videos) {
@@ -1375,6 +1381,7 @@ export const addVideoToChapter = async (req, res, next) => {
         Video: cleanUrl,
         Video_id: resolvedVideoId,
         moduleId: moduleDoc._id,
+        bunnyGuid,
         createdAt: new Date(),
       });
 
@@ -2562,6 +2569,39 @@ export const initiateHlsFolderUpload = async (req, res, next) => {
     return res.status(500).json({
       success: false,
       message: error?.message || "Failed to initiate HLS folder upload",
+    });
+  }
+};
+
+/**
+ * 🚀 Initiates Direct Bunny Stream Video Upload for Admin
+ * Creates a video entry on Bunny Stream and returns direct upload URL + auth token
+ */
+export const initiateBunnyVideoUpload = async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || title.trim() === "") {
+      return res.status(400).json({ success: false, message: "Video title is required" });
+    }
+
+    const bunnyRes = await createBunnyVideo(title.trim());
+    const videoId = bunnyRes.guid;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        videoId,
+        libraryId: ENV.BUNNY_STREAM_LIBRARY_ID,
+        uploadUrl: `https://video.bunnycdn.com/library/${ENV.BUNNY_STREAM_LIBRARY_ID}/videos/${videoId}`,
+        apiKey: ENV.BUNNY_STREAM_API_KEY,
+        hlsUrl: getBunnyHlsUrl(videoId),
+      },
+    });
+  } catch (error) {
+    console.error("Error initiating Bunny video upload:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to initiate Bunny video upload",
     });
   }
 };

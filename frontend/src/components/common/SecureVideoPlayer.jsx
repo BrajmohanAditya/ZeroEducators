@@ -279,9 +279,21 @@ const SecureVideoPlayer = ({
         hls.loadSource(streamSource);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
           setIsBuffering(false);
           updateDuration();
+          // Strictly cap playback at 720p (prevent downloading 1080p)
+          if (data?.levels && data.levels.length > 0) {
+            let max720Index = -1;
+            data.levels.forEach((lvl, idx) => {
+              if (lvl.height && lvl.height <= 720) {
+                max720Index = Math.max(max720Index, idx);
+              }
+            });
+            if (max720Index !== -1) {
+              hls.autoLevelCapping = max720Index;
+            }
+          }
         });
 
         hls.on(Hls.Events.FRAG_BUFFERED, () => {

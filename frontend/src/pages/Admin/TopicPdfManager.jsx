@@ -66,6 +66,7 @@ import {
   uploadPartToS3Api,
   initiateHlsFolderUploadApi,
   uploadHlsFileToS3Api,
+  initiateBunnyVideoUploadApi,
 } from "@/api/course.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -188,7 +189,7 @@ const TopicPdfManager = () => {
 
   // Video Upload Modal State
   const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
-  const [videoAddMode, setVideoAddMode] = useState("hls"); // 'hls' | 'file' | 'link'
+  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' (Bunny Stream) | 'hls' | 'link'
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
@@ -715,7 +716,7 @@ const TopicPdfManager = () => {
       return;
     }
 
-    // Upload Video File Mode
+    // Upload Video File Mode (Direct to Bunny Stream)
     if (!videoFile) {
       toast.error("Please choose a video file to upload");
       return;
@@ -726,138 +727,71 @@ const TopicPdfManager = () => {
     const currentFile = videoFile;
     const fileSize = currentFile.size || 0;
 
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk size
-    const totalParts = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE));
-
     setUploadPhase("direct");
     setDirectProgress(0);
     setDirectLoaded(0);
     setDirectTotal(fileSize);
     setUploadSpeed("");
-    setPartInfo({ current: 0, total: totalParts });
+    setPartInfo({ current: 1, total: 1 });
     requestWakeLock();
 
-    let currentUploadId = null;
-    let currentFileKey = null;
-
     try {
-      // Step 1: Request S3 Multipart Upload Initialization
-      const initRes = await initiateMultipartVideoUploadApi({
-        fileName: currentFile.name,
-        fileType: currentFile.type || "video/mp4",
-        folder: "courseModule",
+      // Step 1: Initialize Video Entry on Bunny Stream
+      const bunnyInit = await initiateBunnyVideoUploadApi({
+        title: currentTitle,
       });
 
-      if (!initRes?.data?.uploadId || !initRes?.data?.fileKey) {
-        throw new Error(initRes?.message || "Failed to initialize cloud upload");
+      if (!bunnyInit?.data?.uploadUrl || !bunnyInit?.data?.videoId) {
+        throw new Error(bunnyInit?.message || "Failed to initialize video upload with Bunny");
       }
 
-      const { uploadId, fileKey, publicUrl } = initRes.data;
-      currentUploadId = uploadId;
-      currentFileKey = fileKey;
+      const { uploadUrl, videoId: bunnyVideoId, apiKey, hlsUrl } = bunnyInit.data;
 
-      // Step 2: Request presigned part URLs in batches of 25
-      const allPartNumbers = Array.from({ length: totalParts }, (_, i) => i + 1);
-      const partUrlsMap = new Map();
-      for (let i = 0; i < allPartNumbers.length; i += 25) {
-        const batch = allPartNumbers.slice(i, i + 25);
-        const urlsRes = await getMultipartVideoPartUrlsApi({
-          fileKey,
-          uploadId,
-          partNumbers: batch,
-        });
-        urlsRes.data.forEach((item) => partUrlsMap.set(item.partNumber, item.presignedUrl));
-      }
-
-      // Step 3: Concurrently upload 10MB chunks with auto-retry (2 parallel workers)
-      const completedParts = [];
-      let uploadedBytes = 0;
-      let lastTime = Date.now();
-      let lastLoaded = 0;
-
-      const queue = [...allPartNumbers];
-      let activeWorkers = 0;
-      const CONCURRENCY = 2;
-
-      const uploadChunkWithRetry = async (partNumber, attempt = 1) => {
-        const start = (partNumber - 1) * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, fileSize);
-        const chunk = currentFile.slice(start, end);
-        const presignedUrl = partUrlsMap.get(partNumber);
-
-        try {
-          const etag = await uploadPartToS3Api({
-            presignedUrl,
-            chunk,
-          });
-
-          if (!etag) throw new Error(`Missing ETag for part ${partNumber}`);
-
-          completedParts.push({
-            PartNumber: partNumber,
-            ETag: etag.replace(/"/g, ""),
-          });
-
-          uploadedBytes += (end - start);
-          const percent = Math.min(100, Math.round((uploadedBytes * 100) / fileSize));
-          setDirectProgress(percent);
-          setDirectLoaded(uploadedBytes);
-          setPartInfo({ current: completedParts.length, total: totalParts });
-
-          const now = Date.now();
-          const diffSec = (now - lastTime) / 1000;
-          if (diffSec >= 0.5) {
-            const speed = (uploadedBytes - lastLoaded) / diffSec;
-            setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
-            lastLoaded = uploadedBytes;
-            lastTime = now;
-          }
-        } catch (err) {
-          if (attempt < 4) {
-            console.warn(`Part ${partNumber} retry attempt ${attempt}/3 in 1.5s...`, err);
-            await new Promise((r) => setTimeout(r, 1500));
-            return uploadChunkWithRetry(partNumber, attempt + 1);
-          }
-          throw new Error(`Part ${partNumber} failed after retries: ${err.message}`);
-        }
-      };
-
+      // Step 2: Upload directly to Bunny Stream with real-time progress
       await new Promise((resolve, reject) => {
-        let hasError = false;
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("AccessKey", apiKey);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
-        const next = () => {
-          if (hasError) return;
-          if (queue.length === 0 && activeWorkers === 0) {
-            return resolve();
-          }
+        let lastTime = Date.now();
+        let lastLoaded = 0;
 
-          while (activeWorkers < CONCURRENCY && queue.length > 0) {
-            const partNumber = queue.shift();
-            activeWorkers++;
-            uploadChunkWithRetry(partNumber)
-              .then(() => {
-                activeWorkers--;
-                next();
-              })
-              .catch((err) => {
-                hasError = true;
-                reject(err);
-              });
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.min(100, Math.round((e.loaded * 100) / e.total));
+            setDirectProgress(percent);
+            setDirectLoaded(e.loaded);
+            setDirectTotal(e.total);
+
+            const now = Date.now();
+            const diffSec = (now - lastTime) / 1000;
+            if (diffSec >= 0.5) {
+              const speed = (e.loaded - lastLoaded) / diffSec;
+              setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
+              lastLoaded = e.loaded;
+              lastTime = now;
+            }
           }
         };
 
-        next();
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Bunny upload failed (${xhr.status}): ${xhr.responseText || "Server rejected upload"}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error("Network error during Bunny video upload. Please check your internet connection."));
+        };
+
+        xhr.send(currentFile);
       });
 
-      // Step 4: Complete Multipart Upload (merge all chunks)
+      // Step 3: Register Video in Course Database with Bunny Stream HLS Playlist
       setUploadPhase("saving");
-      await completeMultipartVideoUploadApi({
-        fileKey,
-        uploadId,
-        parts: completedParts,
-      });
-
-      // Step 5: Save lecture metadata into course database
       addVideoToChapter(
         {
           courseId,
@@ -865,8 +799,10 @@ const TopicPdfManager = () => {
           chapterId: currentChapter.chapterId,
           data: {
             title: currentTitle,
-            videoUrl: publicUrl,
-            videoId: fileKey,
+            videoUrl: hlsUrl,
+            videoId: bunnyVideoId,
+            bunnyGuid: bunnyVideoId,
+            isBunny: true,
           },
         },
         {
@@ -883,7 +819,7 @@ const TopicPdfManager = () => {
             queryClient.invalidateQueries(["getSingleCourse", courseId]);
             queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
             queryClient.invalidateQueries(["getCourse"]);
-            toast.success("Video uploaded and saved to chapter successfully!");
+            toast.success("Video uploaded to Bunny Stream! Automatic 360p, 480p, 720p transcoding started.");
             setTimeout(() => {
               setActiveChapterForVideoUpload(null);
               setVideoTitle("");
@@ -898,17 +834,14 @@ const TopicPdfManager = () => {
           },
         }
       );
-    } catch (directUploadErr) {
-      console.error("[Direct S3 Multipart Upload Failed]:", directUploadErr);
-      if (currentUploadId && currentFileKey) {
-        abortMultipartVideoUploadApi({ fileKey: currentFileKey, uploadId: currentUploadId }).catch(() => {});
-      }
+    } catch (uploadErr) {
+      console.error("[Bunny Stream Direct Upload Failed]:", uploadErr);
       releaseWakeLock();
       setUploadPhase("idle");
-      let errorMsg =
-        directUploadErr?.response?.data?.message ||
-        directUploadErr?.message ||
-        "Upload failed. Please check your connection and retry.";
+      const errorMsg =
+        uploadErr?.response?.data?.message ||
+        uploadErr?.message ||
+        "Upload failed. Please check your internet connection and retry.";
       toast.error(errorMsg, { duration: 7000 });
     }
   };
@@ -2021,18 +1954,6 @@ const TopicPdfManager = () => {
             <button
               type="button"
               disabled={uploadPhase === "direct" || uploadPhase === "saving"}
-              onClick={() => setVideoAddMode("hls")}
-              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                videoAddMode === "hls"
-                  ? "bg-white text-blue-700 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <FolderUp className="w-3.5 h-3.5 text-blue-600" /> HLS Folder ⚡
-            </button>
-            <button
-              type="button"
-              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
               onClick={() => setVideoAddMode("file")}
               className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 videoAddMode === "file"
@@ -2040,7 +1961,19 @@ const TopicPdfManager = () => {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <UploadCloud className="w-3.5 h-3.5" /> Single MP4
+              <UploadCloud className="w-3.5 h-3.5 text-blue-600" /> Upload Video ⚡
+            </button>
+            <button
+              type="button"
+              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
+              onClick={() => setVideoAddMode("hls")}
+              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                videoAddMode === "hls"
+                  ? "bg-white text-blue-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <FolderUp className="w-3.5 h-3.5" /> HLS Folder
             </button>
             <button
               type="button"
@@ -2162,6 +2095,9 @@ const TopicPdfManager = () => {
                     File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
                   </p>
                 )}
+                <p className="text-[11px] text-blue-600 mt-1.5 font-medium">
+                  ⚡ <strong>Bunny Stream:</strong> Direct upload without local conversion! Bunny automatically generates 360p, 480p, and 720p for instant playback.
+                </p>
               </div>
             ) : (
               /* Option 3: Paste Link */
@@ -2338,7 +2274,7 @@ const TopicPdfManager = () => {
                     </>
                   ) : (
                     <>
-                      <UploadCloud className="w-4 h-4" /> Start Direct Upload
+                      <UploadCloud className="w-4 h-4" /> Upload to Bunny Stream ⚡
                     </>
                   )}
                 </button>

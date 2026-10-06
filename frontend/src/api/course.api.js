@@ -564,3 +564,12 @@ export const uploadHlsFileToS3Api = async ({ presignedUrl, file, contentType }) 
   }
   return true;
 };
+
+export const initiateBunnyVideoUploadApi = async ({ title }) => {
+  const res = await axios.post(
+    `${baseUrl}/course/video/bunny/initiate`,
+    { title },
+    { withCredentials: true }
+  );
+  return res.data;
+};

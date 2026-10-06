@@ -6,6 +6,47 @@ import { getBunnyVideo, getBunnyHlsUrl } from "../src/config/bunny.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function updateCourseLiveHls(moduleId, hlsUrl, bunnyGuid) {
+  try {
+    const courses = await Course.find({
+      $or: [
+        { "subjects.chapters.videos.moduleId": moduleId },
+        { "topics.videos.moduleId": moduleId },
+      ],
+    });
+    for (const c of courses) {
+      let modified = false;
+      for (const s of c.subjects || []) {
+        for (const ch of s.chapters || []) {
+          for (const v of ch.videos || []) {
+            if (v.moduleId?.toString() === moduleId.toString()) {
+              v.Video = hlsUrl;
+              v.Video_id = bunnyGuid;
+              v.bunnyGuid = bunnyGuid;
+              modified = true;
+            }
+          }
+        }
+      }
+      for (const t of c.topics || []) {
+        for (const v of t.videos || []) {
+          if (v.moduleId?.toString() === moduleId.toString()) {
+            v.Video = hlsUrl;
+            v.Video_id = bunnyGuid;
+            v.bunnyGuid = bunnyGuid;
+            modified = true;
+          }
+        }
+      }
+      if (modified) {
+        await c.save();
+      }
+    }
+  } catch (err) {
+    console.warn(`Course ref update notice for module ${moduleId}:`, err.message || err);
+  }
+}
+
 async function syncStatus() {
   console.log("🚀 Connecting to MongoDB...");
   await mongoose.connect(ENV.MONGO_URI);
@@ -42,17 +83,7 @@ async function syncStatus() {
           await mod.save();
 
           // Sync to Course subjects.chapters.videos
-          await Course.updateMany(
-            { "subjects.chapters.videos.moduleId": mod._id },
-            {
-              $set: {
-                "subjects.chapters.videos.$[elem].Video": hlsUrl,
-                "subjects.chapters.videos.$[elem].Video_id": mod.bunnyGuid,
-                "subjects.chapters.videos.$[elem].bunnyGuid": mod.bunnyGuid,
-              },
-            },
-            { arrayFilters: [{ "elem.moduleId": mod._id }] }
-          );
+          await updateCourseLiveHls(mod._id, hlsUrl, mod.bunnyGuid);
 
           console.log(`${prefix} 🎉 LIVE ON BUNNY CDN: "${mod.title}" (Resolutions: ${bunnyData.availableResolutions || "Auto"})`);
         } else {
