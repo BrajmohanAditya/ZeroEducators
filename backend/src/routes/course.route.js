@@ -45,7 +45,6 @@ import {
   completeMultipartVideoUpload,
   abortMultipartVideoUpload,
   streamMultipartVideoChunk,
-  initiateHlsFolderUpload,
   initiateBunnyVideoUpload,
   getAdminVideoLibrary,
   importChaptersFromCourse,
@@ -168,8 +167,6 @@ courseRoute.post("/video/multipart/complete", isLoggedIn, isAdmin, completeMulti
 courseRoute.post("/video/multipart/abort", isLoggedIn, isAdmin, abortMultipartVideoUpload);
 courseRoute.put("/video/multipart/stream-chunk", isLoggedIn, isAdmin, streamMultipartVideoChunk);
 
-// HLS Folder Upload Routes
-courseRoute.post("/video/hls/initiate-upload", isLoggedIn, isAdmin, initiateHlsFolderUpload);
 
 // Bunny Stream Direct Video Upload Route
 courseRoute.post("/video/bunny/initiate", isLoggedIn, isAdmin, initiateBunnyVideoUpload);

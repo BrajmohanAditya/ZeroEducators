@@ -7,7 +7,6 @@ import {
   getMultipartPartUrls,
   completeMultipartUpload,
   abortMultipartUpload,
-  getHlsBatchPresignedUrls,
 } from "../config/zata.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
@@ -2562,51 +2561,6 @@ export const reorderCourses = async (req, res, next) => {
   } catch (error) {
     console.error("Error in reorderCourses:", error);
     next(error);
-  }
-};
-
-/**
- * Initiate Batch Presigned URLs for HLS Folder Upload
- */
-export const initiateHlsFolderUpload = async (req, res, next) => {
-  try {
-    const { folderName, files, courseId, courseTitle, chapterName, subjectName } = req.body;
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      return res.status(400).json({ success: false, message: "files array is required" });
-    }
-
-    const hasM3u8 = files.some((f) => {
-      const name = typeof f === "string" ? f : f.name;
-      return name && name.endsWith(".m3u8");
-    });
-
-    if (!hasM3u8) {
-      return res.status(400).json({
-        success: false,
-        message: "The selected folder must contain an index.m3u8 playlist file",
-      });
-    }
-
-    // Organize Course & Chapter wise on Zata S3
-    let customPrefix = null;
-    if (courseTitle || courseId) {
-      const cleanCourse = (courseTitle || courseId).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50);
-      const cleanChapter = (chapterName || subjectName || "chapter").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50);
-      customPrefix = `courses/${cleanCourse}/${cleanChapter}/hls`;
-    }
-
-    const result = await getHlsBatchPresignedUrls(folderName, files, customPrefix);
-    return res.status(200).json({
-      success: true,
-      message: "Batch presigned URLs generated successfully",
-      data: result,
-    });
-  } catch (error) {
-    console.error("Error initiating HLS folder upload:", error);
-    return res.status(500).json({
-      success: false,
-      message: error?.message || "Failed to initiate HLS folder upload",
-    });
   }
 };
 

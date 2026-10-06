@@ -66,8 +66,6 @@ import {
   completeMultipartVideoUploadApi,
   abortMultipartVideoUploadApi,
   uploadPartToS3Api,
-  initiateHlsFolderUploadApi,
-  uploadHlsFileToS3Api,
   initiateBunnyVideoUploadApi,
   getAdminVideoLibraryApi,
   importChaptersFromCourseApi,
@@ -191,19 +189,11 @@ const TopicPdfManager = () => {
   const [pdfTitle, setPdfTitle] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
 
-  // Video Upload Modal State
   const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
-  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' (Bunny Stream) | 'library' | 'hls' | 'link'
+  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' (Bunny Stream) | 'link'
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
-  const [selectedExistingVideo, setSelectedExistingVideo] = useState(null);
-  const [librarySearchQuery, setLibrarySearchQuery] = useState("");
-  const [selectedLibraryCourseFilter, setSelectedLibraryCourseFilter] = useState("all");
-  const [hlsFolderFiles, setHlsFolderFiles] = useState([]);
-  const [hlsFolderName, setHlsFolderName] = useState("");
-  const [hlsTotalBytes, setHlsTotalBytes] = useState(0);
-  const hlsFolderInputRef = useRef(null);
   const [copiedVideoId, setCopiedVideoId] = useState(null);
   const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'direct' | 'saving' | 'done'
   const [directProgress, setDirectProgress] = useState(0);
@@ -215,52 +205,12 @@ const TopicPdfManager = () => {
   const [selectedImportChapterIds, setSelectedImportChapterIds] = useState([]);
   const [isImportingChapters, setIsImportingChapters] = useState(false);
 
-  // Fetch all curriculum / video library across all courses
+  // Fetch all curriculum across all courses for Course/Chapter Import
   const { data: libraryData, isLoading: isLoadingLibrary } = useQuery({
     queryKey: ["adminVideoLibrary"],
     queryFn: getAdminVideoLibraryApi,
     staleTime: 60 * 1000,
   });
-
-  // Flatten videos across all courses for easy search & reuse
-  const allLibraryVideos = useMemo(() => {
-    const list = [];
-    (libraryData?.courses || []).forEach((c) => {
-      (c.subjects || []).forEach((s) => {
-        (s.chapters || []).forEach((ch) => {
-          (ch.videos || []).forEach((v) => {
-            if (v.Video) {
-              list.push({
-                ...v,
-                courseId: c._id,
-                courseTitle: c.title,
-                subjectName: s.subjectName,
-                chapterName: ch.chapterName,
-              });
-            }
-          });
-        });
-      });
-    });
-    return list;
-  }, [libraryData]);
-
-  // Filtered library videos by search & course filter
-  const filteredLibraryVideos = useMemo(() => {
-    return allLibraryVideos.filter((v) => {
-      if (selectedLibraryCourseFilter !== "all" && String(v.courseId) !== String(selectedLibraryCourseFilter)) {
-        return false;
-      }
-      if (librarySearchQuery.trim()) {
-        const q = librarySearchQuery.toLowerCase().trim();
-        const matchesTitle = v.title?.toLowerCase().includes(q);
-        const matchesChapter = v.chapterName?.toLowerCase().includes(q);
-        const matchesCourse = v.courseTitle?.toLowerCase().includes(q);
-        return matchesTitle || matchesChapter || matchesCourse;
-      }
-      return true;
-    });
-  }, [allLibraryVideos, librarySearchQuery, selectedLibraryCourseFilter]);
 
   // Source course selected for chapter import
   const selectedSourceCourse = useMemo(() => {
@@ -271,39 +221,6 @@ const TopicPdfManager = () => {
   const [uploadSpeed, setUploadSpeed] = useState("");
   const [partInfo, setPartInfo] = useState({ current: 0, total: 0 });
   const wakeLockRef = useRef(null);
-
-  const handleHlsFolderChange = (e) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (selectedFiles.length === 0) return;
-
-    const hasM3u8 = selectedFiles.some(
-      (f) => f.name === "index.m3u8" || f.name.endsWith(".m3u8")
-    );
-    if (!hasM3u8) {
-      toast.error("Invalid HLS folder! Must contain an 'index.m3u8' playlist file.");
-      return;
-    }
-
-    let detectedFolderName = "hls_lecture";
-    if (selectedFiles[0]?.webkitRelativePath) {
-      detectedFolderName = selectedFiles[0].webkitRelativePath.split("/")[0];
-    }
-
-    const totalSize = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
-    setHlsFolderFiles(selectedFiles);
-    setHlsFolderName(detectedFolderName);
-    setHlsTotalBytes(totalSize);
-
-    if (!videoTitle.trim()) {
-      setVideoTitle(
-        detectedFolderName
-          .replace(/_hls$/i, "")
-          .replace(/[-_]/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-      );
-    }
-    toast.success(`HLS folder loaded: ${selectedFiles.length} files (${formatFileSize(totalSize)})`);
-  };
 
   const requestWakeLock = async () => {
     try {
@@ -607,183 +524,6 @@ const TopicPdfManager = () => {
       return;
     }
 
-    // Upload Converted HLS Folder Mode
-    if (videoAddMode === "hls") {
-      if (!hlsFolderFiles || hlsFolderFiles.length === 0) {
-        toast.error("Please choose a converted HLS folder containing index.m3u8");
-        return;
-      }
-
-      const currentChapter = { ...activeChapterForVideoUpload };
-      const currentTitle = videoTitle.trim();
-      const filesToUpload = [...hlsFolderFiles];
-      const totalBytes = hlsTotalBytes;
-      const totalFiles = filesToUpload.length;
-
-      setUploadPhase("direct");
-      setDirectProgress(0);
-      setDirectLoaded(0);
-      setDirectTotal(totalBytes);
-      setUploadSpeed("");
-      setPartInfo({ current: 0, total: totalFiles });
-      requestWakeLock();
-
-      try {
-        // Step 1: Request Batch Presigned URLs from Backend
-        const fileMetadataList = filesToUpload.map((f) => ({
-          name: f.name,
-          type: f.type,
-        }));
-
-        const presignRes = await initiateHlsFolderUploadApi({
-          folderName: hlsFolderName || "lecture_hls",
-          files: fileMetadataList,
-          courseId,
-          courseTitle: course?.title,
-          chapterName: currentChapter?.title || currentChapter?.chapterName || "chapter",
-        });
-
-        if (!presignRes?.success || !presignRes?.data?.urls) {
-          throw new Error(presignRes?.message || "Failed to generate upload URLs");
-        }
-
-        const { folderPrefix, masterM3u8Url, urls } = presignRes.data;
-        const presignedMap = new Map();
-        urls.forEach((item) => presignedMap.set(item.name, item));
-
-        // Step 2: Upload all segments and index.m3u8 concurrently with auto-retry
-        let uploadedCount = 0;
-        let uploadedBytes = 0;
-        let lastTime = Date.now();
-        let lastLoaded = 0;
-
-        const queue = [...filesToUpload];
-        const CONCURRENCY = 4;
-        let activeWorkers = 0;
-
-        const uploadSingleFileWithRetry = async (fileObj, attempt = 1) => {
-          const item = presignedMap.get(fileObj.name);
-          if (!item) {
-            throw new Error(`Missing presigned URL for ${fileObj.name}`);
-          }
-
-          try {
-            await uploadHlsFileToS3Api({
-              presignedUrl: item.presignedUrl,
-              file: fileObj,
-              contentType: item.contentType,
-            });
-
-            uploadedCount++;
-            uploadedBytes += fileObj.size;
-            const percent =
-              totalBytes > 0
-                ? Math.min(100, Math.round((uploadedBytes * 100) / totalBytes))
-                : Math.round((uploadedCount * 100) / totalFiles);
-
-            setDirectProgress(percent);
-            setDirectLoaded(uploadedBytes);
-            setPartInfo({ current: uploadedCount, total: totalFiles });
-
-            const now = Date.now();
-            const diffSec = (now - lastTime) / 1000;
-            if (diffSec >= 0.5) {
-              const speed = (uploadedBytes - lastLoaded) / diffSec;
-              setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
-              lastLoaded = uploadedBytes;
-              lastTime = now;
-            }
-          } catch (err) {
-            if (attempt < 4) {
-              console.warn(`File ${fileObj.name} retry attempt ${attempt}/3...`, err);
-              await new Promise((r) => setTimeout(r, 1000));
-              return uploadSingleFileWithRetry(fileObj, attempt + 1);
-            }
-            throw new Error(`Upload failed for ${fileObj.name}: ${err.message}`);
-          }
-        };
-
-        await new Promise((resolve, reject) => {
-          let hasError = false;
-
-          const next = () => {
-            if (hasError) return;
-            if (queue.length === 0 && activeWorkers === 0) {
-              return resolve();
-            }
-
-            while (activeWorkers < CONCURRENCY && queue.length > 0) {
-              const nextFile = queue.shift();
-              activeWorkers++;
-              uploadSingleFileWithRetry(nextFile)
-                .then(() => {
-                  activeWorkers--;
-                  next();
-                })
-                .catch((err) => {
-                  hasError = true;
-                  reject(err);
-                });
-            }
-          };
-
-          next();
-        });
-
-        // Step 3: Save lecture metadata into course database
-        setUploadPhase("saving");
-        addVideoToChapter(
-          {
-            courseId,
-            subjectId: currentChapter.subjectId,
-            chapterId: currentChapter.chapterId,
-            data: {
-              title: currentTitle,
-              videoUrl: masterM3u8Url,
-              videoId: folderPrefix,
-            },
-          },
-          {
-            onSuccess: () => {
-              releaseWakeLock();
-              setUploadPhase("done");
-              setDirectProgress(100);
-              if (currentChapter?.chapterId) {
-                setExpandedChapters((prev) => ({
-                  ...prev,
-                  [currentChapter.chapterId]: true,
-                }));
-              }
-              queryClient.invalidateQueries(["getSingleCourse", courseId]);
-              queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
-              queryClient.invalidateQueries(["getCourse"]);
-              toast.success("HLS Video folder uploaded and saved to chapter successfully!");
-              setTimeout(() => {
-                setVideoTitle("");
-                setVideoFile(null);
-                setVideoUrl("");
-                setHlsFolderFiles([]);
-                setHlsFolderName("");
-                setHlsTotalBytes(0);
-                setActiveChapterForVideoUpload(null);
-                setUploadPhase("idle");
-              }, 1200);
-            },
-            onError: (err) => {
-              releaseWakeLock();
-              setUploadPhase("idle");
-              toast.error(err?.response?.data?.message || "Failed to save video lecture");
-            },
-          }
-        );
-      } catch (err) {
-        releaseWakeLock();
-        setUploadPhase("idle");
-        console.error("HLS Upload error:", err);
-        toast.error(err.message || "Failed to upload HLS folder to cloud storage");
-      }
-      return;
-    }
 
     // Upload Video File Mode (Direct to Bunny Stream)
     if (!videoFile) {

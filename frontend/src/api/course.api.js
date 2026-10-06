@@ -527,43 +527,6 @@ export const reorderCoursesApi = async (courseIds) => {
   return res.data;
 };
 
-export const initiateHlsFolderUploadApi = async ({
-  folderName,
-  files,
-  courseId,
-  courseTitle,
-  chapterName,
-}) => {
-  const res = await axios.post(
-    `${baseUrl}/course/video/hls/initiate-upload`,
-    { folderName, files, courseId, courseTitle, chapterName },
-    { withCredentials: true }
-  );
-  return res.data;
-};
-
-export const uploadHlsFileToS3Api = async ({ presignedUrl, file, contentType }) => {
-  // Stream file via backend in-memory network pipe (0 disk writes).
-  // This completely eliminates Zata S3's duplicate CORS headers error in the browser.
-  const proxyUrl = `${baseUrl}/course/video/multipart/stream-chunk?targetUrl=${encodeURIComponent(
-    presignedUrl
-  )}`;
-
-  const res = await fetch(proxyUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": contentType || "application/octet-stream",
-    },
-    body: file,
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(`Failed to upload ${file.name || "chunk"} (Status: ${res.status} ${errorText})`);
-  }
-  return true;
-};
 
 export const initiateBunnyVideoUploadApi = async ({ title }) => {
   const res = await axios.post(

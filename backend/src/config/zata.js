@@ -343,51 +343,6 @@ export const deleteFromZata = async (fileKey) => {
   }
 };
 
-/**
- * Generate Presigned URLs for batch uploading an HLS folder directly to Zata S3
- */
-export const getHlsBatchPresignedUrls = async (folderName, fileList = [], customPrefix = null) => {
-  const cleanFolderName = folderName
-    ? folderName.replace(/[^a-zA-Z0-9_-]/g, "_")
-    : "lecture_hls";
-  const s3Prefix = customPrefix
-    ? `${customPrefix.replace(/^\/+|\/+$/g, "")}/${Date.now()}-${cleanFolderName}`
-    : `courses/hls/${Date.now()}-${cleanFolderName}`;
-
-  const urls = await Promise.all(
-    fileList.map(async (item) => {
-      const fileName = typeof item === "string" ? path.basename(item) : path.basename(item.name);
-      const s3Key = `${s3Prefix}/${fileName}`;
-      const contentType = fileName.endsWith(".m3u8")
-        ? "application/vnd.apple.mpegurl"
-        : "video/mp2t";
-
-      const command = new PutObjectCommand({
-        Bucket: ENV.ZATA_BUCKET_NAME,
-        Key: s3Key,
-        ContentType: contentType,
-        ACL: "public-read",
-      });
-
-      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 7200 });
-      return {
-        name: fileName,
-        key: s3Key,
-        presignedUrl,
-        contentType,
-      };
-    })
-  );
-
-  const masterM3u8Url = `${ENV.ZATA_ENDPOINT}/${ENV.ZATA_BUCKET_NAME}/${s3Prefix}/index.m3u8`;
-
-  return {
-    folderPrefix: s3Prefix,
-    masterM3u8Url,
-    urls,
-  };
-};
-
 // Aliases for convenience
 export const uploadToB2 = uploadToZata;
 export const deleteFromB2 = deleteFromZata;
