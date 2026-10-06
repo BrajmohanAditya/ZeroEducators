@@ -573,3 +573,25 @@ export const initiateBunnyVideoUploadApi = async ({ title }) => {
   );
   return res.data;
 };
+
+export const getAdminVideoLibraryApi = async () => {
+  const res = await axios.get(`${baseUrl}/course/admin/video-library`, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const importChaptersFromCourseApi = async ({
+  courseId,
+  subjectId,
+  sourceCourseId,
+  chapterIds,
+}) => {
+  const res = await axios.post(
+    `${baseUrl}/course/${courseId}/subject/${subjectId}/import-chapters`,
+    { sourceCourseId, chapterIds },
+    { withCredentials: true }
+  );
+  return res.data;
+};
+

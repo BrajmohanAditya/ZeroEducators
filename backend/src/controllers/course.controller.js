@@ -25,7 +25,49 @@ import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
 import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
 import { applyFaststart } from "../utils/faststart.js";
-import { createBunnyVideo, getBunnyHlsUrl } from "../config/bunny.js";
+import { createBunnyVideo, getBunnyHlsUrl, deleteBunnyVideo } from "../config/bunny.js";
+
+/**
+ * Automatically cleans up video storage:
+ * - If Bunny Stream video: deletes from Bunny Stream API
+ * - If legacy Zata S3 video: deletes from Zata S3
+ */
+export const cleanupVideoStorage = async (video) => {
+  if (!video) return;
+  try {
+    const videoObj = video.toObject ? video.toObject() : video;
+    const isBunny =
+      videoObj.bunnyGuid ||
+      (typeof videoObj.Video === "string" && (videoObj.Video.includes("b-cdn.net") || videoObj.Video.includes("bunnycdn.com"))) ||
+      (typeof videoObj.Video_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoObj.Video_id));
+
+    if (isBunny) {
+      const guid =
+        videoObj.bunnyGuid ||
+        (typeof videoObj.Video_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoObj.Video_id)
+          ? videoObj.Video_id
+          : null) ||
+        (typeof videoObj.Video === "string"
+          ? videoObj.Video.match(/b-cdn\.net\/([0-9a-f-]{36})/i)?.[1] ||
+            videoObj.Video.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)?.[1]
+          : null);
+
+      if (guid) {
+        console.log(`[cleanupVideoStorage] Deleting Bunny Stream video: ${guid}`);
+        const deleted = await deleteBunnyVideo(guid);
+        console.log(`[cleanupVideoStorage] Bunny Stream delete result for ${guid}:`, deleted);
+      } else {
+        console.warn(`[cleanupVideoStorage] Could not resolve Bunny GUID from video:`, videoObj);
+      }
+    } else if (videoObj.Video_id) {
+      console.log(`[cleanupVideoStorage] Deleting Zata S3 video: ${videoObj.Video_id}`);
+      await deleteFromB2(videoObj.Video_id);
+    }
+  } catch (err) {
+    console.warn("[cleanupVideoStorage] Warning:", err.message);
+  }
+};
+
 
 export const createCourse = async (req, res, next) => {
   try {
@@ -279,13 +321,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
 
           if (chapter.videos && chapter.videos.length > 0) {
             for (const video of chapter.videos) {
-              if (video.Video_id) {
-                try {
-                  await deleteFromB2(video.Video_id);
-                } catch (e) {
-                  console.error("Error deleting chapter video:", e);
-                }
-              }
+              cleanupVideoStorage(video).catch(() => {});
               if (video.moduleId) {
                 await Modules.findByIdAndDelete(video.moduleId);
               }
@@ -296,7 +332,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
     }
   }
 
-  // 2. Delete legacy topic PDFs and Videos from S3
+  // 2. Delete legacy topic PDFs and Videos from S3 / Bunny
   if (course.topics && course.topics.length > 0) {
     for (const topic of course.topics) {
       if (topic.pdfs && topic.pdfs.length > 0) {
@@ -312,13 +348,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
       }
       if (topic.videos && topic.videos.length > 0) {
         for (const video of topic.videos) {
-          if (video.Video_id) {
-            try {
-              await deleteFromB2(video.Video_id);
-            } catch (e) {
-              console.error("Error deleting topic video:", e);
-            }
-          }
+          cleanupVideoStorage(video).catch(() => {});
           if (video.moduleId) {
             await Modules.findByIdAndDelete(video.moduleId);
           }
@@ -330,13 +360,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
   // 3. Clean up any remaining Modules belonging to this course
   const remainingModules = await Modules.find({ courseId: courseId });
   for (const mod of remainingModules) {
-    if (mod.Video_id) {
-      try {
-        await deleteFromB2(mod.Video_id);
-      } catch (e) {
-        console.error("Error deleting module video:", e);
-      }
-    }
+    cleanupVideoStorage(mod).catch(() => {});
   }
   await Modules.deleteMany({ courseId: courseId });
 
@@ -897,16 +921,14 @@ export const deleteVideoFromTopic = async (req, res, next) => {
     VideoLike.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
     VideoRating.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
 
-    // 3. Delete from S3 in background
-    if (videoKey) {
-      (async () => {
-        try {
-          await deleteFromB2(videoKey);
-        } catch (err) {
-          console.warn("[deleteVideoFromTopic] S3 delete warning:", err.message);
-        }
-      })();
-    }
+    // 3. Delete from storage (Bunny Stream or S3) in background
+    (async () => {
+      try {
+        await cleanupVideoStorage(video);
+      } catch (err) {
+        console.warn("[deleteVideoFromTopic] Storage delete warning:", err.message);
+      }
+    })();
 
     return res.status(200).json({
       success: true,
@@ -986,9 +1008,7 @@ export const deleteSubject = async (req, res, next) => {
         // Delete all Videos
         if (chapter.videos && chapter.videos.length > 0) {
           for (const video of chapter.videos) {
-            if (video.Video_id) {
-              await deleteFromB2(video.Video_id);
-            }
+            cleanupVideoStorage(video).catch(() => {});
             if (video.moduleId) {
               await Modules.findByIdAndDelete(video.moduleId);
               course.modules.pull(video.moduleId);
@@ -1147,13 +1167,20 @@ export const deleteChapter = async (req, res, next) => {
       VideoRating.deleteMany({ videoId: { $in: chapterVideoIds } }).catch(() => {});
     }
 
-    // Clean up S3 in background without blocking response
+    // Clean up storage (S3 PDFs and Bunny/S3 videos) in background without blocking response
     (async () => {
-      for (const k of [...pdfKeys, ...videoKeys]) {
+      for (const k of pdfKeys) {
         try {
           await deleteFromB2(k);
         } catch (e) {
-          console.warn("[deleteChapter] Cleanup S3 warning:", e.message);
+          console.warn("[deleteChapter] Cleanup PDF S3 warning:", e.message);
+        }
+      }
+      for (const v of chapter.videos || []) {
+        try {
+          await cleanupVideoStorage(v);
+        } catch (e) {
+          console.warn("[deleteChapter] Cleanup video warning:", e.message);
         }
       }
     })();
@@ -1561,8 +1588,13 @@ export const deleteVideoFromChapter = async (req, res, next) => {
       });
     }
 
-    const videoKey = video.Video_id;
-    const moduleId = video.moduleId;
+    const videoSnapshot = video.toObject ? video.toObject() : { ...video };
+    const videoKey = videoSnapshot.Video_id;
+    const moduleId = videoSnapshot.moduleId;
+    const bunnyGuid =
+      videoSnapshot.bunnyGuid ||
+      (typeof videoKey === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoKey) ? videoKey : null) ||
+      (typeof videoSnapshot.Video === "string" ? videoSnapshot.Video.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)?.[1] : null);
 
     // 1. Atomically remove video from chapter and course.modules without Mongoose version locking
     const updatedCourse = await Course.findByIdAndUpdate(
@@ -1590,24 +1622,29 @@ export const deleteVideoFromChapter = async (req, res, next) => {
     VideoLike.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
     VideoRating.deleteMany({ videoId: { $in: targetVideoIds } }).catch(() => {});
 
-    // 3. Delete from S3 in background so frontend receives an instant 200 OK
-    if (videoKey) {
-      (async () => {
-        try {
-          const isUsedElsewhere = await Course.exists({
-            $or: [
-              { "subjects.chapters.videos.Video_id": videoKey },
-              { "topics.videos.Video_id": videoKey },
-            ],
-          });
-          if (!isUsedElsewhere) {
-            await deleteFromB2(videoKey);
-          }
-        } catch (b2Err) {
-          console.warn("[deleteVideoFromChapter] Cleanup S3 warning:", b2Err.message);
+    // 3. Delete from storage (Bunny Stream or S3) in background so frontend receives an instant 200 OK
+    (async () => {
+      try {
+        const orConditions = [];
+        if (videoKey && typeof videoKey === "string" && videoKey.trim()) {
+          orConditions.push({ "subjects.chapters.videos.Video_id": videoKey.trim() });
+          orConditions.push({ "topics.videos.Video_id": videoKey.trim() });
         }
-      })();
-    }
+        if (bunnyGuid) {
+          orConditions.push({ "subjects.chapters.videos.bunnyGuid": bunnyGuid });
+          orConditions.push({ "topics.videos.bunnyGuid": bunnyGuid });
+        }
+
+        const isUsedElsewhere = orConditions.length > 0 ? await Course.exists({ $or: orConditions }) : false;
+        if (!isUsedElsewhere) {
+          await cleanupVideoStorage(videoSnapshot);
+        } else {
+          console.log(`[deleteVideoFromChapter] Video ${videoKey || bunnyGuid} is referenced in another course/chapter. Preserving storage.`);
+        }
+      } catch (storageErr) {
+        console.warn("[deleteVideoFromChapter] Cleanup storage warning:", storageErr.message);
+      }
+    })();
 
     return res.status(200).json({
       success: true,
@@ -2605,4 +2642,146 @@ export const initiateBunnyVideoUpload = async (req, res) => {
     });
   }
 };
+
+/**
+ * 📚 Get all curriculum content across all courses for Admin Pickers & Import
+ */
+export const getAdminVideoLibrary = async (req, res, next) => {
+  try {
+    const courses = await Course.find(
+      { isTrash: { $ne: true } },
+      {
+        title: 1,
+        thumbnail: 1,
+        "subjects._id": 1,
+        "subjects.subjectName": 1,
+        "subjects.chapters._id": 1,
+        "subjects.chapters.chapterName": 1,
+        "subjects.chapters.videos": 1,
+        "subjects.chapters.pdfs": 1,
+      }
+    ).lean();
+
+    return res.status(200).json({
+      success: true,
+      courses,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 📥 Import entire chapters (with videos and PDFs) from a source course into a target subject
+ */
+export const importChaptersFromCourse = async (req, res, next) => {
+  try {
+    const { courseId, subjectId } = req.params;
+    const { sourceCourseId, chapterIds } = req.body;
+
+    if (!sourceCourseId) {
+      return res.status(400).json({ success: false, message: "Source course ID is required" });
+    }
+    if (!Array.isArray(chapterIds) || chapterIds.length === 0) {
+      return res.status(400).json({ success: false, message: "Please select at least one chapter to import" });
+    }
+
+    const targetCourse = await Course.findById(courseId);
+    if (!targetCourse) {
+      return res.status(404).json({ success: false, message: "Target course not found" });
+    }
+
+    const targetSubject = targetCourse.subjects.id(subjectId);
+    if (!targetSubject) {
+      return res.status(404).json({ success: false, message: "Target subject not found" });
+    }
+
+    const sourceCourse = await Course.findById(sourceCourseId).lean();
+    if (!sourceCourse) {
+      return res.status(404).json({ success: false, message: "Source course not found" });
+    }
+
+    const chapterIdSet = new Set(chapterIds.map(String));
+    const importedChapters = [];
+    const newModuleIds = [];
+
+    // Find and clone matching chapters from source course
+    for (const subject of sourceCourse.subjects || []) {
+      for (const chapter of subject.chapters || []) {
+        if (!chapterIdSet.has(String(chapter._id))) continue;
+
+        const newVideos = [];
+        for (const video of chapter.videos || []) {
+          // Create independent module document linking to targetCourse
+          const newModule = await Modules.create({
+            courseId: targetCourse._id,
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+            bunnyGuid: video.bunnyGuid,
+            bunnyStatus: video.bunnyStatus || "completed",
+            originalZataVideo: video.originalZataVideo,
+            originalZataVideoId: video.originalZataVideoId,
+          });
+
+          newModuleIds.push(newModule._id);
+
+          newVideos.push({
+            title: video.title,
+            Video: video.Video,
+            Video_id: video.Video_id,
+            bunnyGuid: video.bunnyGuid,
+            moduleId: newModule._id,
+            createdAt: new Date(),
+          });
+        }
+
+        const newPdfs = (chapter.pdfs || []).map((pdf) => ({
+          title: pdf.title,
+          pdfUrl: pdf.pdfUrl,
+          pdf_id: pdf.pdf_id,
+          createdAt: new Date(),
+        }));
+
+        importedChapters.push({
+          chapterName: chapter.chapterName,
+          videos: newVideos,
+          pdfs: newPdfs,
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (importedChapters.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No matching chapters found in the selected source course",
+      });
+    }
+
+    // Append to target subject
+    if (!targetSubject.chapters) {
+      targetSubject.chapters = [];
+    }
+    targetSubject.chapters.push(...importedChapters);
+
+    // Link modules to target course
+    if (!targetCourse.modules) {
+      targetCourse.modules = [];
+    }
+    targetCourse.modules.push(...newModuleIds);
+
+    await targetCourse.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully imported ${importedChapters.length} chapter(s)`,
+      course: targetCourse,
+      importedCount: importedChapters.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

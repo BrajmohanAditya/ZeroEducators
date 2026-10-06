@@ -47,9 +47,15 @@ import {
   streamMultipartVideoChunk,
   initiateHlsFolderUpload,
   initiateBunnyVideoUpload,
+  getAdminVideoLibrary,
+  importChaptersFromCourse,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
+
+// Admin Curriculum / Video Library
+courseRoute.get("/admin/video-library", isLoggedIn, isAdmin, getAdminVideoLibrary);
+
 courseRoute.put("/reorder-courses", isLoggedIn, isAdmin, reorderCourses);
 courseRoute.post(
   "/createCourse",
@@ -194,6 +200,14 @@ courseRoute.delete(
   isLoggedIn,
   isAdmin,
   deleteVideoFromChapter
+);
+
+// Import Chapters from another Course into Subject
+courseRoute.post(
+  "/:courseId/subject/:subjectId/import-chapters",
+  isLoggedIn,
+  isAdmin,
+  importChaptersFromCourse
 );
 
 export default courseRoute;
