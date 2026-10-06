@@ -169,9 +169,24 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
     }
   }, [subjects, activeLecture]);
 
-  // Get valid secure streaming video URL routed exclusively through backend
+  // Get valid streaming video URL (prioritizes ultra-fast Bunny Stream CDN)
   const getVideoUrl = (lecture) => {
     if (!lecture) return null;
+
+    // 1. Direct Bunny Stream CDN / HLS URL (ultra-fast, zero buffering, direct adaptive streaming)
+    if (lecture?.Video && typeof lecture.Video === 'string') {
+      const cleanUrl = lecture.Video.trim();
+      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+        return cleanUrl;
+      }
+    }
+
+    // 2. Direct Bunny GUID if present
+    if (lecture?.bunnyGuid && typeof lecture.bunnyGuid === 'string' && lecture.bunnyGuid.trim()) {
+      return `https://vz-519ac044-098.b-cdn.net/${lecture.bunnyGuid.trim()}/playlist.m3u8`;
+    }
+
+    // 3. Fallback to backend streaming endpoint for legacy files
     const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
     const videoIdentifier =
       lecture?.moduleId ||
@@ -180,15 +195,6 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
 
     if (videoIdentifier) {
       return `${BASE_URL}/module/stream/${encodeURIComponent(videoIdentifier)}${tokenQuery}`;
-    }
-
-    // If lecture contains a full or partial S3 key, route it securely through backend stream
-    if (lecture?.Video && typeof lecture.Video === 'string') {
-      const match = lecture.Video.match(/courseModule\/[^?]+/);
-      if (match) {
-        return `${BASE_URL}/module/stream/${encodeURIComponent(match[0])}${tokenQuery}`;
-      }
-      return `${lecture.Video}${tokenQuery ? (lecture.Video.includes('?') ? '&' : '?') + tokenQuery.slice(1) : ''}`;
     }
 
     return null;
@@ -315,6 +321,7 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
             <SecureVideoPlayer
               videoKey={activeLecture?._id || activeLecture?.Video_id || activeLecture?.title || 'active-lecture'}
               src={getVideoUrl(activeLecture)}
+              title={activeLecture?.title}
               user={user}
               onError={(e) => {
                 console.log('Mobile video playback notice:', e);

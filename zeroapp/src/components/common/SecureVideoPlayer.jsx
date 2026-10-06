@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Modal,
   StatusBar,
   ScrollView,
+  useWindowDimensions,
+  BackHandler,
 } from "react-native";
 import Video from "react-native-video";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -47,13 +49,15 @@ const speedOptions = [
 ];
 
 /**
- * Video Quality Options
+ * Video Quality Options (Adaptive + Common bunny resolutions)
  */
-const qualityOptions = [
-  { id: "auto", label: "Auto (Recommended - 720p HD)", shortLabel: "Auto", badge: "HD" },
+const DEFAULT_QUALITY_OPTIONS = [
+  { id: "auto", label: "Auto (Adaptive)", shortLabel: "Auto", badge: "Auto" },
+  { id: "1080p", label: "1080p (Full HD)", shortLabel: "1080p", badge: "FHD" },
   { id: "720p", label: "720p (HD)", shortLabel: "720p", badge: "HD" },
-  { id: "480p", label: "480p (Data Saver)", shortLabel: "480p", badge: "SD" },
-  { id: "360p", label: "360p (Low Data)", shortLabel: "360p", badge: "SD" },
+  { id: "480p", label: "480p (Standard)", shortLabel: "480p", badge: "SD" },
+  { id: "360p", label: "360p (Data Saver)", shortLabel: "360p", badge: "SD" },
+  { id: "240p", label: "240p (Low Data)", shortLabel: "240p", badge: "LD" },
 ];
 
 /**
@@ -79,6 +83,7 @@ const SecureVideoPlayer = ({
   poster,
   user,
   videoKey,
+  title,
   onError,
   style,
 }) => {
@@ -89,6 +94,10 @@ const SecureVideoPlayer = ({
   const containerWidthRef = useRef(0);
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef(null);
+
+  // Window dimensions for landscape / portrait detection
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isDeviceLandscape = windowWidth > windowHeight;
 
   // YouTube Double-Tap Animation state
   const [doubleTapSide, setDoubleTapSide] = useState(null);
@@ -101,12 +110,15 @@ const SecureVideoPlayer = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Fullscreen state
+  // Fullscreen & Orientation state
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isForceLandscape, setIsForceLandscape] = useState(false);
+  const [wasAutoFullscreen, setWasAutoFullscreen] = useState(false);
 
   // Speed and Quality
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [quality, setQuality] = useState("auto");
+  const [qualityOptionsList, setQualityOptionsList] = useState(DEFAULT_QUALITY_OPTIONS);
 
   // Settings Modal
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -132,6 +144,34 @@ const SecureVideoPlayer = ({
       }
     }).catch(() => {});
   }, []);
+
+  // Auto-detect device rotation to enter/exit fullscreen seamlessly
+  useEffect(() => {
+    if (isDeviceLandscape && !isFullscreen) {
+      setIsFullscreen(true);
+      setWasAutoFullscreen(true);
+      setIsForceLandscape(false);
+    } else if (!isDeviceLandscape && isFullscreen && wasAutoFullscreen) {
+      setIsFullscreen(false);
+      setIsForceLandscape(false);
+      setWasAutoFullscreen(false);
+    }
+  }, [isDeviceLandscape]);
+
+  // Handle hardware back press on Android (close fullscreen first)
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isFullscreen) {
+        setIsFullscreen(false);
+        setIsForceLandscape(false);
+        setWasAutoFullscreen(false);
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => sub.remove();
+  }, [isFullscreen]);
 
   // Fetch Public IP Address for Watermarking
   useEffect(() => {
@@ -317,35 +357,132 @@ const SecureVideoPlayer = ({
   const handleQualityChange = (qId) => {
     setQuality(qId);
     setIsSettingsOpen(false);
-    const chosen = qualityOptions.find((q) => q.id === qId);
+    const chosen = qualityOptionsList.find((q) => q.id === qId);
     triggerToast(`Quality: ${chosen?.shortLabel || qId}`);
+  };
+
+  // Dynamically detect resolutions provided by HLS stream (Bunny Stream)
+  const handleVideoTracks = (tracksData) => {
+    try {
+      const tracks = tracksData?.videoTracks || [];
+      if (Array.isArray(tracks) && tracks.length > 0) {
+        const uniqueHeights = [
+          ...new Set(
+            tracks
+              .map((t) => t.height)
+              .filter((h) => typeof h === "number" && h > 0)
+          ),
+        ].sort((a, b) => b - a);
+
+        if (uniqueHeights.length > 0) {
+          const dynamicOptions = [
+            { id: "auto", label: "Auto (Adaptive)", shortLabel: "Auto", badge: "Auto" },
+            ...uniqueHeights.map((h) => ({
+              id: `${h}p`,
+              label: `${h}p ${
+                h >= 1080
+                  ? "(Full HD)"
+                  : h >= 720
+                  ? "(HD)"
+                  : h >= 480
+                  ? "(Standard)"
+                  : "(Data Saver)"
+              }`,
+              shortLabel: `${h}p`,
+              badge: h >= 1080 ? "FHD" : h >= 720 ? "HD" : "SD",
+            })),
+          ];
+          setQualityOptionsList(dynamicOptions);
+        }
+      }
+    } catch (err) {
+      console.log("[SecureVideoPlayer] onVideoTracks error:", err);
+    }
+  };
+
+  // Dynamic Selected Video Track Object for ExoPlayer
+  const selectedVideoTrack = useMemo(() => {
+    if (quality === "auto") {
+      return { type: "auto" };
+    }
+    const heightVal = parseInt(quality, 10);
+    if (!isNaN(heightVal) && heightVal > 0) {
+      return { type: "resolution", value: heightVal };
+    }
+    return { type: "auto" };
+  }, [quality]);
+
+  // Fullscreen and Orientation toggles
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      setIsFullscreen(false);
+      setIsForceLandscape(false);
+      setWasAutoFullscreen(false);
+    } else {
+      setIsFullscreen(true);
+      setWasAutoFullscreen(false);
+      // In portrait phone, default to wide landscape on fullscreen press
+      if (!isDeviceLandscape) {
+        setIsForceLandscape(true);
+      }
+    }
+    resetControlsTimer();
+  };
+
+  const toggleOrientation = () => {
+    setIsForceLandscape((prev) => !prev);
+    resetControlsTimer();
   };
 
   const studentIdentifier = user?.email || user?.name || "Student Account";
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   // The Player View Render
-  const renderPlayer = (isFs = false) => (
-    <View
-      style={[styles.playerContainer, isFs ? styles.fullscreenContainer : style]}
-      onLayout={(e) => {
-        containerWidthRef.current = e.nativeEvent.layout.width;
-      }}
-    >
-      {/* Native Video Engine with TextureView & Enhanced Buffer for High-Bitrate Video */}
-      <Video
-        key={`${videoKey || "video"}-${src}`}
-        ref={videoRef}
-        source={{ uri: src }}
-        style={StyleSheet.absoluteFill}
-        resizeMode="contain"
-        paused={!isPlaying}
-        rate={playbackSpeed}
-        volume={isMuted ? 0 : 1.0}
-        muted={isMuted}
-        useTextureView={true}
-        shutterColor="transparent"
-        preventsDisplaySleepDuringVideoPlayback={true}
+  const renderPlayer = (isFs = false) => {
+    const isRotated = isFs && isForceLandscape && !isDeviceLandscape;
+
+    const dynamicContainerStyle = isFs
+      ? isRotated
+        ? [
+            styles.fullscreenContainer,
+            {
+              width: windowHeight,
+              height: windowWidth,
+              position: "absolute",
+              top: (windowHeight - windowWidth) / 2,
+              left: -(windowHeight - windowWidth) / 2,
+              transform: [{ rotate: "90deg" }],
+            },
+          ]
+        : [styles.fullscreenContainer, { width: windowWidth, height: windowHeight }]
+      : [styles.playerContainer, style];
+
+    return (
+      <View
+        style={dynamicContainerStyle}
+        onLayout={(e) => {
+          containerWidthRef.current = e.nativeEvent.layout.width;
+        }}
+      >
+        {/* Native Video Engine with TextureView & Enhanced Buffer for High-Bitrate Video */}
+        <Video
+          key={`${videoKey || "video"}-${src}`}
+          ref={videoRef}
+          source={{
+            uri: src,
+            type: src?.includes(".m3u8") ? "m3u8" : undefined,
+          }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="contain"
+          paused={!isPlaying}
+          rate={playbackSpeed}
+          volume={isMuted ? 0 : 1.0}
+          muted={isMuted}
+          selectedVideoTrack={selectedVideoTrack}
+          onVideoTracks={handleVideoTracks}
+          useTextureView={true}
+          shutterColor="transparent"
+          preventsDisplaySleepDuringVideoPlayback={true}
         bufferConfig={{
           minBufferMs: 5000,              // Was 15000 — video start hone ke liye sirf 5s buffer chahiye
           maxBufferMs: 30000,             // Was 60000 — 30s kaafi hai, 60s se budget phones crash hote the
@@ -485,15 +622,43 @@ const SecureVideoPlayer = ({
         <Text style={styles.watermarkIpText}>IP: {ipAddress}</Text>
       </Animated.View>
 
-      {/* ── Top Fullscreen Exit Button (Only when in Fullscreen) ── */}
+      {/* ── Top Fullscreen Header Bar (Exit, Title, Rotate Orientation) ── */}
       {isFs && showControls && (
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setIsFullscreen(false)}
-          style={styles.topFsCloseBtn}
-        >
-          <X size={20} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={styles.topFsBar} pointerEvents="box-none">
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setIsFullscreen(false);
+              setIsForceLandscape(false);
+              setWasAutoFullscreen(false);
+            }}
+            style={styles.topFsLeftBtn}
+          >
+            <ChevronLeft size={18} color="#ffffff" />
+            <Text style={styles.topFsBtnText}>Exit</Text>
+          </TouchableOpacity>
+
+          {title ? (
+            <View style={styles.topFsTitleContainer}>
+              <Text style={styles.topFsTitleText} numberOfLines={1}>
+                {title}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleOrientation}
+            style={styles.topFsRotateBtn}
+          >
+            <RotateCw size={14} color="#10b981" />
+            <Text style={styles.topFsRotateText}>
+              {isRotated || isDeviceLandscape ? "Portrait" : "Landscape"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* ── Frosted Glass Controls Bar (Emerald Green + Dark Glass Badges) ── */}
@@ -582,7 +747,7 @@ const SecureVideoPlayer = ({
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setIsFullscreen((prev) => !prev)}
+                onPress={toggleFullscreen}
                 style={styles.iconBadge}
               >
                 {isFs ? (
@@ -642,7 +807,7 @@ const SecureVideoPlayer = ({
                   </View>
                   <View style={styles.settingsRowRight}>
                     <Text style={styles.settingsRowValue}>
-                      {qualityOptions.find((q) => q.id === quality)?.shortLabel || "Auto"}
+                      {qualityOptionsList.find((q) => q.id === quality)?.shortLabel || "Auto"}
                     </Text>
                     <ChevronRight size={13} color="#64748b" />
                   </View>
@@ -713,7 +878,7 @@ const SecureVideoPlayer = ({
                 </View>
 
                 <ScrollView style={styles.selectionList} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
-                  {qualityOptions.map((opt) => {
+                  {qualityOptionsList.map((opt) => {
                     const isSelected = quality === opt.id;
                     return (
                       <TouchableOpacity
@@ -754,7 +919,8 @@ const SecureVideoPlayer = ({
           </View>
       )}
     </View>
-  );
+    );
+  };
 
   // Guarantee ONLY ONE Video instance mounted at any time to prevent ExoPlayer conflicts
   if (isFullscreen) {
@@ -763,16 +929,34 @@ const SecureVideoPlayer = ({
         visible={true}
         transparent={false}
         animationType="fade"
-        supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
-        onRequestClose={() => setIsFullscreen(false)}
+        statusBarTranslucent={true}
+        supportedOrientations={[
+          "portrait",
+          "portrait-upside-down",
+          "landscape",
+          "landscape-left",
+          "landscape-right",
+        ]}
+        onRequestClose={() => {
+          setIsFullscreen(false);
+          setIsForceLandscape(false);
+          setWasAutoFullscreen(false);
+        }}
       >
-        <StatusBar hidden={true} />
-        {renderPlayer(true)}
+        <StatusBar hidden={true} backgroundColor="#000000" translucent={true} />
+        <View style={styles.fullscreenBackdrop}>
+          {renderPlayer(true)}
+        </View>
       </Modal>
     );
   }
 
-  return renderPlayer(false);
+  return (
+    <>
+      <StatusBar hidden={false} barStyle="light-content" backgroundColor="#0f172a" />
+      {renderPlayer(false)}
+    </>
+  );
 };
 
 export default SecureVideoPlayer;
@@ -786,12 +970,73 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
-  fullscreenContainer: {
+  fullscreenBackdrop: {
+    flex: 1,
     width: "100%",
     height: "100%",
-    aspectRatio: undefined,
-    borderRadius: 0,
     backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  fullscreenContainer: {
+    backgroundColor: "#000000",
+    overflow: "hidden",
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topFsBar: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    right: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 45,
+  },
+  topFsLeftBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    gap: 4,
+  },
+  topFsRotateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    gap: 6,
+  },
+  topFsRotateText: {
+    color: "#34d399",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  topFsBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  topFsTitleContainer: {
+    flex: 1,
+    marginHorizontal: 10,
+    alignItems: "center",
+  },
+  topFsTitleText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 13,
+    fontWeight: "600",
   },
   bufferingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -865,18 +1110,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     fontFamily: "monospace",
-  },
-  topFsCloseBtn: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "transparent",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 45,
   },
   bottomControlBar: {
     position: "absolute",
