@@ -28,51 +28,20 @@ export const s3Client = new S3Client({
 });
 
 /**
- * Configure explicit CORS on Zata S3 Bucket for our specific domains
- * This allows both live domain (zeroeducators.com) and localhost without wildcard collisions
+ * Clear any custom S3 bucket CORS rules so Zata's gateway Nginx proxy handles CORS cleanly
+ * without duplicating Access-Control-Allow-Origin headers ('*, http://localhost:5173')
  */
-export const configureBucketCors = async () => {
+export const cleanBucketCors = async () => {
   try {
-    const { PutBucketCorsCommand } = await import("@aws-sdk/client-s3");
-    const corsCommand = new PutBucketCorsCommand({
-      Bucket: ENV.ZATA_BUCKET_NAME,
-      CORSConfiguration: {
-        CORSRules: [
-          {
-            // Rule 1: Wildcard for HLS streaming — allows ANY browser to directly
-            // fetch .m3u8 and .ts files from Zata S3 without going through EC2 proxy.
-            // This eliminates the double-trip bottleneck that caused buffering.
-            AllowedHeaders: ["*"],
-            AllowedMethods: ["GET", "HEAD"],
-            AllowedOrigins: ["*"],
-            ExposeHeaders: ["Content-Length", "Content-Type", "ETag"],
-            MaxAgeSeconds: 86400, // 24 hours browser preflight cache
-          },
-          {
-            // Rule 2: Full access for our own domains (upload, put, post)
-            AllowedHeaders: ["*"],
-            AllowedMethods: ["PUT", "POST", "GET", "HEAD", "DELETE"],
-            AllowedOrigins: [
-              "https://zeroeducators.com",
-              "https://www.zeroeducators.com",
-              "http://localhost:5173",
-              "http://localhost:3000",
-            ],
-            ExposeHeaders: ["ETag", "x-amz-request-id", "Content-Length"],
-            MaxAgeSeconds: 3600,
-          },
-        ],
-      },
-    });
-    await s3Client.send(corsCommand);
-    console.log("[Zata S3] CORS configured: HLS direct streaming enabled");
-  } catch (err) {
-    console.warn("[Zata S3] CORS rule notice:", err?.message || err);
+    const { DeleteBucketCorsCommand } = await import("@aws-sdk/client-s3");
+    await s3Client.send(new DeleteBucketCorsCommand({ Bucket: ENV.ZATA_BUCKET_NAME }));
+  } catch (_) {
+    // Ignore if no CORS config exists
   }
 };
 
-// Ensure specific domain CORS is set on boot
-configureBucketCors().catch(() => {});
+// Ensure clean CORS on boot so Zata gateway handles headers without duplication
+cleanBucketCors().catch(() => {});
 
 /**
  * Generate a pre-signed URL for direct browser-to-S3 upload
