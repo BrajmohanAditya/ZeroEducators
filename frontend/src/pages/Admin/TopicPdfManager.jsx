@@ -25,6 +25,7 @@ import {
   FileText,
   Video,
   PlayCircle,
+  Download,
   ExternalLink,
   Loader2,
   FolderPlus,
@@ -258,6 +259,39 @@ const TopicPdfManager = () => {
 
   // Video Preview Dialog State
   const [previewVideo, setPreviewVideo] = useState(null);
+  const [downloadingVideoId, setDownloadingVideoId] = useState(null);
+
+  // Download video handler (supports both HLS remuxed mp4 and direct mp4)
+  const handleDownloadVideo = (vid) => {
+    if (!vid) return;
+    const vId = vid._id || vid.moduleId || "direct";
+    const videoUrl = vid.Video || "";
+    const videoTitle = vid.title || "video_lecture";
+
+    setDownloadingVideoId(vId);
+    toast.info(`Preparing download for "${videoTitle}"...`);
+
+    const identifier = vid.moduleId || vid._id || encodeURIComponent(vid.Video_id || "direct");
+    const queryParams = new URLSearchParams({
+      title: videoTitle,
+      url: videoUrl,
+    });
+
+    const downloadEndpoint = `${baseUrl}/module/download/${identifier}?${queryParams.toString()}`;
+
+    // Create an invisible anchor tag to trigger native browser file download
+    const link = document.createElement("a");
+    link.href = downloadEndpoint;
+    link.setAttribute("download", `${videoTitle.replace(/[^\w\s\-\.]/gi, "_")}.mp4`);
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+      setDownloadingVideoId(null);
+    }, 2000);
+  };
 
   // Grant Access Dialog State
   const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
@@ -1521,6 +1555,19 @@ const TopicPdfManager = () => {
                                             </button>
                                             <button
                                               type="button"
+                                              onClick={() => handleDownloadVideo(vid)}
+                                              disabled={downloadingVideoId === (vid._id || vid.moduleId || vIdx)}
+                                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                                              title="Download Video (.mp4)"
+                                            >
+                                              {downloadingVideoId === (vid._id || vid.moduleId || vIdx) ? (
+                                                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                              ) : (
+                                                <Download className="w-4 h-4" />
+                                              )}
+                                            </button>
+                                            <button
+                                              type="button"
                                               onClick={() => {
                                                 if (vid.Video) {
                                                   navigator.clipboard.writeText(vid.Video);
@@ -2391,10 +2438,29 @@ const TopicPdfManager = () => {
         }}
       >
         <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black border-slate-800">
-          <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between space-y-0">
-            <DialogTitle className="font-bold text-sm truncate text-white">
-              {previewVideo?.title || "Video Preview"}
-            </DialogTitle>
+          <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between space-y-0 gap-3">
+            <div className="flex items-center gap-2 overflow-hidden flex-1">
+              <Film className="w-4 h-4 text-emerald-400 shrink-0" />
+              <DialogTitle className="font-bold text-sm truncate text-white">
+                {previewVideo?.title || "Video Preview"}
+              </DialogTitle>
+            </div>
+            {previewVideo && (
+              <button
+                type="button"
+                onClick={() => handleDownloadVideo(previewVideo)}
+                disabled={downloadingVideoId === (previewVideo._id || previewVideo.moduleId || "direct")}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
+                title="Download this lecture video as MP4"
+              >
+                {downloadingVideoId === (previewVideo._id || previewVideo.moduleId || "direct") ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                Download Video
+              </button>
+            )}
             <DialogDescription className="sr-only">
               Lecture video preview player
             </DialogDescription>

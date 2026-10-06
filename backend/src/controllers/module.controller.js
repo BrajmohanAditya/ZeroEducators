@@ -9,6 +9,9 @@ import { ENV, isTesterEmail } from "../config/env.js";
 import { applyFaststart } from "../utils/faststart.js";
 import fs from "fs";
 import path from "path";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import { spawn } from "child_process";
+import { Readable } from "stream";
 
 
 
@@ -605,4 +608,152 @@ export const streamHlsContent = async (req, res) => {
     }
   }
 };
+
+/**
+ * 🚀 Download Lecture Video (Admin only)
+ * Supports both:
+ * 1. HLS (.m3u8) streams: remuxes all chunks on-the-fly via FFmpeg into a complete .mp4 with 0 temporary disk files.
+ * 2. MP4 / direct video files: streams directly from Zata S3 or external URL with Content-Disposition attachment.
+ */
+export const downloadModuleVideo = async (req, res) => {
+  try {
+    const { moduleId } = req.params;
+    const requestedUrl = req.query.url;
+    const requestedTitle = req.query.title;
+
+    let targetUrl = "";
+    let videoTitle = requestedTitle || "";
+    let s3Key = "";
+
+    // 1. Try to resolve from DB if moduleId is not "direct"
+    if (moduleId && moduleId !== "direct") {
+      const details = await resolveVideoDetails(moduleId);
+      if (details?.module) {
+        targetUrl = details.module.Video || "";
+        s3Key = details.videoId || "";
+        if (!videoTitle && details.module.title) {
+          videoTitle = details.module.title;
+        }
+      }
+    }
+
+    // 2. Fallback to query param if not found in DB
+    if (!targetUrl && requestedUrl) {
+      targetUrl = requestedUrl;
+    }
+
+    if (!targetUrl) {
+      return res.status(404).json({ success: false, message: "Video not found or URL missing" });
+    }
+
+    // Clean up filename
+    const sanitizedTitle = (videoTitle || "video_lecture")
+      .replace(/[^\w\s\-\.]/gi, "")
+      .trim()
+      .replace(/\s+/g, "_") || "video";
+    const baseFilename = sanitizedTitle.replace(/\.mp4$/i, "");
+    const filename = `${baseFilename}.mp4`;
+
+    const isHls = targetUrl.includes(".m3u8") || targetUrl.includes("/hls/");
+
+    if (isHls) {
+      // Set download headers for HLS remuxed MP4
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Cache-Control", "no-cache");
+
+      const ffmpegArgs = [
+        "-y",
+        "-i",
+        targetUrl,
+        "-c",
+        "copy",
+        "-bsf:a",
+        "aac_adtstoasc",
+        "-movflags",
+        "frag_keyframe+empty_moov+default_base_moof",
+        "-f",
+        "mp4",
+        "pipe:1",
+      ];
+
+      const ffmpegProcess = spawn(ffmpegInstaller.path, ffmpegArgs);
+
+      ffmpegProcess.stdout.pipe(res);
+
+      ffmpegProcess.on("error", (err) => {
+        console.error("FFmpeg remux download error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, message: "Failed to process video for download" });
+        }
+      });
+
+      req.on("close", () => {
+        try {
+          ffmpegProcess.kill("SIGKILL");
+        } catch (_) {}
+      });
+
+      return;
+    }
+
+    // Direct MP4 / Video File
+    // If we have an S3 key, stream directly from S3
+    if (!s3Key && targetUrl.includes("courseModule/")) {
+      s3Key = "courseModule/" + targetUrl.split("courseModule/")[1].split("?")[0];
+    }
+
+    if (s3Key && !s3Key.startsWith("http")) {
+      const getCommand = new GetObjectCommand({
+        Bucket: ENV.ZATA_BUCKET_NAME,
+        Key: s3Key,
+      });
+      const s3Response = await s3Client.send(getCommand);
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
+      res.setHeader("Content-Type", s3Response.ContentType || "video/mp4");
+      if (s3Response.ContentLength) {
+        res.setHeader("Content-Length", s3Response.ContentLength);
+      }
+
+      s3Response.Body.pipe(res);
+
+      req.on("close", () => {
+        if (s3Response?.Body && typeof s3Response.Body.destroy === "function") {
+          s3Response.Body.destroy();
+        }
+      });
+
+      return;
+    }
+
+    // External URL fallback: fetch and stream
+    const fetchResponse = await fetch(targetUrl);
+    if (!fetchResponse.ok) {
+      return res.status(fetchResponse.status).json({ success: false, message: "Failed to fetch remote video" });
+    }
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+    res.setHeader("Content-Type", fetchResponse.headers.get("content-type") || "video/mp4");
+    const len = fetchResponse.headers.get("content-length");
+    if (len) res.setHeader("Content-Length", len);
+
+    Readable.fromWeb(fetchResponse.body).pipe(res);
+  } catch (error) {
+    console.error("Video download controller error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: "Video download failed: " + (error.message || error) });
+    }
+  }
+};
+
 

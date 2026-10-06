@@ -6,6 +6,7 @@ import {
   streamModuleVideo,
   getModuleStreamUrl,
   streamHlsContent,
+  downloadModuleVideo,
 } from "../controllers/module.controller.js";
 import { videoUpload, formatUploadError } from "../middlewares/videoUpload.js";
 
@@ -15,6 +16,7 @@ moduleRoute.get("/progress/:uploadId", getUploadProgress);
 moduleRoute.get("/stream-url/:moduleId", isLoggedIn, getModuleStreamUrl);
 moduleRoute.get("/stream/:moduleId", isLoggedIn, streamModuleVideo);
 moduleRoute.get("/hls/*key", streamHlsContent);
+moduleRoute.get("/download/:moduleId", isLoggedIn, isAdmin, downloadModuleVideo);
 
 moduleRoute.post(
   "/createModule",
