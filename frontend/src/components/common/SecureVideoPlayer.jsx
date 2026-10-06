@@ -254,18 +254,23 @@ const SecureVideoPlayer = ({
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,           // false = better for pre-recorded lectures (not live)
-          maxBufferLength: 30,             // Buffer 30s ahead (sweet spot for mobile & desktop)
-          maxMaxBufferLength: 60,          // Max 60s on fast connections (was 120s — caused mobile tab crashes)
-          backBufferLength: 15,            // Keep 15s behind current position (was 30s)
-          maxBufferSize: 20 * 1000 * 1000, // 20MB max buffer (was 60MB — budget phones (2-3GB RAM) crashed)
-          startLevel: -1,                  // Auto quality selection at start
-          abrEwmaDefaultEstimate: 1500000, // Assume 1.5Mbps initially = India average 4G (was 5Mbps — caused startup buffering)
-          abrBandWidthFactor: 0.85,        // Use 85% of measured bandwidth (safety margin for unstable networks)
-          abrBandWidthUpFactor: 0.7,       // Conservative upshift (don't rush to 720p on a brief speed spike)
-          progressive: true,               // Start playing as soon as first segment loads
-          fragLoadingTimeOut: 20000,       // 20s timeout per .ts segment (was default 20s, explicit)
-          manifestLoadingTimeOut: 15000,   // 15s timeout for .m3u8 manifest
-          levelLoadingTimeOut: 15000,      // 15s timeout for quality level manifests
+          startLevel: 0,                   // 🚀 Instant Start: Load tiny lowest quality (360p) segment first (<200KB = 0.2s download), then smoothly upscale to 720p!
+          maxBufferLength: 25,             // Buffer 25s ahead
+          maxMaxBufferLength: 50,          // Max 50s on fast connections
+          backBufferLength: 15,            // Keep 15s behind current position
+          maxBufferSize: 20 * 1000 * 1000, // 20MB max buffer
+          maxBufferHole: 0.5,              // Seamlessly bridge tiny keyframe gaps without stalling
+          highBufferWatchdogPeriod: 2,     // Quick watchdog for stalls
+          nudgeOffset: 0.1,                // Jumps 100ms forward if browser initial frame decoder stalls
+          nudgeMaxRetry: 5,                // Max nudge retries
+          abrEwmaDefaultEstimate: 1200000, // Balanced starting estimate
+          abrBandWidthFactor: 0.85,        // Use 85% of measured bandwidth
+          abrBandWidthUpFactor: 0.75,      // Smooth upshift to 720p
+          capLevelToPlayerSize: true,      // Don't waste data downloading 720p on small mobile screens
+          progressive: true,               // Start playing as soon as first segment bytes arrive
+          fragLoadingTimeOut: 15000,       // 15s timeout per .ts segment
+          manifestLoadingTimeOut: 12000,   // 12s timeout for .m3u8 manifest
+          levelLoadingTimeOut: 12000,      // 12s timeout for quality level manifests
           fragLoadingMaxRetry: 4,          // Retry failed .ts segments up to 4 times
           manifestLoadingMaxRetry: 3,      // Retry failed manifest up to 3 times
         });
@@ -277,6 +282,10 @@ const SecureVideoPlayer = ({
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setIsBuffering(false);
           updateDuration();
+        });
+
+        hls.on(Hls.Events.FRAG_BUFFERED, () => {
+          setIsBuffering(false);
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -809,7 +818,7 @@ const SecureVideoPlayer = ({
         disablePictureInPicture
         disableRemotePlayback
         playsInline
-        preload="metadata"
+        preload="auto"
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
         onContextMenu={(e) => e.preventDefault()}
