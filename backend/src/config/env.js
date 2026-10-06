@@ -18,6 +18,9 @@ export const ENV = {
   ZATA_BUCKET_NAME: process.env.ZATA_BUCKET_NAME,
   ZATA_ENDPOINT: process.env.ZATA_ENDPOINT,
   ZATA_REGION: process.env.ZATA_REGION,
+  BUNNY_STREAM_LIBRARY_ID: process.env.BUNNY_STREAM_LIBRARY_ID || "771713",
+  BUNNY_STREAM_API_KEY: process.env.BUNNY_STREAM_API_KEY || "396285c8-9b33-450c-bc7ddfe79110-8a3b-40fc",
+  BUNNY_STREAM_CDN_HOSTNAME: process.env.BUNNY_STREAM_CDN_HOSTNAME || "vz-519ac044-098.b-cdn.net",
   TESTER_EMAIL: process.env.TESTER_EMAIL || "cckumarsingh39ar@gmail.com",
 };
 

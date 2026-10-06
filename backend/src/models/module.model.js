@@ -21,6 +21,18 @@ const moduleSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    bunnyGuid: {
+      type: String,
+    },
+    bunnyStatus: {
+      type: String,
+    },
+    originalZataVideo: {
+      type: String,
+    },
+    originalZataVideoId: {
+      type: String,
+    },
   },
   { timestamps: true },
 );

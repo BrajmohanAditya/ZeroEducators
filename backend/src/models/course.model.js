@@ -93,6 +93,12 @@ const courseSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: "Modules",
           },
+          bunnyGuid: {
+            type: String,
+          },
+          originalZataVideo: {
+            type: String,
+          },
           createdAt: {
             type: Date,
             default: Date.now,
@@ -155,6 +161,12 @@ const courseSchema = new mongoose.Schema({
               moduleId: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Modules",
+              },
+              bunnyGuid: {
+                type: String,
+              },
+              originalZataVideo: {
+                type: String,
               },
               createdAt: {
                 type: Date,
