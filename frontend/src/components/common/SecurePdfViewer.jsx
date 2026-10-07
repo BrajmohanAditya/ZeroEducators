@@ -30,8 +30,9 @@ const PdfPageItem = memo(
     const canvasRef = useRef(null);
     const itemRef = useRef(null);
     const renderTaskRef = useRef(null);
+    const renderedKeyRef = useRef("");
+    const isRenderingRef = useRef(false);
     const [isRendered, setIsRendered] = useState(false);
-    const [isRendering, setIsRendering] = useState(false);
     const [pageSize, setPageSize] = useState({ width: 600, height: 848 });
 
     const isIntersectingRef = useRef(false);
@@ -44,9 +45,11 @@ const PdfPageItem = memo(
       pdfDoc.getPage(pageNum).then((page) => {
         if (!active) return;
         const viewport = page.getViewport({ scale, rotation });
-        setPageSize({
-          width: Math.floor(viewport.width),
-          height: Math.floor(viewport.height),
+        const w = Math.floor(viewport.width);
+        const h = Math.floor(viewport.height);
+        setPageSize((prev) => {
+          if (prev.width === w && prev.height === h) return prev;
+          return { width: w, height: h };
         });
       });
 
@@ -59,16 +62,25 @@ const PdfPageItem = memo(
     const renderCanvas = useCallback(async () => {
       if (!pdfDoc || !canvasRef.current) return;
 
+      const currentKey = `${scale}_${rotation}_${user?.email || user?.name || ""}`;
+      // CRITICAL: Do not re-render if page is already rendered for this scale, rotation and user!
+      // This completely eliminates scrolling blink / canvas wiping.
+      if (renderedKeyRef.current === currentKey) return;
+      if (isRenderingRef.current) return;
+
       try {
         if (renderTaskRef.current) {
           renderTaskRef.current.cancel();
           renderTaskRef.current = null;
         }
 
-        setIsRendering(true);
+        isRenderingRef.current = true;
         const page = await pdfDoc.getPage(pageNum);
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) {
+          isRenderingRef.current = false;
+          return;
+        }
 
         const ctx = canvas.getContext("2d");
         if (ctx) {
@@ -87,8 +99,11 @@ const PdfPageItem = memo(
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
 
-        // Update React state so container & canvas remain in 100% perfect aspect ratio
-        setPageSize({ width: cssWidth, height: cssHeight });
+        // Update React state only if dimensions changed
+        setPageSize((prev) => {
+          if (prev.width === cssWidth && prev.height === cssHeight) return prev;
+          return { width: cssWidth, height: cssHeight };
+        });
 
         const renderContext = {
           canvasContext: ctx,
@@ -99,22 +114,57 @@ const PdfPageItem = memo(
         renderTaskRef.current = renderTask;
 
         await renderTask.promise;
-        setIsRendering(false);
+
+        // Tamper-proof forensic watermark directly onto canvas pixels
+        if (ctx && user) {
+          const watermarkText = (user?.email || user?.phone || user?.name || "").trim();
+          if (watermarkText) {
+            ctx.save();
+            // Proportional font sizing matching document scale & hardware DPR
+            const fontSize = Math.max(14 * dpr, Math.min(23 * dpr, Math.floor(canvas.width / 38)));
+            ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+            ctx.fillStyle = "rgba(71, 85, 105, 0.25)"; // Enhanced contrast slate: clearly visible security watermark
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const angle = -25 * (Math.PI / 180);
+            const stepX = Math.max(300 * dpr, fontSize * 18);
+            const stepY = Math.max(220 * dpr, fontSize * 12);
+
+            let row = 0;
+            for (let y = -canvas.height * 0.2; y < canvas.height * 1.35; y += stepY) {
+              const offsetX = row % 2 === 1 ? stepX / 2 : 0;
+              for (let x = -canvas.width * 0.2 + offsetX; x < canvas.width * 1.35; x += stepX) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                ctx.fillText(watermarkText, 0, 0);
+                ctx.restore();
+              }
+              row++;
+            }
+            ctx.restore();
+          }
+        }
+
+        renderedKeyRef.current = currentKey;
+        isRenderingRef.current = false;
         setIsRendered(true);
       } catch (err) {
+        isRenderingRef.current = false;
         if (err?.name !== "RenderingCancelledException") {
           console.error(`Page ${pageNum} render error:`, err);
         }
-        setIsRendering(false);
       }
-    }, [pdfDoc, pageNum, scale, rotation]);
+    }, [pdfDoc, pageNum, scale, rotation, user]);
 
-    // Re-render when scale or rotation changes if currently in viewport
+    // Re-render when scale, rotation, or user changes if currently in viewport
     useEffect(() => {
+      renderedKeyRef.current = ""; // Invalidate cache on zoom/rotation change
       if (isIntersectingRef.current) {
         renderCanvas();
       }
-    }, [scale, rotation, renderCanvas]);
+    }, [scale, rotation, user, renderCanvas]);
 
     // Lazy load canvas using IntersectionObserver
     useEffect(() => {
@@ -125,7 +175,7 @@ const PdfPageItem = memo(
         (entries) => {
           entries.forEach((entry) => {
             isIntersectingRef.current = entry.isIntersecting;
-            // Render when page is within 500px of viewport
+            // Pre-render when page is within 800px of viewport
             if (entry.isIntersecting) {
               renderCanvas();
             }
@@ -138,7 +188,7 @@ const PdfPageItem = memo(
         },
         {
           root: containerRef?.current || null,
-          rootMargin: "500px 0px",
+          rootMargin: "800px 0px",
           threshold: [0, 0.4, 0.8],
         }
       );
@@ -176,8 +226,8 @@ const PdfPageItem = memo(
             onContextMenu={(e) => e.preventDefault()}
           />
 
-          {/* Placeholder/Spinner before rendering */}
-          {(!isRendered || isRendering) && (
+          {/* Placeholder/Spinner before initial render only — never flashes on scroll */}
+          {!isRendered && (
             <div className="absolute inset-0 bg-slate-900/5 flex flex-col items-center justify-center pointer-events-none z-10">
               <Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-2 opacity-80" />
               <span className="text-xs font-semibold text-slate-500 font-mono">
