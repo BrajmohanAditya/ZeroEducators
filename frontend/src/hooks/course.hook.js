@@ -29,6 +29,7 @@ import {
   grantCourseAccessApi,
   revokeCourseAccessApi,
   getCourseEnrolledStudentsApi,
+  updateStudentExpiryApi,
   copyCourseApi,
   reorderChaptersApi,
   reorderSubjectsApi,
@@ -469,6 +470,21 @@ export const useRevokeCourseAccessHook = (courseId) => {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to revoke course access");
+    },
+  });
+};
+
+export const useUpdateStudentExpiryHook = (courseId) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateStudentExpiryApi,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["getCourseEnrolledStudents", courseId]);
+      queryClient.invalidateQueries(["getCourse"]);
+      toast.success(data?.message || "Expiry date updated successfully!");
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to update expiry date");
     },
   });
 };

@@ -22,6 +22,7 @@ import {
   Sparkles,
   Infinity as InfinityIcon,
   Calendar,
+  Pencil,
   Plus,
   Minus,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import {
   useGrantCourseAccessHook,
   useRevokeCourseAccessHook,
   useGetCourseEnrolledStudentsHook,
+  useUpdateStudentExpiryHook,
 } from "../../hooks/course.hook";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import { toast } from "sonner";
@@ -105,6 +107,11 @@ const GrantCourseAccessDialog = ({
   const [revokeConfirm, setRevokeConfirm] = useState(null);
   const [studentSearchFilter, setStudentSearchFilter] = useState("");
 
+  // Edit Expiry state
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editExpiryDate, setEditExpiryDate] = useState("");
+  const [editDurationType, setEditDurationType] = useState("date"); // 'date' | 'lifetime'
+
   useEffect(() => {
     if (course?._id) {
       setSelectedCourseId(course._id);
@@ -141,6 +148,102 @@ const GrantCourseAccessDialog = ({
 
   const { mutate: revokeAccess, isPending: isRevoking } =
     useRevokeCourseAccessHook(selectedCourseId);
+
+  const { mutate: updateStudentExpiry, isPending: isUpdatingExpiry } =
+    useUpdateStudentExpiryHook(selectedCourseId);
+
+  const handleOpenEditExpiry = (student) => {
+    try {
+      setEditingStudent(student);
+      if (student.expiresAt) {
+        const d = new Date(student.expiresAt);
+        if (!isNaN(d.getTime())) {
+          setEditExpiryDate(d.toISOString().split("T")[0]);
+          setEditDurationType("date");
+          return;
+        }
+      }
+      const match = student.planDuration?.match(/valid\s*till\s*(.+)/i);
+      if (match) {
+        const d = new Date(match[1]);
+        if (!isNaN(d.getTime())) {
+          setEditExpiryDate(d.toISOString().split("T")[0]);
+          setEditDurationType("date");
+          return;
+        }
+      }
+      if (student.planDuration === "Lifetime Access" || student.planDuration === "lifetime") {
+        setEditDurationType("lifetime");
+        setEditExpiryDate("");
+        return;
+      }
+      const defaultDate = new Date();
+      defaultDate.setMonth(defaultDate.getMonth() + 3);
+      setEditExpiryDate(defaultDate.toISOString().split("T")[0]);
+      setEditDurationType("date");
+    } catch (err) {
+      console.warn("Could not parse existing date:", err);
+      const defaultDate = new Date();
+      defaultDate.setMonth(defaultDate.getMonth() + 3);
+      setEditExpiryDate(defaultDate.toISOString().split("T")[0]);
+      setEditDurationType("date");
+    }
+  };
+
+  const handleQuickExtend = (amount, unit = "months") => {
+    setEditDurationType("date");
+    const base = editExpiryDate ? new Date(editExpiryDate) : new Date();
+    const current = isNaN(base.getTime()) ? new Date() : base;
+    const start = current < new Date() ? new Date() : current;
+    const target = new Date(start);
+    if (unit === "days") {
+      target.setDate(target.getDate() + amount);
+    } else if (unit === "months") {
+      target.setMonth(target.getMonth() + amount);
+    }
+    setEditExpiryDate(target.toISOString().split("T")[0]);
+  };
+
+  const handleSaveEditExpiry = (e) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+
+    let planDuration = "";
+    let payloadExpiryDate = null;
+
+    if (editDurationType === "lifetime") {
+      planDuration = "Lifetime Access";
+      payloadExpiryDate = null;
+    } else {
+      if (!editExpiryDate) {
+        toast.error("Please choose an expiry date");
+        return;
+      }
+      payloadExpiryDate = editExpiryDate;
+      const parts = editExpiryDate.split("-");
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const formatted = d.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      planDuration = `Valid till ${formatted}`;
+    }
+
+    updateStudentExpiry(
+      {
+        courseId: selectedCourseId,
+        userId: editingStudent._id,
+        expiryDate: payloadExpiryDate,
+        planDuration,
+      },
+      {
+        onSuccess: () => {
+          setEditingStudent(null);
+        },
+      }
+    );
+  };
 
   const currentCourse =
     (allCourses && allCourses.find((c) => c._id === selectedCourseId)) || course;
@@ -834,21 +937,31 @@ const GrantCourseAccessDialog = ({
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            disabled={isRevoking}
-                            onClick={() => {
-                              setRevokeConfirm({
-                                id: s._id,
-                                name: s.name,
-                                title: currentCourse?.title || "this course",
-                              });
-                            }}
-                            className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200 cursor-pointer shrink-0 inline-flex items-center gap-1"
-                            title="Revoke Course Access"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" /> Revoke
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditExpiry(s)}
+                              className="px-2.5 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition border border-indigo-200 cursor-pointer inline-flex items-center gap-1"
+                              title="Edit / Extend Expiry Date"
+                            >
+                              <Calendar className="w-3.5 h-3.5" /> Edit Expiry
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isRevoking}
+                              onClick={() => {
+                                setRevokeConfirm({
+                                  id: s._id,
+                                  name: s.name,
+                                  title: currentCourse?.title || "this course",
+                                });
+                              }}
+                              className="px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200 cursor-pointer inline-flex items-center gap-1"
+                              title="Revoke Course Access"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Revoke
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -865,6 +978,164 @@ const GrantCourseAccessDialog = ({
               </div>
             )}
           </div>
+
+          {/* EDIT / EXTEND EXPIRY OVERLAY PANEL (INSIDE DIALOG) */}
+          {editingStudent && (
+            <div className="absolute inset-0 z-50 bg-white flex flex-col overflow-y-auto animate-in fade-in-0 duration-200">
+              {/* Panel Header */}
+              <div className="p-4 bg-slate-900 text-white shrink-0 flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Edit / Extend Course Validity</h3>
+                    <p className="text-[11px] text-slate-300 truncate max-w-[280px]">
+                      {editingStudent.name} • {editingStudent.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingStudent(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-md transition text-sm cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveEditExpiry} className="p-6 space-y-5 flex-1 overflow-y-auto">
+                {/* Current Status */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Current Status:</span>
+                  <span className="font-bold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs">
+                    {editingStudent.planDuration || "Standard"}
+                  </span>
+                </div>
+
+                {/* Mode Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    Choose Validity Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditDurationType("date")}
+                      className={`p-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                        editDurationType === "date"
+                          ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs ring-1 ring-indigo-500"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" /> Specific Date
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditDurationType("lifetime");
+                        setEditExpiryDate("");
+                      }}
+                      className={`p-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                        editDurationType === "lifetime"
+                          ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs ring-1 ring-indigo-500"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <InfinityIcon className="w-4 h-4" /> Lifetime Access
+                    </button>
+                  </div>
+                </div>
+
+                {editDurationType === "date" && (
+                  <div className="space-y-4">
+                    {/* Quick Extension Chips */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-2">
+                        Quick Extend (From Current / Today):
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: "+15 Days", amount: 15, unit: "days" },
+                          { label: "+1 Month", amount: 1, unit: "months" },
+                          { label: "+3 Months", amount: 3, unit: "months" },
+                          { label: "+6 Months", amount: 6, unit: "months" },
+                          { label: "+1 Year", amount: 12, unit: "months" },
+                        ].map((chip) => (
+                          <button
+                            key={chip.label}
+                            type="button"
+                            onClick={() => handleQuickExtend(chip.amount, chip.unit)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 rounded-lg transition border border-slate-200 cursor-pointer shadow-2xs"
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Calendar Input */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Select Expiry Date:
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={editExpiryDate}
+                        onChange={(e) => setEditExpiryDate(e.target.value)}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Date Summary */}
+                    {editExpiryDate && (
+                      <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-xs text-indigo-900 flex items-center justify-between">
+                        <span className="font-medium">New Expiry Date:</span>
+                        <span className="font-bold">
+                          {formatSelectedDate(editExpiryDate)} ({getDateDifferenceSummary(editExpiryDate)})
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editDurationType === "lifetime" && (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2.5">
+                    <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>Student will have permanent, unlimited access with no expiration.</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 mt-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStudent(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingExpiry}
+                    className="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isUpdatingExpiry ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Save Expiry Date
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

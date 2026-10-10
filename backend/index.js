@@ -23,6 +23,7 @@ import analyticsRoute from "./src/routes/analytics.route.js";
 import compression from "compression";
 import { startCourseCleanupJob } from "./src/jobs/courseCleanup.job.js";
 import { startDbBackupSchedule } from "./src/jobs/dbBackup.job.js";
+import { startCourseExpiryJob } from "./src/jobs/courseExpiry.job.js";
 
 const app = express();
 
@@ -77,6 +78,7 @@ const server = app.listen(ENV.PORT || 10000, "0.0.0.0", () => {
   connectDB();
   startCourseCleanupJob();
   startDbBackupSchedule();
+  startCourseExpiryJob();
 });
 
 // Configure 1-hour timeout for 2GB+ video uploads

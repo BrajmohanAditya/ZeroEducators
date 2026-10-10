@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { User } from "../models/user.model.js";
 import { Order } from "../models/order.model.js";
 import { isTesterEmail } from "../config/env.js";
@@ -171,12 +172,22 @@ export const syncUserCourseExpiry = async (userId, cachedUser = null) => {
         coursesToRemove
       );
 
+      const objectIdsToRemove = coursesToRemove
+        .map((id) => {
+          try {
+            return new mongoose.Types.ObjectId(id);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
-          $pull: { purchasedCourse: { $in: coursesToRemove } },
+          $pull: { purchasedCourse: { $in: [...coursesToRemove, ...objectIdsToRemove] } },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       return updatedUser;

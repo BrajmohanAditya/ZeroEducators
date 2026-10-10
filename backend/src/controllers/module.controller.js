@@ -12,6 +12,7 @@ import path from "path";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { spawn } from "child_process";
 import { Readable } from "stream";
+import { syncUserCourseExpiry } from "../utils/courseExpiry.js";
 
 
 
@@ -264,10 +265,22 @@ const checkUserAccess = async (courseId, user) => {
   const isTester = isTesterEmail(user?.email);
   if (user?.role !== "admin" && !isTester && courseId) {
     const course = await Course.findById(courseId);
-    const isPurchased = user?.purchasedCourse?.some(
-      (cId) => cId.toString() === courseId?.toString()
-    );
-    if (!isPurchased && !course?.isFree) {
+    if (!course || course.isDeleted) {
+      return false;
+    }
+    if (course.isFree) {
+      return true;
+    }
+
+    // Dynamic expiry sync to guarantee expired access is revoked immediately
+    const freshUser = await syncUserCourseExpiry(user?._id);
+    const purchasedList = freshUser?.purchasedCourse || user?.purchasedCourse || [];
+    const isPurchased = purchasedList.some((cId) => {
+      const idStr = cId?._id ? cId._id.toString() : cId.toString();
+      return idStr === courseId.toString();
+    });
+
+    if (!isPurchased) {
       return false;
     }
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   PlayCircle,
   ShieldCheck,
@@ -24,16 +24,15 @@ import { useUserStore } from "@/store/user.store";
 
 const SinglePurchasedCourse = () => {
   const { id } = useParams();
-  const { data } = useGetSinglePurchasedCourseHook(id);
+  const navigate = useNavigate();
+  const { data, isLoading, isError, error } = useGetSinglePurchasedCourseHook(id);
   const user = useUserStore((state) => state.user);
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
   const isPdfCourse = data?.courseType === "pdf";
 
   // Active view: 'video' | 'pdf'
-  const [activeContentType, setActiveContentType] = useState(
-    isPdfCourse ? "pdf" : "video"
-  );
+  const [activeContentType, setActiveContentType] = useState("video");
 
   // State for video module
   const [module, setModule] = useState(null);
@@ -315,6 +314,50 @@ const SinglePurchasedCourse = () => {
 
   const hasSubjects = data?.subjects && data.subjects.length > 0;
   const hasTopics = data?.topics && data.topics.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] bg-slate-50 gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-600 font-medium text-sm">Loading course content...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    const isExpired = error?.response?.status === 403;
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4 bg-slate-50">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/80 p-8 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            {isExpired ? "Course Access Expired" : "Access Denied"}
+          </h2>
+          <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+            {isExpired
+              ? "Your validity period for this course has ended. If you need renewed access or an extension, please contact your administrator or course mentor."
+              : error?.response?.data?.message || "You do not have active enrollment access to this course."}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate("/yourAllPurchasedCourse")}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors text-sm shadow-sm"
+            >
+              My Enrolled Courses
+            </button>
+            <button
+              onClick={() => navigate("/allCourse")}
+              className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-100 transition-colors text-sm"
+            >
+              Browse All Courses
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

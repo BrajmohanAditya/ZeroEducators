@@ -232,21 +232,49 @@ export const getSinglePurchasedCourse = async (req, res) => {
     const courseId = req.params.id;
 
     if (!courseId) {
-      return res.status(401).json({
-        message: "course not found",
+      return res.status(400).json({
+        message: "Course ID is required",
       });
+    }
+
+    const user = req.user;
+    const isTester = isTesterEmail(user?.email);
+
+    if (user?.role !== "admin" && !isTester) {
+      // Sync expiry dynamically for this user first
+      const freshUser = await syncUserCourseExpiry(user._id);
+      const purchasedList = freshUser?.purchasedCourse || user?.purchasedCourse || [];
+      const hasPurchased = purchasedList.some((c) => {
+        const idStr = c?._id ? c._id.toString() : c.toString();
+        return idStr === courseId.toString();
+      });
+
+      const courseCheck = await Course.findById(courseId).select("isFree isDeleted");
+      if (!courseCheck || courseCheck.isDeleted) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      if (!hasPurchased && !courseCheck.isFree) {
+        return res.status(403).json({
+          message: "Your course access has expired or you are not enrolled in this course.",
+          expired: true,
+        });
+      }
     }
 
     const purchasedOrder = await Course.findOne({ _id: courseId, isDeleted: { $ne: true } }).populate("modules");
 
     if (!purchasedOrder) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: "Course not found",
       });
     }
 
-    return res.status(201).json(purchasedOrder);
-  } catch (error) {}
+    return res.status(200).json(purchasedOrder);
+  } catch (error) {
+    console.error("Error in getSinglePurchasedCourse:", error);
+    return res.status(500).json({ message: "Failed to fetch course details" });
+  }
 };
 
 export const getAllPurchasedCourse = async (req, res) => {
@@ -1857,7 +1885,7 @@ export const getCourseEnrolledStudents = async (req, res, next) => {
 
     // Fetch orders for this course to enrich with enrollment details
     const orders = await Order.find({ course: courseId })
-      .select("user planDuration paymentGateway createdAt")
+      .select("user planDuration expiresAt paymentGateway createdAt")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -1878,7 +1906,14 @@ export const getCourseEnrolledStudents = async (req, res, next) => {
         mobileNo: u.mobileNo,
         enrolledAt: order?.createdAt || u.createdAt,
         planDuration: order?.planDuration || "Standard",
-        grantType: order?.paymentGateway === "admin_grant" ? "Admin Granted" : order?.paymentGateway === "free" ? "Free Enrolled" : "Paid Order",
+        expiresAt: order?.expiresAt || null,
+        grantType: !order
+          ? "Direct Enrolled"
+          : order.paymentGateway === "admin_grant"
+          ? "Admin Granted"
+          : order.paymentGateway === "free"
+          ? "Free Enrolled"
+          : "Paid Order",
       };
     });
 
@@ -1887,6 +1922,122 @@ export const getCourseEnrolledStudents = async (req, res, next) => {
       courseTitle: course.title,
       students,
       count: students.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update / extend student's course expiry date
+export const updateStudentExpiry = async (req, res, next) => {
+  try {
+    const { courseId, userId, planDuration, expiryDate } = req.body;
+
+    if (!courseId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Course ID and User ID are required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const course = await Course.findById(courseId).select("title duration");
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found" });
+    }
+
+    // Ensure course is in user's purchasedCourse
+    const isEnrolled = user.purchasedCourse?.some(
+      (id) => id.toString() === courseId.toString()
+    );
+    if (!isEnrolled) {
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { purchasedCourse: courseId },
+      });
+    }
+
+    // Calculate target expiry Date object
+    let targetExpiry = null;
+    let finalDurationLabel = planDuration || "";
+
+    if (expiryDate) {
+      targetExpiry = new Date(expiryDate);
+      if (!isNaN(targetExpiry.getTime())) {
+        targetExpiry.setHours(23, 59, 59, 999);
+      } else {
+        targetExpiry = null;
+      }
+    } else if (planDuration) {
+      targetExpiry = calculatePlanExpiry(planDuration, new Date());
+    }
+
+    // If lifetime was explicitly selected
+    if (planDuration === "Lifetime Access" || planDuration === "lifetime") {
+      targetExpiry = null;
+      finalDurationLabel = "Lifetime Access";
+    } else if (targetExpiry && !finalDurationLabel) {
+      const formatted = targetExpiry.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      finalDurationLabel = `Valid till ${formatted}`;
+    }
+
+    // Find the latest order for this user and course
+    let order = await Order.findOne({
+      user: userId,
+      course: courseId,
+      paymentGateway: { $ne: "revoked" },
+    }).sort({ createdAt: -1 });
+
+    if (!order) {
+      // Check if any order at all exists (even revoked)
+      order = await Order.findOne({ user: userId, course: courseId }).sort({ createdAt: -1 });
+    }
+
+    if (order) {
+      order.expiresAt = targetExpiry;
+      order.planDuration = finalDurationLabel || order.planDuration;
+      // If it was marked revoked earlier, restore to admin_grant
+      if (order.paymentGateway === "revoked") {
+        order.paymentGateway = "admin_grant";
+      }
+      await order.save();
+    } else {
+      // Create new audit order for legacy users who were added without order
+      const orderId = `ADMIN_EXT_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      const paymentId = `ADMIN_EXT_${Date.now()}`;
+      order = new Order({
+        user: userId,
+        course: courseId,
+        totalAmount: 0,
+        planDuration: finalDurationLabel || "Custom Validity",
+        expiresAt: targetExpiry,
+        paymentGateway: "admin_grant",
+        orderId,
+        paymentId,
+      });
+      await order.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Expiry date updated successfully for ${user.name}!`,
+      student: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobileNo: user.mobileNo,
+        enrolledAt: order.createdAt,
+        planDuration: order.planDuration,
+        expiresAt: order.expiresAt,
+        grantType: order.paymentGateway === "admin_grant" ? "Admin Granted" : "Paid Order",
+      },
     });
   } catch (error) {
     next(error);
@@ -1905,12 +2056,14 @@ export const streamCoursePdf = async (req, res, next) => {
     }
 
     // Access control: admins, enrolled users, or free courses
-    if (user?.role !== "admin") {
-      const isPurchased = user?.purchasedCourse?.some(
-        (cId) => cId.toString() === courseId.toString()
+    if (user?.role !== "admin" && !isTesterEmail(user?.email)) {
+      const freshUser = await syncUserCourseExpiry(user?._id);
+      const purchasedList = freshUser?.purchasedCourse || user?.purchasedCourse || [];
+      const isPurchased = purchasedList.some(
+        (cId) => (cId?._id ? cId._id.toString() : cId.toString()) === courseId.toString()
       );
       if (!isPurchased && !course?.isFree) {
-        return res.status(403).json({ message: "Access denied. Course not enrolled." });
+        return res.status(403).json({ message: "Access denied. Course not enrolled or expired." });
       }
     }
 

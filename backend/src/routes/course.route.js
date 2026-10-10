@@ -33,6 +33,7 @@ import {
   grantCourseAccess,
   revokeCourseAccess,
   getCourseEnrolledStudents,
+  updateStudentExpiry,
   streamCoursePdf,
   copyCourse,
   reorderCourses,
@@ -90,6 +91,7 @@ courseRoute.get("/admin/users/search", isLoggedIn, isAdmin, searchUsersForEnroll
 courseRoute.post("/admin/grant-access", isLoggedIn, isAdmin, grantCourseAccess);
 courseRoute.post("/admin/revoke-access", isLoggedIn, isAdmin, revokeCourseAccess);
 courseRoute.get("/admin/:courseId/enrolled-students", isLoggedIn, isAdmin, getCourseEnrolledStudents);
+courseRoute.put("/admin/update-student-expiry", isLoggedIn, isAdmin, updateStudentExpiry);
 
 // Topic Management Routes (Legacy Compatibility)
 courseRoute.post("/:courseId/topic", isLoggedIn, isAdmin, addTopic);

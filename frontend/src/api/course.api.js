@@ -472,6 +472,18 @@ export const getCourseEnrolledStudentsApi = async (courseId) => {
   return res.data;
 };
 
+export const updateStudentExpiryApi = async (payload) => {
+  const res = await axios.put(
+    `${baseUrl}/course/admin/update-student-expiry`,
+    payload,
+    {
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    }
+  );
+  return res.data;
+};
+
 export const copyCourseApi = async (formData) => {
   const res = await axios.post(`${baseUrl}/course/copy-course`, formData, {
     withCredentials: true,
