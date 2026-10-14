@@ -5,7 +5,7 @@ export const useGetAdminAnalyticsHook = () => {
   return useQuery({
     queryKey: ["adminAnalyticsOverview"],
     queryFn: getAdminAnalyticsApi,
-    staleTime: 60 * 1000, // 1 minute stale time
-    refetchOnWindowFocus: true,
+    staleTime: 3 * 60 * 1000, // 3 minutes stale cache
+    refetchOnWindowFocus: false, // Prevents lag when switching browser tabs
   });
 };

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   useGetSingleCourseHook,
@@ -29,49 +29,31 @@ import {
   ExternalLink,
   Loader2,
   FolderPlus,
-  FolderUp,
-  FolderCheck,
   BookOpen,
-  UploadCloud,
   ChevronDown,
   ChevronUp,
-  CheckCircle2,
   Film,
   Layers,
   UserPlus,
-  Users,
   Copy,
   Check,
-  Link as LinkIcon,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  Library,
-  Search,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import DeleteAlertbox from "@/components/ui/DeleteAlertbox";
 import GrantCourseAccessDialog from "@/components/Admin/GrantCourseAccessDialog";
 import ReorderModal from "@/components/Admin/ReorderModal";
-import SecureVideoPlayer from "@/components/common/SecureVideoPlayer";
-import {
-  initiateMultipartVideoUploadApi,
-  getMultipartVideoPartUrlsApi,
-  completeMultipartVideoUploadApi,
-  abortMultipartVideoUploadApi,
-  uploadPartToS3Api,
-  initiateBunnyVideoUploadApi,
-  getAdminVideoLibraryApi,
-  importChaptersFromCourseApi,
-} from "@/api/course.api";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+// Modularized Dialog Subcomponents
+import { AddSubjectModal, EditSubjectModal } from "@/components/Admin/TopicPdfManager/SubjectModals";
+import { AddChapterModal, EditChapterModal } from "@/components/Admin/TopicPdfManager/ChapterModals";
+import { AddPdfModal } from "@/components/Admin/TopicPdfManager/AddPdfModal";
+import { AddVideoModal } from "@/components/Admin/TopicPdfManager/AddVideoModal";
+import { VideoPreviewModal } from "@/components/Admin/TopicPdfManager/VideoPreviewModal";
+import { ImportChaptersModal } from "@/components/Admin/TopicPdfManager/ImportChaptersModal";
 
 const TopicPdfManager = () => {
   const { id: courseId } = useParams();
@@ -111,6 +93,61 @@ const TopicPdfManager = () => {
 
   // Reorder Modal State
   const [reorderConfig, setReorderConfig] = useState(null);
+
+  // Custom Delete Alert Box State
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // Modal active states
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState(null);
+  const [activeSubjectForChapter, setActiveSubjectForChapter] = useState(null);
+  const [editingChapter, setEditingChapter] = useState(null);
+  const [activeChapterForPdfUpload, setActiveChapterForPdfUpload] = useState(null);
+  const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
+  const [activeSubjectForImportChapters, setActiveSubjectForImportChapters] = useState(null);
+  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
+
+  // Accordion toggle states
+  const [expandedSubjects, setExpandedSubjects] = useState({});
+  const [expandedChapters, setExpandedChapters] = useState({});
+  const [expandedLegacyTopics, setExpandedLegacyTopics] = useState(false);
+
+  // Video Preview & Clipboard State
+  const [previewVideo, setPreviewVideo] = useState(null);
+  const [downloadingVideoId, setDownloadingVideoId] = useState(null);
+  const [copiedVideoId, setCopiedVideoId] = useState(null);
+
+  const toggleSubjectExpand = (subjectId) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [subjectId]: !prev[subjectId],
+    }));
+  };
+
+  const toggleChapterExpand = (chapterId) => {
+    setExpandedChapters((prev) => ({
+      ...prev,
+      [chapterId]: !prev[chapterId],
+    }));
+  };
+
+  const handleExpandAll = () => {
+    const subjectsMap = {};
+    const chaptersMap = {};
+    course?.subjects?.forEach((s) => {
+      subjectsMap[s._id] = true;
+      s.chapters?.forEach((c) => {
+        chaptersMap[c._id] = true;
+      });
+    });
+    setExpandedSubjects(subjectsMap);
+    setExpandedChapters(chaptersMap);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedSubjects({});
+    setExpandedChapters({});
+  };
 
   const handleQuickMoveChapter = (subjectId, chapters, fromIdx, toIdx) => {
     if (toIdx < 0 || toIdx >= chapters.length || fromIdx === toIdx) return;
@@ -165,87 +202,7 @@ const TopicPdfManager = () => {
     }
   };
 
-  // Custom Delete Alert Box State
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-
-  // Subject Modal State
-  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
-  const [subjectName, setSubjectName] = useState("");
-
-  // Edit Subject Modal State
-  const [editingSubject, setEditingSubject] = useState(null); // { subjectId, subjectName }
-  const [editSubjectName, setEditSubjectName] = useState("");
-
-  // Chapter Modal State
-  const [activeSubjectForChapter, setActiveSubjectForChapter] = useState(null);
-  const [chapterName, setChapterName] = useState("");
-
-  // Edit Chapter Modal State
-  const [editingChapter, setEditingChapter] = useState(null); // { subjectId, chapterId, chapterName }
-  const [editChapterName, setEditChapterName] = useState("");
-
-  // PDF Upload Modal State
-  const [activeChapterForPdfUpload, setActiveChapterForPdfUpload] = useState(null);
-  const [pdfTitle, setPdfTitle] = useState("");
-  const [pdfFile, setPdfFile] = useState(null);
-
-  const [activeChapterForVideoUpload, setActiveChapterForVideoUpload] = useState(null);
-  const [videoAddMode, setVideoAddMode] = useState("file"); // 'file' (Bunny Stream) | 'link'
-  const [videoTitle, setVideoTitle] = useState("");
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoUrl, setVideoUrl] = useState("");
-  const [copiedVideoId, setCopiedVideoId] = useState(null);
-  const [uploadPhase, setUploadPhase] = useState("idle"); // 'idle' | 'direct' | 'saving' | 'done'
-  const [directProgress, setDirectProgress] = useState(0);
-  const [directLoaded, setDirectLoaded] = useState(0);
-
-  // Import Chapters from another Course State
-  const [activeSubjectForImportChapters, setActiveSubjectForImportChapters] = useState(null);
-  const [importSourceCourseId, setImportSourceCourseId] = useState("");
-  const [selectedImportChapterIds, setSelectedImportChapterIds] = useState([]);
-  const [isImportingChapters, setIsImportingChapters] = useState(false);
-
-  // Fetch all curriculum across all courses for Course/Chapter Import
-  const { data: libraryData, isLoading: isLoadingLibrary } = useQuery({
-    queryKey: ["adminVideoLibrary"],
-    queryFn: getAdminVideoLibraryApi,
-    staleTime: 60 * 1000,
-  });
-
-  // Source course selected for chapter import
-  const selectedSourceCourse = useMemo(() => {
-    if (!importSourceCourseId || !libraryData?.courses) return null;
-    return libraryData.courses.find((c) => String(c._id) === String(importSourceCourseId));
-  }, [importSourceCourseId, libraryData]);
-  const [directTotal, setDirectTotal] = useState(0);
-  const [uploadSpeed, setUploadSpeed] = useState("");
-  const [partInfo, setPartInfo] = useState({ current: 0, total: 0 });
-  const wakeLockRef = useRef(null);
-
-  const requestWakeLock = async () => {
-    try {
-      if ("wakeLock" in navigator && !wakeLockRef.current) {
-        wakeLockRef.current = await navigator.wakeLock.request("screen");
-      }
-    } catch (e) {
-      console.warn("Screen Wake Lock not supported or rejected:", e);
-    }
-  };
-
-  const releaseWakeLock = () => {
-    if (wakeLockRef.current) {
-      try {
-        wakeLockRef.current.release();
-      } catch (_) {}
-      wakeLockRef.current = null;
-    }
-  };
-
-  // Video Preview Dialog State
-  const [previewVideo, setPreviewVideo] = useState(null);
-  const [downloadingVideoId, setDownloadingVideoId] = useState(null);
-
-  // Download video handler (supports both HLS remuxed mp4 and direct mp4)
+  // Download video handler
   const handleDownloadVideo = (vid) => {
     if (!vid) return;
     const vId = vid._id || vid.moduleId || "direct";
@@ -263,7 +220,6 @@ const TopicPdfManager = () => {
 
     const downloadEndpoint = `${baseUrl}/module/download/${identifier}?${queryParams.toString()}`;
 
-    // Create an invisible anchor tag to trigger native browser file download
     const link = document.createElement("a");
     link.href = downloadEndpoint;
     link.setAttribute("download", `${videoTitle.replace(/[^\w\s\-\.]/gi, "_")}.mp4`);
@@ -277,117 +233,43 @@ const TopicPdfManager = () => {
     }, 2000);
   };
 
-  // Grant Access Dialog State
-  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
-
-  // Accordion toggle states
-  const [expandedSubjects, setExpandedSubjects] = useState({});
-  const [expandedChapters, setExpandedChapters] = useState({});
-  const [expandedLegacyTopics, setExpandedLegacyTopics] = useState(false);
-
-  const toggleSubjectExpand = (subjectId) => {
-    setExpandedSubjects((prev) => ({
-      ...prev,
-      [subjectId]: !prev[subjectId],
-    }));
-  };
-
-  const toggleChapterExpand = (chapterId) => {
-    setExpandedChapters((prev) => ({
-      ...prev,
-      [chapterId]: !prev[chapterId],
-    }));
-  };
-
-  const handleExpandAll = () => {
-    const subjectsMap = {};
-    const chaptersMap = {};
-    course?.subjects?.forEach((s) => {
-      subjectsMap[s._id] = true;
-      s.chapters?.forEach((c) => {
-        chaptersMap[c._id] = true;
-      });
-    });
-    setExpandedSubjects(subjectsMap);
-    setExpandedChapters(chaptersMap);
-  };
-
-  const handleCollapseAll = () => {
-    setExpandedSubjects({});
-    setExpandedChapters({});
-  };
-
-  const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return "0 MB";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
-
-  useEffect(() => {
-    return () => {
-      releaseWakeLock();
-    };
-  }, []);
-
-  // Handle Add Subject
-  const handleAddSubjectSubmit = (e) => {
-    e.preventDefault();
-    if (!subjectName.trim()) {
-      toast.error("Please enter a subject name");
-      return;
-    }
-
+  // Handle Add Subject submit
+  const handleAddSubject = (subjectName) => {
     addSubject(
-      { courseId, subjectName: subjectName.trim() },
+      { courseId, subjectName },
       {
         onSuccess: () => {
-          setSubjectName("");
           setIsSubjectModalOpen(false);
         },
       }
     );
   };
 
-  // Handle Edit Subject
-  const handleEditSubjectSubmit = (e) => {
-    e.preventDefault();
-    if (!editSubjectName.trim()) {
-      toast.error("Please enter a subject name");
-      return;
-    }
+  // Handle Edit Subject submit
+  const handleEditSubject = (subjectName) => {
     if (!editingSubject) return;
-
     updateSubject(
       {
         courseId,
         subjectId: editingSubject.subjectId,
-        subjectName: editSubjectName.trim(),
+        subjectName,
       },
       {
         onSuccess: () => {
           setEditingSubject(null);
-          setEditSubjectName("");
         },
       }
     );
   };
 
-  // Handle Add Chapter
-  const handleAddChapterSubmit = (e) => {
-    e.preventDefault();
-    if (!chapterName.trim()) {
-      toast.error("Please enter a chapter name");
-      return;
-    }
+  // Handle Add Chapter submit
+  const handleAddChapter = (chapterName) => {
     if (!activeSubjectForChapter) return;
-
     addChapter(
       {
         courseId,
         subjectId: activeSubjectForChapter._id,
-        chapterName: chapterName.trim(),
+        chapterName,
       },
       {
         onSuccess: () => {
@@ -397,54 +279,36 @@ const TopicPdfManager = () => {
               [activeSubjectForChapter._id]: true,
             }));
           }
-          setChapterName("");
           setActiveSubjectForChapter(null);
         },
       }
     );
   };
 
-  // Handle Edit Chapter (Rename Module)
-  const handleEditChapterSubmit = (e) => {
-    e.preventDefault();
-    if (!editChapterName.trim()) {
-      toast.error("Please enter a chapter name");
-      return;
-    }
+  // Handle Edit Chapter submit
+  const handleEditChapter = (chapterName) => {
     if (!editingChapter) return;
-
     updateChapter(
       {
         courseId,
         subjectId: editingChapter.subjectId,
         chapterId: editingChapter.chapterId,
-        chapterName: editChapterName.trim(),
+        chapterName,
       },
       {
         onSuccess: () => {
           setEditingChapter(null);
-          setEditChapterName("");
         },
       }
     );
   };
 
   // Handle Upload PDF to Chapter
-  const handleUploadPdfSubmit = (e) => {
-    e.preventDefault();
-    if (!pdfTitle.trim()) {
-      toast.error("Please enter a title for the PDF");
-      return;
-    }
-    if (!pdfFile) {
-      toast.error("Please choose a PDF file to upload");
-      return;
-    }
+  const handleUploadPdf = ({ title, file }) => {
     if (!activeChapterForPdfUpload) return;
-
     const formData = new FormData();
-    formData.append("title", pdfTitle.trim());
-    formData.append("pdf", pdfFile);
+    formData.append("title", title);
+    formData.append("pdf", file);
 
     addPdfToChapter(
       {
@@ -461,252 +325,22 @@ const TopicPdfManager = () => {
               [activeChapterForPdfUpload.chapterId]: true,
             }));
           }
-          setPdfTitle("");
-          setPdfFile(null);
           setActiveChapterForPdfUpload(null);
         },
       }
     );
   };
 
-  // Handle Upload or Link Video to Chapter
-  const handleUploadVideoSubmit = async (e) => {
-    e.preventDefault();
-    if (!videoTitle.trim()) {
-      toast.error("Please enter a video title");
-      return;
-    }
-
-    if (!activeChapterForVideoUpload) return;
-
-    // Direct Video Link or Existing Video from Library Mode
-    if (videoAddMode === "link" || videoAddMode === "library") {
-      if (!videoUrl.trim()) {
-        toast.error("Please select an existing video or enter a valid video URL");
-        return;
-      }
-
-      addVideoToChapter(
-        {
-          courseId,
-          subjectId: activeChapterForVideoUpload.subjectId,
-          chapterId: activeChapterForVideoUpload.chapterId,
-          data: {
-            title: videoTitle.trim(),
-            videoUrl: videoUrl.trim(),
-            videoId: selectedExistingVideo?.Video_id || selectedExistingVideo?.bunnyGuid || videoUrl.trim(),
-            bunnyGuid: selectedExistingVideo?.bunnyGuid,
-          },
-        },
-        {
-          onSuccess: () => {
-            if (activeChapterForVideoUpload?.chapterId) {
-              setExpandedChapters((prev) => ({
-                ...prev,
-                [activeChapterForVideoUpload.chapterId]: true,
-              }));
-            }
-            toast.success("Existing video linked to chapter successfully! ⚡ Zero upload wait.");
-            setVideoTitle("");
-            setVideoUrl("");
-            setSelectedExistingVideo(null);
-            setVideoFile(null);
-            setHlsFolderFiles([]);
-            setHlsFolderName("");
-            setHlsTotalBytes(0);
-            setActiveChapterForVideoUpload(null);
-          },
-          onError: (err) => {
-            toast.error(err?.response?.data?.message || "Failed to link video");
-          },
-        }
-      );
-      return;
-    }
-
-
-    // Upload Video File Mode (Direct to Bunny Stream)
-    if (!videoFile) {
-      toast.error("Please choose a video file to upload");
-      return;
-    }
-
-    const currentChapter = { ...activeChapterForVideoUpload };
-    const currentTitle = videoTitle.trim();
-    const currentFile = videoFile;
-    const fileSize = currentFile.size || 0;
-
-    setUploadPhase("direct");
-    setDirectProgress(0);
-    setDirectLoaded(0);
-    setDirectTotal(fileSize);
-    setUploadSpeed("");
-    setPartInfo({ current: 1, total: 1 });
-    requestWakeLock();
-
-    try {
-      // Step 1: Initialize Video Entry on Bunny Stream
-      const bunnyInit = await initiateBunnyVideoUploadApi({
-        title: currentTitle,
-      });
-
-      if (!bunnyInit?.data?.uploadUrl || !bunnyInit?.data?.videoId) {
-        throw new Error(bunnyInit?.message || "Failed to initialize video upload with Bunny");
-      }
-
-      const { uploadUrl, videoId: bunnyVideoId, apiKey, hlsUrl } = bunnyInit.data;
-
-      // Step 2: Upload directly to Bunny Stream with real-time progress
-      await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadUrl, true);
-        xhr.setRequestHeader("AccessKey", apiKey);
-        xhr.setRequestHeader("Content-Type", "application/octet-stream");
-
-        let lastTime = Date.now();
-        let lastLoaded = 0;
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const percent = Math.min(100, Math.round((e.loaded * 100) / e.total));
-            setDirectProgress(percent);
-            setDirectLoaded(e.loaded);
-            setDirectTotal(e.total);
-
-            const now = Date.now();
-            const diffSec = (now - lastTime) / 1000;
-            if (diffSec >= 0.5) {
-              const speed = (e.loaded - lastLoaded) / diffSec;
-              setUploadSpeed(`${(speed / (1024 * 1024)).toFixed(1)} MB/s`);
-              lastLoaded = e.loaded;
-              lastTime = now;
-            }
-          }
-        };
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error(`Bunny upload failed (${xhr.status}): ${xhr.responseText || "Server rejected upload"}`));
-          }
-        };
-
-        xhr.onerror = () => {
-          reject(new Error("Network error during Bunny video upload. Please check your internet connection."));
-        };
-
-        xhr.send(currentFile);
-      });
-
-      // Step 3: Register Video in Course Database with Bunny Stream HLS Playlist
-      setUploadPhase("saving");
-      addVideoToChapter(
-        {
-          courseId,
-          subjectId: currentChapter.subjectId,
-          chapterId: currentChapter.chapterId,
-          data: {
-            title: currentTitle,
-            videoUrl: hlsUrl,
-            videoId: bunnyVideoId,
-            bunnyGuid: bunnyVideoId,
-            isBunny: true,
-          },
-        },
-        {
-          onSuccess: () => {
-            releaseWakeLock();
-            setUploadPhase("done");
-            setDirectProgress(100);
-            if (currentChapter?.chapterId) {
-              setExpandedChapters((prev) => ({
-                ...prev,
-                [currentChapter.chapterId]: true,
-              }));
-            }
-            queryClient.invalidateQueries(["getSingleCourse", courseId]);
-            queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
-            queryClient.invalidateQueries(["getCourse"]);
-            toast.success("Video uploaded to Bunny Stream! Automatic 360p, 480p, 720p transcoding started.");
-            setTimeout(() => {
-              setActiveChapterForVideoUpload(null);
-              setVideoTitle("");
-              setVideoFile(null);
-              setUploadPhase("idle");
-            }, 1000);
-          },
-          onError: (err) => {
-            releaseWakeLock();
-            setUploadPhase("idle");
-            toast.error(err?.response?.data?.message || "Failed to register video in chapter");
-          },
-        }
-      );
-    } catch (uploadErr) {
-      console.error("[Bunny Stream Direct Upload Failed]:", uploadErr);
-      releaseWakeLock();
-      setUploadPhase("idle");
-      const errorMsg =
-        uploadErr?.response?.data?.message ||
-        uploadErr?.message ||
-        "Upload failed. Please check your internet connection and retry.";
-      toast.error(errorMsg, { duration: 7000 });
-    }
-  };
-
-  // Handle Import Chapters from another Course
-  const handleImportChaptersSubmit = async () => {
-    if (!activeSubjectForImportChapters) return;
-    if (!importSourceCourseId) {
-      toast.error("Please select a source course");
-      return;
-    }
-    if (selectedImportChapterIds.length === 0) {
-      toast.error("Please select at least one chapter to import");
-      return;
-    }
-
-    setIsImportingChapters(true);
-    try {
-      const res = await importChaptersFromCourseApi({
-        courseId,
-        subjectId: activeSubjectForImportChapters._id,
-        sourceCourseId: importSourceCourseId,
-        chapterIds: selectedImportChapterIds,
-      });
-
-      queryClient.invalidateQueries(["getSingleCourse", courseId]);
-      queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
-      queryClient.invalidateQueries(["getCourse"]);
-
-      toast.success(res?.message || "Chapters imported successfully!");
-      setActiveSubjectForImportChapters(null);
-      setImportSourceCourseId("");
-      setSelectedImportChapterIds([]);
-    } catch (err) {
-      console.error("Import chapters error:", err);
-      toast.error(err?.response?.data?.message || err?.message || "Failed to import chapters");
-    } finally {
-      setIsImportingChapters(false);
-    }
-  };
-
-
   // Handle Confirm Delete
   const handleConfirmDelete = () => {
     if (!deleteConfirm) return;
-
     const callbacks = {
       onSuccess: () => setDeleteConfirm(null),
       onSettled: () => setDeleteConfirm(null),
     };
 
     if (deleteConfirm.type === "subject") {
-      deleteSubject(
-        { courseId, subjectId: deleteConfirm.id },
-        callbacks
-      );
+      deleteSubject({ courseId, subjectId: deleteConfirm.id }, callbacks);
     } else if (deleteConfirm.type === "chapter") {
       deleteChapter(
         {
@@ -737,10 +371,7 @@ const TopicPdfManager = () => {
         callbacks
       );
     } else if (deleteConfirm.type === "legacyTopic") {
-      deleteTopic(
-        { courseId, topicId: deleteConfirm.id },
-        callbacks
-      );
+      deleteTopic({ courseId, topicId: deleteConfirm.id }, callbacks);
     }
   };
 
@@ -753,21 +384,14 @@ const TopicPdfManager = () => {
 
   // Counts across subjects & chapters
   const totalSubjects = course?.subjects?.length || 0;
-
   const totalChapters =
-    course?.subjects?.reduce(
-      (acc, s) => acc + (s.chapters?.length || 0),
-      0
-    ) || 0;
+    course?.subjects?.reduce((acc, s) => acc + (s.chapters?.length || 0), 0) || 0;
 
   const totalSubjectVideos =
     course?.subjects?.reduce(
       (acc, s) =>
         acc +
-        (s.chapters?.reduce(
-          (cAcc, c) => cAcc + (c.videos?.length || 0),
-          0
-        ) || 0),
+        (s.chapters?.reduce((cAcc, c) => cAcc + (c.videos?.length || 0), 0) || 0),
       0
     ) || 0;
 
@@ -775,25 +399,16 @@ const TopicPdfManager = () => {
     course?.subjects?.reduce(
       (acc, s) =>
         acc +
-        (s.chapters?.reduce(
-          (cAcc, c) => cAcc + (c.pdfs?.length || 0),
-          0
-        ) || 0),
+        (s.chapters?.reduce((cAcc, c) => cAcc + (c.pdfs?.length || 0), 0) || 0),
       0
     ) || 0;
 
   // Legacy counts
   const legacyTopicsCount = course?.topics?.length || 0;
   const legacyVideosCount =
-    course?.topics?.reduce(
-      (acc, t) => acc + (t.videos?.length || 0),
-      0
-    ) || 0;
+    course?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
   const legacyPdfsCount =
-    course?.topics?.reduce(
-      (acc, t) => acc + (t.pdfs?.length || 0),
-      0
-    ) || 0;
+    course?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
 
   const totalVideos = totalSubjectVideos + legacyVideosCount;
   const totalPdfs = totalSubjectPdfs + legacyPdfsCount;
@@ -1016,7 +631,6 @@ const TopicPdfManager = () => {
                               subjectId: subject._id,
                               subjectName: subject.subjectName,
                             });
-                            setEditSubjectName(subject.subjectName);
                           }}
                           className="p-1 text-slate-400 hover:text-blue-300 hover:bg-white/10 rounded-md transition cursor-pointer"
                           title="Edit Subject Name"
@@ -1067,11 +681,7 @@ const TopicPdfManager = () => {
                     {/* Import Chapter from Another Course */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setActiveSubjectForImportChapters(subject);
-                        setImportSourceCourseId("");
-                        setSelectedImportChapterIds([]);
-                      }}
+                      onClick={() => setActiveSubjectForImportChapters(subject)}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
                       title="Import chapters from another course into this subject"
                     >
@@ -1086,7 +696,6 @@ const TopicPdfManager = () => {
                           subjectId: subject._id,
                           subjectName: subject.subjectName,
                         });
-                        setEditSubjectName(subject.subjectName);
                       }}
                       className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 rounded-xl transition cursor-pointer"
                       title="Edit Subject Name"
@@ -1190,7 +799,6 @@ const TopicPdfManager = () => {
                                           chapterId: chapter._id,
                                           chapterName: chapter.chapterName,
                                         });
-                                        setEditChapterName(chapter.chapterName);
                                       }}
                                       className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition cursor-pointer"
                                       title="Edit Module / Chapter Name"
@@ -1252,7 +860,6 @@ const TopicPdfManager = () => {
                                       chapterId: chapter._id,
                                       chapterName: chapter.chapterName,
                                     });
-                                    setEditChapterName(chapter.chapterName);
                                   }}
                                   className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
                                   title="Edit Module / Chapter Name"
@@ -1355,9 +962,9 @@ const TopicPdfManager = () => {
                                               title="Download Video (.mp4)"
                                             >
                                               {downloadingVideoId === (vid._id || vid.moduleId || vIdx) ? (
-                                                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                                               ) : (
-                                                <Download className="w-4 h-4" />
+                                                <Download className="w-3.5 h-3.5" />
                                               )}
                                             </button>
                                             <button
@@ -1553,624 +1160,83 @@ const TopicPdfManager = () => {
       </div>
 
       {/* Modal: Add Subject */}
-      <Dialog open={isSubjectModalOpen} onOpenChange={setIsSubjectModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <FolderPlus className="w-5 h-5 text-blue-600" /> Add Subject
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Create a subject for this course (e.g. Retail Banking & Wealth Management, Principles of Banking, etc.)
-            </DialogDescription>
-          </DialogHeader>
+      <AddSubjectModal
+        isOpen={isSubjectModalOpen}
+        onClose={() => setIsSubjectModalOpen(false)}
+        onAdd={handleAddSubject}
+        isAdding={isAddingSubject}
+      />
 
-          <form onSubmit={handleAddSubjectSubmit} className="space-y-4 mt-3 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Subject Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Retail Banking and Wealth Management"
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                required
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsSubjectModalOpen(false)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isAddingSubject}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                {isAddingSubject && <Loader2 className="w-4 h-4 animate-spin" />}
-                Add Subject
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Modal: Edit Subject */}
+      <EditSubjectModal
+        editingSubject={editingSubject}
+        onClose={() => setEditingSubject(null)}
+        onUpdate={handleEditSubject}
+        isUpdating={isUpdatingSubject}
+      />
 
       {/* Modal: Add Chapter to Subject */}
-      <Dialog
-        open={Boolean(activeSubjectForChapter)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveSubjectForChapter(null);
-            setChapterName("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-600" /> Add Chapter
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Adding chapter under subject:{" "}
-              <strong className="text-slate-800">{activeSubjectForChapter?.subjectName}</strong>
-            </DialogDescription>
-          </DialogHeader>
+      <AddChapterModal
+        activeSubject={activeSubjectForChapter}
+        onClose={() => setActiveSubjectForChapter(null)}
+        onAdd={handleAddChapter}
+        isAdding={isAddingChapter}
+      />
 
-          <form onSubmit={handleAddChapterSubmit} className="space-y-4 mt-3 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Chapter Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Chapter 1: Introduction to Retail Banking"
-                value={chapterName}
-                onChange={(e) => setChapterName(e.target.value)}
-                required
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubjectForChapter(null);
-                  setChapterName("");
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isAddingChapter}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                {isAddingChapter && <Loader2 className="w-4 h-4 animate-spin" />}
-                Add Chapter
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Edit Subject Name */}
-      <Dialog
-        open={Boolean(editingSubject)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingSubject(null);
-            setEditSubjectName("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-600" /> Edit Subject
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Update the title or name of this subject.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleEditSubjectSubmit} className="space-y-4 mt-3 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Subject Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Retail Banking and Wealth Management"
-                value={editSubjectName}
-                onChange={(e) => setEditSubjectName(e.target.value)}
-                required
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSubject(null);
-                  setEditSubjectName("");
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isUpdatingSubject}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                {isUpdatingSubject && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Edit Chapter / Module Name */}
-      <Dialog
-        open={Boolean(editingChapter)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingChapter(null);
-            setEditChapterName("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-600" /> Edit Module / Chapter
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Rename this module or chapter.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleEditChapterSubmit} className="space-y-4 mt-3 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Module / Chapter Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. MODULE A UNIT 1"
-                value={editChapterName}
-                onChange={(e) => setEditChapterName(e.target.value)}
-                required
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingChapter(null);
-                  setEditChapterName("");
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isUpdatingChapter}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                {isUpdatingChapter && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Upload Video to Chapter */}
-      <Dialog
-        open={Boolean(activeChapterForVideoUpload)}
-        onOpenChange={(open) => {
-          if (uploadPhase === "direct" || uploadPhase === "saving") {
-            toast.warning("Video upload in progress. Please wait until it completes.");
-            return;
-          }
-          if (!open) {
-            releaseWakeLock();
-            setActiveChapterForVideoUpload(null);
-            setVideoTitle("");
-            setVideoFile(null);
-            setVideoUrl("");
-            setVideoAddMode("file");
-            setUploadPhase("idle");
-          } else {
-            setUploadPhase("idle");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Video className="w-5 h-5 text-blue-600" /> Add Video Lecture
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Adding video to chapter:{" "}
-              <strong className="text-slate-800">{activeChapterForVideoUpload?.chapterName}</strong>
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Mode Switcher Tabs */}
-          <div className="flex p-1 bg-slate-100 rounded-xl mt-1 gap-1">
-            <button
-              type="button"
-              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
-              onClick={() => {
-                setVideoAddMode("file");
-                setSelectedExistingVideo(null);
-              }}
-              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                videoAddMode === "file"
-                  ? "bg-white text-blue-700 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <UploadCloud className="w-3.5 h-3.5 text-blue-600" /> Upload Video ⚡
-            </button>
-            <button
-              type="button"
-              disabled={uploadPhase === "direct" || uploadPhase === "saving"}
-              onClick={() => {
-                setVideoAddMode("link");
-                setSelectedExistingVideo(null);
-              }}
-              className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                videoAddMode === "link"
-                  ? "bg-white text-blue-700 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <LinkIcon className="w-3.5 h-3.5" /> Paste Link
-            </button>
-          </div>
-
-          <form onSubmit={handleUploadVideoSubmit} className="space-y-4 mt-2 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Video Lecture Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Lecture 1: Core Concepts & Practice"
-                value={videoTitle}
-                onChange={(e) => setVideoTitle(e.target.value)}
-                required
-                disabled={uploadPhase === "direct" || uploadPhase === "saving"}
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-              />
-            </div>
-
-            {videoAddMode === "file" ? (
-              /* Option 1: Direct File Upload to Bunny Stream */
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Select Video File <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  accept="video/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.mkv"
-                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                  required={videoAddMode === "file"}
-                  disabled={uploadPhase === "direct" || uploadPhase === "saving"}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer disabled:bg-slate-100"
-                />
-                {videoFile && (
-                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                    File Size: {formatFileSize(videoFile.size)} • Type: {videoFile.type || "Video"}
-                  </p>
-                )}
-                <p className="text-[11px] text-blue-600 mt-1.5 font-medium">
-                  ⚡ <strong>Bunny Stream:</strong> Direct upload without local conversion! Bunny automatically generates 360p, 480p, and 720p for instant playback.
-                </p>
-              </div>
-            ) : (
-              /* Option 2: Paste Link */
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Video URL / Direct Link <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    placeholder="https://... (paste existing video link or .m3u8)"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    required={videoAddMode === "link"}
-                    disabled={isAddingVideo}
-                    className="w-full p-2.5 pr-20 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const text = await navigator.clipboard.readText();
-                        if (text) {
-                          setVideoUrl(text.trim());
-                          toast.success("Pasted video link from clipboard!");
-                        }
-                      } catch {
-                        toast.error("Could not read clipboard. Please paste manually (Ctrl+V)");
-                      }
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold cursor-pointer transition"
-                  >
-                    Paste
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1.5">
-                  ⚡ <strong>Instant Link:</strong> Copy any existing video link from another course/chapter or external HLS link.
-                </p>
-              </div>
-            )}
-
-            {/* Upload Progress Status Indicator */}
-            {uploadPhase !== "idle" && (
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                    <span className="flex items-center gap-1.5">
-                      {directProgress >= 100 ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                      )}
-                      {uploadPhase === "saving"
-                        ? "Assembling & Finalizing in Course..."
-                        : directProgress >= 100
-                        ? "Upload Complete!"
-                        : "⚡ Direct Fast Upload"}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {uploadSpeed && directProgress < 100 && (
-                        <span className="text-emerald-700 font-extrabold bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
-                          {uploadSpeed}
-                        </span>
-                      )}
-                      <span className="text-slate-600 font-semibold">
-                        {formatFileSize(directLoaded)} / {formatFileSize(directTotal)} ({directProgress}%)
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className="bg-emerald-600 h-2.5 rounded-full transition-all duration-150"
-                      style={{ width: `${directProgress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {uploadPhase === "saving" && (
-                  <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 animate-pulse">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> Finalizing lecture in course...
-                  </p>
-                )}
-
-                {uploadPhase === "done" && (
-                  <p className="text-xs font-bold text-emerald-700 text-center flex items-center justify-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> Video uploaded and saved successfully!
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                disabled={uploadPhase === "direct" || uploadPhase === "saving" || isAddingVideo}
-                onClick={() => {
-                  releaseWakeLock();
-                  setActiveChapterForVideoUpload(null);
-                  setVideoTitle("");
-                  setVideoFile(null);
-                  setVideoUrl("");
-                  setVideoAddMode("file");
-                  setUploadPhase("idle");
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              {videoAddMode === "link" ? (
-                <button
-                  type="submit"
-                  disabled={isAddingVideo || !videoUrl.trim() || !videoTitle.trim()}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition cursor-pointer flex items-center gap-2 disabled:opacity-50 shadow-xs"
-                >
-                  {isAddingVideo ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Attaching Video...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" /> Link Video Instantly
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={
-                    uploadPhase === "direct" ||
-                    uploadPhase === "saving" ||
-                    !videoFile ||
-                    !videoTitle.trim()
-                  }
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
-                >
-                  {uploadPhase === "direct" ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading to Cloud...
-                    </>
-                  ) : uploadPhase === "saving" ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Finalizing...
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud className="w-4 h-4" /> Upload to Bunny Stream ⚡
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Modal: Edit Chapter / Module */}
+      <EditChapterModal
+        editingChapter={editingChapter}
+        onClose={() => setEditingChapter(null)}
+        onUpdate={handleEditChapter}
+        isUpdating={isUpdatingChapter}
+      />
 
       {/* Modal: Upload PDF to Chapter */}
-      <Dialog
-        open={Boolean(activeChapterForPdfUpload)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveChapterForPdfUpload(null);
-            setPdfTitle("");
-            setPdfFile(null);
+      <AddPdfModal
+        activeChapter={activeChapterForPdfUpload}
+        onClose={() => setActiveChapterForPdfUpload(null)}
+        onUpload={handleUploadPdf}
+        isAdding={isAddingPdf}
+      />
+
+      {/* Modal: Add/Upload Video to Chapter */}
+      <AddVideoModal
+        activeChapter={activeChapterForVideoUpload}
+        courseId={courseId}
+        onClose={() => setActiveChapterForVideoUpload(null)}
+        addVideoToChapter={addVideoToChapter}
+        isAddingVideo={isAddingVideo}
+        onVideoAdded={(chapterId) => {
+          if (chapterId) {
+            setExpandedChapters((prev) => ({
+              ...prev,
+              [chapterId]: true,
+            }));
           }
+          queryClient.invalidateQueries(["getSingleCourse", courseId]);
+          queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900">
-              Upload PDF Document
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Upload study notes to chapter:{" "}
-              <strong className="text-slate-700">{activeChapterForPdfUpload?.chapterName}</strong>
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleUploadPdfSubmit} className="space-y-4 mt-3 text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                PDF Title / Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Chapter 1 Hand-written Notes"
-                value={pdfTitle}
-                onChange={(e) => setPdfTitle(e.target.value)}
-                required
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Select PDF File <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                required
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:outline-none file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveChapterForPdfUpload(null);
-                  setPdfTitle("");
-                  setPdfFile(null);
-                }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isAddingPdf}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
-              >
-                {isAddingPdf ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Uploading PDF...
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="w-4 h-4" /> Upload
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Modal: Video Preview Player */}
-      <Dialog
-        open={Boolean(previewVideo)}
-        onOpenChange={(open) => {
-          if (!open) setPreviewVideo(null);
+      <VideoPreviewModal
+        previewVideo={previewVideo}
+        baseUrl={baseUrl}
+        onClose={() => setPreviewVideo(null)}
+        onDownload={handleDownloadVideo}
+        downloadingVideoId={downloadingVideoId}
+      />
+
+      {/* Modal: Import Chapters from Another Course (On-Demand Query Fetch) */}
+      <ImportChaptersModal
+        activeSubject={activeSubjectForImportChapters}
+        courseId={courseId}
+        onClose={() => setActiveSubjectForImportChapters(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries(["getSingleCourse", courseId]);
+          queryClient.invalidateQueries(["getSinglePurchaseCourse", courseId]);
         }}
-      >
-        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black border-slate-800">
-          <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between space-y-0 gap-3">
-            <div className="flex items-center gap-2 overflow-hidden flex-1">
-              <Film className="w-4 h-4 text-emerald-400 shrink-0" />
-              <DialogTitle className="font-bold text-sm truncate text-white">
-                {previewVideo?.title || "Video Preview"}
-              </DialogTitle>
-            </div>
-            {previewVideo && (
-              <button
-                type="button"
-                onClick={() => handleDownloadVideo(previewVideo)}
-                disabled={downloadingVideoId === (previewVideo._id || previewVideo.moduleId || "direct")}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
-                title="Download this lecture video as MP4"
-              >
-                {downloadingVideoId === (previewVideo._id || previewVideo.moduleId || "direct") ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
-                Download Video
-              </button>
-            )}
-            <DialogDescription className="sr-only">
-              Lecture video preview player
-            </DialogDescription>
-          </DialogHeader>
-          {previewVideo && (
-            <div className="w-full aspect-video bg-black flex items-center justify-center">
-              <SecureVideoPlayer
-                src={
-                  previewVideo.Video ||
-                  (previewVideo.moduleId || previewVideo._id
-                    ? `${baseUrl}/module/stream/${previewVideo.moduleId || previewVideo._id}`
-                    : "")
-                }
-                videoKey={previewVideo._id || previewVideo.moduleId}
-                className="w-full h-full"
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Custom Delete Alert Box with Loader */}
       <DeleteAlertbox
@@ -2180,208 +1246,6 @@ const TopicPdfManager = () => {
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={handleConfirmDelete}
       />
-
-      {/* ========================================================
-          IMPORT CHAPTERS FROM ANOTHER COURSE MODAL
-      ======================================================== */}
-      <Dialog
-        open={Boolean(activeSubjectForImportChapters)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveSubjectForImportChapters(null);
-            setImportSourceCourseId("");
-            setSelectedImportChapterIds([]);
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-2xl p-0">
-          <DialogHeader className="p-5 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-                <Download className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <DialogTitle className="text-lg font-bold text-slate-900">
-                  Import Chapters from Another Course
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                  Target Subject: <span className="font-semibold text-emerald-700">{activeSubjectForImportChapters?.subjectName}</span>
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="p-5 overflow-y-auto space-y-4 flex-1 text-left">
-            {/* Step 1: Select Source Course */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                1. Select Source Course to Copy From <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={importSourceCourseId}
-                onChange={(e) => {
-                  setImportSourceCourseId(e.target.value);
-                  setSelectedImportChapterIds([]);
-                }}
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-medium text-slate-800 cursor-pointer"
-              >
-                <option value="">-- Choose Course --</option>
-                {(libraryData?.courses || [])
-                  .filter((c) => String(c._id) !== String(courseId))
-                  .map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.title}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            {/* Step 2: Show Chapters of selected Source Course */}
-            {selectedSourceCourse ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    2. Select Chapters to Import
-                  </label>
-                  <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    {selectedImportChapterIds.length} chapter(s) selected
-                  </span>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-200 max-h-72 overflow-y-auto bg-slate-50/50">
-                  {selectedSourceCourse.subjects?.length > 0 ? (
-                    selectedSourceCourse.subjects.map((sub) => {
-                      const chapterIdsInSub = (sub.chapters || []).map((ch) => String(ch._id));
-                      const allSelectedInSub =
-                        chapterIdsInSub.length > 0 &&
-                        chapterIdsInSub.every((id) => selectedImportChapterIds.includes(id));
-
-                      return (
-                        <div key={sub._id} className="p-3 bg-white space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                              {sub.subjectName} ({sub.chapters?.length || 0} chapters)
-                            </span>
-                            {chapterIdsInSub.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (allSelectedInSub) {
-                                    setSelectedImportChapterIds((prev) =>
-                                      prev.filter((id) => !chapterIdsInSub.includes(id))
-                                    );
-                                  } else {
-                                    setSelectedImportChapterIds((prev) => [
-                                      ...prev,
-                                      ...chapterIdsInSub.filter((id) => !prev.includes(id)),
-                                    ]);
-                                  }
-                                }}
-                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
-                              >
-                                {allSelectedInSub ? "Deselect All" : "Select All"}
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="space-y-1.5 pl-2">
-                            {(sub.chapters || []).map((ch) => {
-                              const isChecked = selectedImportChapterIds.includes(String(ch._id));
-                              const vidCount = ch.videos?.length || 0;
-                              const pdfCount = ch.pdfs?.length || 0;
-
-                              return (
-                                <label
-                                  key={ch._id}
-                                  className={`flex items-center justify-between p-2.5 rounded-lg border transition cursor-pointer select-none ${
-                                    isChecked
-                                      ? "bg-emerald-50/90 border-emerald-300 text-slate-900"
-                                      : "bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5 overflow-hidden flex-1">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        const chIdStr = String(ch._id);
-                                        if (e.target.checked) {
-                                          setSelectedImportChapterIds((prev) => [...prev, chIdStr]);
-                                        } else {
-                                          setSelectedImportChapterIds((prev) =>
-                                            prev.filter((id) => id !== chIdStr)
-                                          );
-                                        }
-                                      }}
-                                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                                    />
-                                    <span className="text-xs sm:text-sm font-semibold truncate">
-                                      {ch.chapterName}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 shrink-0 ml-2">
-                                    <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
-                                      <Video className="w-3 h-3 text-blue-600" /> {vidCount}
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">
-                                      <FileText className="w-3 h-3 text-purple-600" /> {pdfCount}
-                                    </span>
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="p-4 text-center text-xs text-slate-400">
-                      This course has no subjects or chapters yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : importSourceCourseId ? (
-              <p className="text-center text-xs text-slate-400 py-4">Loading curriculum...</p>
-            ) : null}
-          </div>
-
-          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-medium">
-              ⚡ Videos & PDFs will be linked instantly (0 upload wait, 0 extra storage).
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubjectForImportChapters(null);
-                  setImportSourceCourseId("");
-                  setSelectedImportChapterIds([]);
-                }}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={selectedImportChapterIds.length === 0 || isImportingChapters}
-                onClick={handleImportChaptersSubmit}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm"
-              >
-                {isImportingChapters ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Importing...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" /> Import {selectedImportChapterIds.length} Chapter(s)
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Grant Course Access & Enrolled Students Dialog */}
       {isAccessDialogOpen && (

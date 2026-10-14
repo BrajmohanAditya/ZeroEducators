@@ -217,6 +217,8 @@ const courseSchema = new mongoose.Schema({
   },
 }, {timestamps: true});
 
+courseSchema.index({ isDeleted: 1, order: 1, createdAt: -1 });
+courseSchema.index({ isDeleted: 1, createdAt: -1 });
 
 export const Course = mongoose.model("Course", courseSchema);
 

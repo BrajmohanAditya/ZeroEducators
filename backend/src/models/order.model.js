@@ -73,5 +73,9 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ course: 1, createdAt: -1 });
+orderSchema.index({ orderType: 1 });
+orderSchema.index({ paymentGateway: 1 });
 
 export const Order = mongoose.model("Order", orderSchema);
