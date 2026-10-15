@@ -581,7 +581,9 @@ const SecurePdfViewer = ({
             <AlertCircle className="w-8 h-8 text-red-400" />
             <p className="text-sm font-semibold">{loadError}</p>
             <p className="text-xs text-slate-400">
-              Please ensure you are enrolled in this course or refresh the page.
+              {loadError.includes("404") || loadError.toLowerCase().includes("not found") || loadError.toLowerCase().includes("missing")
+                ? "This PDF file is missing from storage. Please re-upload it from the Admin panel."
+                : "Please ensure you are enrolled in this course or refresh the page."}
             </p>
           </div>
         ) : (

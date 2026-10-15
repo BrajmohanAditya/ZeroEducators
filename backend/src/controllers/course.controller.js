@@ -27,11 +27,44 @@ import { applyFaststart } from "../utils/faststart.js";
 import { createBunnyVideo, getBunnyHlsUrl, deleteBunnyVideo } from "../config/bunny.js";
 
 /**
- * Automatically cleans up video storage:
- * - If Bunny Stream video: deletes from Bunny Stream API
- * - If legacy Zata S3 video: deletes from Zata S3
+ * Safely delete PDF from Zata S3 storage:
+ * Checks if any other course (or topic/chapter) is still referencing this pdf_id.
+ * If another course still uses it, skips S3 deletion to prevent breaking shared/copied courses.
  */
-export const cleanupVideoStorage = async (video) => {
+export const safeDeletePdfStorage = async (pdfKey, excludeCourseId = null) => {
+  if (!pdfKey) return;
+  try {
+    const filter = {
+      $or: [
+        { "subjects.chapters.pdfs.pdf_id": pdfKey },
+        { "topics.pdfs.pdf_id": pdfKey },
+      ],
+    };
+    if (excludeCourseId) {
+      filter._id = { $ne: excludeCourseId };
+    }
+
+    const refCount = await Course.countDocuments(filter);
+    if (refCount > 0) {
+      console.log(
+        `[safeDeletePdfStorage] PDF key "${pdfKey}" is still referenced by ${refCount} course(s). Skipping S3 deletion.`
+      );
+      return;
+    }
+
+    console.log(`[safeDeletePdfStorage] Deleting PDF from S3: ${pdfKey}`);
+    await deleteFromB2(pdfKey);
+  } catch (err) {
+    console.warn("[safeDeletePdfStorage] Error during safe PDF deletion:", err?.message || err);
+  }
+};
+
+/**
+ * Automatically cleans up video storage:
+ * - If Bunny Stream video: checks for references, then deletes from Bunny Stream API
+ * - If legacy Zata S3 video: checks for references, then deletes from Zata S3
+ */
+export const cleanupVideoStorage = async (video, excludeCourseId = null) => {
   if (!video) return;
   try {
     const videoObj = video.toObject ? video.toObject() : video;
@@ -52,6 +85,24 @@ export const cleanupVideoStorage = async (video) => {
           : null);
 
       if (guid) {
+        const filter = {
+          $or: [
+            { "subjects.chapters.videos.bunnyGuid": guid },
+            { "subjects.chapters.videos.Video_id": guid },
+            { "topics.videos.bunnyGuid": guid },
+            { "topics.videos.Video_id": guid },
+          ],
+        };
+        if (excludeCourseId) {
+          filter._id = { $ne: excludeCourseId };
+        }
+
+        const videoRefCount = await Course.countDocuments(filter);
+        if (videoRefCount > 0) {
+          console.log(`[cleanupVideoStorage] Bunny video "${guid}" is still referenced by ${videoRefCount} course(s). Skipping deletion.`);
+          return;
+        }
+
         console.log(`[cleanupVideoStorage] Deleting Bunny Stream video: ${guid}`);
         const deleted = await deleteBunnyVideo(guid);
         console.log(`[cleanupVideoStorage] Bunny Stream delete result for ${guid}:`, deleted);
@@ -59,6 +110,22 @@ export const cleanupVideoStorage = async (video) => {
         console.warn(`[cleanupVideoStorage] Could not resolve Bunny GUID from video:`, videoObj);
       }
     } else if (videoObj.Video_id) {
+      const filter = {
+        $or: [
+          { "subjects.chapters.videos.Video_id": videoObj.Video_id },
+          { "topics.videos.Video_id": videoObj.Video_id },
+        ],
+      };
+      if (excludeCourseId) {
+        filter._id = { $ne: excludeCourseId };
+      }
+
+      const videoRefCount = await Course.countDocuments(filter);
+      if (videoRefCount > 0) {
+        console.log(`[cleanupVideoStorage] S3 video "${videoObj.Video_id}" is still referenced by ${videoRefCount} course(s). Skipping deletion.`);
+        return;
+      }
+
       console.log(`[cleanupVideoStorage] Deleting Zata S3 video: ${videoObj.Video_id}`);
       await deleteFromB2(videoObj.Video_id);
     }
@@ -338,7 +405,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
             for (const pdf of chapter.pdfs) {
               if (pdf.pdf_id) {
                 try {
-                  await deleteFromB2(pdf.pdf_id);
+                  await safeDeletePdfStorage(pdf.pdf_id, courseId);
                 } catch (e) {
                   console.error("Error deleting chapter pdf:", e);
                 }
@@ -348,7 +415,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
 
           if (chapter.videos && chapter.videos.length > 0) {
             for (const video of chapter.videos) {
-              cleanupVideoStorage(video).catch(() => {});
+              cleanupVideoStorage(video, courseId).catch(() => {});
               if (video.moduleId) {
                 await Modules.findByIdAndDelete(video.moduleId);
               }
@@ -366,7 +433,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
         for (const pdf of topic.pdfs) {
           if (pdf.pdf_id) {
             try {
-              await deleteFromB2(pdf.pdf_id);
+              await safeDeletePdfStorage(pdf.pdf_id, courseId);
             } catch (e) {
               console.error("Error deleting topic pdf:", e);
             }
@@ -375,7 +442,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
       }
       if (topic.videos && topic.videos.length > 0) {
         for (const video of topic.videos) {
-          cleanupVideoStorage(video).catch(() => {});
+          cleanupVideoStorage(video, courseId).catch(() => {});
           if (video.moduleId) {
             await Modules.findByIdAndDelete(video.moduleId);
           }
@@ -387,7 +454,7 @@ export const permanentlyDeleteCourseHelper = async (courseId) => {
   // 3. Clean up any remaining Modules belonging to this course
   const remainingModules = await Modules.find({ courseId: courseId });
   for (const mod of remainingModules) {
-    cleanupVideoStorage(mod).catch(() => {});
+    cleanupVideoStorage(mod, courseId).catch(() => {});
   }
   await Modules.deleteMany({ courseId: courseId });
 
@@ -629,30 +696,27 @@ export const deleteTopic = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Topic not found" });
     }
 
-    // Delete all PDFs inside this topic from S3
-    if (topic.pdfs && topic.pdfs.length > 0) {
-      for (const pdf of topic.pdfs) {
-        if (pdf.pdf_id) {
-          await deleteFromB2(pdf.pdf_id);
-        }
-      }
-    }
+    const topicPdfs = (topic.pdfs || []).map((p) => p.pdf_id).filter(Boolean);
+    const topicVideos = [...(topic.videos || [])];
 
-    // Delete all Videos inside this topic from S3 and DB
-    if (topic.videos && topic.videos.length > 0) {
-      for (const video of topic.videos) {
-        if (video.Video_id) {
-          await deleteFromB2(video.Video_id);
-        }
-        if (video.moduleId) {
-          await Modules.findByIdAndDelete(video.moduleId);
-          course.modules.pull(video.moduleId);
-        }
+    // Clean up Modules belonging to this topic
+    for (const video of topicVideos) {
+      if (video.moduleId) {
+        await Modules.findByIdAndDelete(video.moduleId);
+        course.modules.pull(video.moduleId);
       }
     }
 
     course.topics.pull(topicId);
     await course.save();
+
+    // Safely delete PDFs and Videos from storage without breaking shared courses
+    for (const pdfKey of topicPdfs) {
+      await safeDeletePdfStorage(pdfKey);
+    }
+    for (const video of topicVideos) {
+      await cleanupVideoStorage(video);
+    }
 
     return res.status(200).json({
       success: true,
@@ -728,12 +792,14 @@ export const deletePdfFromTopic = async (req, res, next) => {
     }
 
     const pdf = topic.pdfs.id(pdfId);
-    if (pdf && pdf.pdf_id) {
-      await deleteFromB2(pdf.pdf_id);
-    }
+    const pdfKey = pdf?.pdf_id;
 
     topic.pdfs.pull(pdfId);
     await course.save();
+
+    if (pdfKey) {
+      await safeDeletePdfStorage(pdfKey);
+    }
 
     return res.status(200).json({
       success: true,
@@ -1020,22 +1086,20 @@ export const deleteSubject = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Subject not found" });
     }
 
-    // Clean up all chapters inside this subject
+    const allPdfs = [];
+    const allVideos = [];
+
+    // Collect all media from chapters inside this subject
     if (subject.chapters && subject.chapters.length > 0) {
       for (const chapter of subject.chapters) {
-        // Delete all PDFs
         if (chapter.pdfs && chapter.pdfs.length > 0) {
           for (const pdf of chapter.pdfs) {
-            if (pdf.pdf_id) {
-              await deleteFromB2(pdf.pdf_id);
-            }
+            if (pdf.pdf_id) allPdfs.push(pdf.pdf_id);
           }
         }
-
-        // Delete all Videos
         if (chapter.videos && chapter.videos.length > 0) {
           for (const video of chapter.videos) {
-            cleanupVideoStorage(video).catch(() => {});
+            allVideos.push(video);
             if (video.moduleId) {
               await Modules.findByIdAndDelete(video.moduleId);
               course.modules.pull(video.moduleId);
@@ -1049,6 +1113,14 @@ export const deleteSubject = async (req, res, next) => {
 
     course.subjects.pull(subjectId);
     await course.save();
+
+    // Safely delete PDFs and Videos from storage without breaking shared courses
+    for (const pdfKey of allPdfs) {
+      await safeDeletePdfStorage(pdfKey);
+    }
+    for (const video of allVideos) {
+      cleanupVideoStorage(video).catch(() => {});
+    }
 
     return res.status(200).json({
       success: true,
@@ -1198,7 +1270,7 @@ export const deleteChapter = async (req, res, next) => {
     (async () => {
       for (const k of pdfKeys) {
         try {
-          await deleteFromB2(k);
+          await safeDeletePdfStorage(k);
         } catch (e) {
           console.warn("[deleteChapter] Cleanup PDF S3 warning:", e.message);
         }
@@ -1357,7 +1429,7 @@ export const deletePdfFromChapter = async (req, res, next) => {
     if (pdfKey) {
       (async () => {
         try {
-          await deleteFromB2(pdfKey);
+          await safeDeletePdfStorage(pdfKey);
         } catch (b2Err) {
           console.warn("[deletePdfFromChapter] Cleanup S3 warning:", b2Err.message);
         }
@@ -2122,7 +2194,10 @@ export const streamCoursePdf = async (req, res, next) => {
     if (targetPdf.pdfUrl) {
       const resp = await fetch(targetPdf.pdfUrl);
       if (!resp.ok) {
-        return res.status(resp.status).json({ message: "Failed to fetch PDF file" });
+        const status = resp.status === 403 || resp.status === 404 ? 404 : resp.status;
+        return res.status(status).json({
+          message: "PDF file is missing or not found in storage. Please contact administrator to re-upload it.",
+        });
       }
       res.writeHead(200, {
         "Content-Type": "application/pdf",
