@@ -25,39 +25,56 @@ export const Home = ({
   onExamPress,
   user,
   onUserRefresh,
+  initialCourses = [],
 }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] = useState(initialCourses);
   const [heroData, setHeroData] = useState(null);
 
-  const loadLiveData = async () => {
+  // Sync if parent passes or updates initialCourses
+  useEffect(() => {
+    if (initialCourses && initialCourses.length > 0) {
+      setCourses(initialCourses);
+    }
+  }, [initialCourses]);
+
+  const loadLiveData = async (isManualRefresh = false) => {
     try {
-      const [liveCourses, liveHero, freshUser] = await Promise.all([
-        fetchLiveCourses(),
-        fetchLiveHeroSection(),
-        refreshUserProfileApi(),
-      ]);
-      if (liveCourses && liveCourses.length > 0) {
-        setCourses(liveCourses);
+      const promises = [fetchLiveHeroSection()];
+      // Only fetch courses if not already provided or if manual pull-to-refresh
+      if (isManualRefresh || courses.length === 0) {
+        promises.push(fetchLiveCourses());
       }
+      if (isManualRefresh) {
+        promises.push(refreshUserProfileApi());
+      }
+
+      const results = await Promise.all(promises);
+      const liveHero = results[0];
+      const liveCourses = results[1];
+      const freshUser = results[2];
+
       if (liveHero) {
         setHeroData(liveHero);
+      }
+      if (liveCourses && liveCourses.length > 0) {
+        setCourses(liveCourses);
       }
       if (freshUser && onUserRefresh) {
         onUserRefresh(freshUser);
       }
     } catch (err) {
-      console.log('Error loading live data from AWS:', err);
+      console.log('Error loading live data:', err);
     }
   };
 
   useEffect(() => {
-    loadLiveData();
+    loadLiveData(false);
   }, []);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await loadLiveData();
+    await loadLiveData(true);
     setRefreshing(false);
   }, []);
 

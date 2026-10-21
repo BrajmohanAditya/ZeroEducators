@@ -37,8 +37,6 @@ export const CourseSection = ({
   useEffect(() => {
     if (initialCourses && initialCourses.length > 0) {
       setCourses(initialCourses);
-    } else {
-      loadCourses();
     }
   }, [initialCourses]);
 

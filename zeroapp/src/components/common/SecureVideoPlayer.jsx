@@ -492,7 +492,7 @@ const SecureVideoPlayer = ({
         playInBackground={false}
         playWhenInactive={false}
         ignoreSilentSwitch="ignore"
-        progressUpdateInterval={250}
+        progressUpdateInterval={1000}
         onLoad={(meta) => {
           setDuration(meta.duration || 0);
           setIsBuffering(false);

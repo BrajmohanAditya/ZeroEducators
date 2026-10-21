@@ -27,6 +27,7 @@ import { shadows } from '../../theme/colors';
 import {
   enrollCourseApi,
   validateCouponApi,
+  fetchApplicableCourseCouponsApi,
   refreshUserProfileApi,
   checkoutSuccessApi,
 } from '../../config/api';
@@ -72,6 +73,26 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, discountAmount, finalAmount }
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (currentCourse?._id) {
+      setIsLoadingCoupons(true);
+      fetchApplicableCourseCouponsApi(currentCourse._id)
+        .then((coupons) => {
+          if (isMounted) setAvailableCoupons(coupons || []);
+        })
+        .catch((err) => console.warn('Could not load course coupons:', err))
+        .finally(() => {
+          if (isMounted) setIsLoadingCoupons(false);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [currentCourse?._id]);
 
   // Enrollment State
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -148,6 +169,31 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
       return;
     }
 
+    setIsValidatingCoupon(true);
+    try {
+      const data = await validateCouponApi({
+        code: cleanCode,
+        courseId: currentCourse._id,
+        planId: activePlan?._id,
+        planDuration: activeDuration,
+      });
+
+      setAppliedCoupon({
+        code: data?.coupon?.code || cleanCode,
+        discountAmount: data?.discountAmount || 0,
+        finalAmount: data?.finalAmount !== undefined ? data.finalAmount : activePrice,
+      });
+      Alert.alert('Success 🎉', `Coupon applied! You save ₹${data?.discountAmount || 0}`);
+    } catch (err) {
+      Alert.alert('Invalid Coupon', err?.message || 'Could not apply this coupon code.');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleApplyDirectCoupon = async (code) => {
+    const cleanCode = code.trim().toUpperCase();
+    setCouponInput(cleanCode);
     setIsValidatingCoupon(true);
     try {
       const data = await validateCouponApi({
@@ -648,6 +694,76 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
                         </View>
                       </View>
                     )}
+
+                    {/* 🏷️ Available Offers in Mobile App */}
+                    {availableCoupons.length > 0 && (
+                      <View style={styles.availableOffersContainer}>
+                        <View style={styles.offersHeaderRow}>
+                          <Sparkles size={13} color="#f59e0b" />
+                          <Text style={styles.offersHeaderTitle}>
+                            AVAILABLE OFFERS ({availableCoupons.length})
+                          </Text>
+                        </View>
+
+                        <View style={styles.offersList}>
+                          {availableCoupons.map((c) => {
+                            const isCurrentApplied = appliedCoupon?.code === c.code;
+                            const discountText =
+                              c.discountType === 'flat'
+                                ? `Flat ₹${c.discountAmount} OFF`
+                                : `${c.discountAmount}% OFF${
+                                    c.maxDiscountLimit ? ` (Max ₹${c.maxDiscountLimit})` : ''
+                                  }`;
+
+                            return (
+                              <View
+                                key={c._id || c.code}
+                                style={[
+                                  styles.offerCard,
+                                  isCurrentApplied && styles.offerCardApplied,
+                                ]}
+                              >
+                                <View style={styles.offerCardTop}>
+                                  <View style={styles.offerCodeBadge}>
+                                    <Text style={styles.offerCodeText}>{c.code}</Text>
+                                  </View>
+
+                                  {isCurrentApplied ? (
+                                    <View style={styles.offerAppliedBadge}>
+                                      <CheckCircle2 size={12} color="#047857" />
+                                      <Text style={styles.offerAppliedText}>Applied</Text>
+                                    </View>
+                                  ) : (
+                                    <TouchableOpacity
+                                      onPress={() => handleApplyDirectCoupon(c.code)}
+                                      disabled={isValidatingCoupon}
+                                      style={styles.offerApplyBtn}
+                                    >
+                                      <Text style={styles.offerApplyBtnText}>Apply</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+
+                                <View style={styles.offerCardBottom}>
+                                  <Text style={styles.offerDiscountText}>{discountText}</Text>
+                                  {c.minOrderAmount > 0 && (
+                                    <Text style={styles.offerMinOrderText}>
+                                      Min ₹{c.minOrderAmount}
+                                    </Text>
+                                  )}
+                                </View>
+
+                                {c.description ? (
+                                  <Text style={styles.offerDescText} numberOfLines={1}>
+                                    {c.description}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -1012,6 +1128,107 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 12,
     fontWeight: '700',
+  },
+  availableOffersContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    borderStyle: 'dashed',
+  },
+  offersHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  offersHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  offersList: {
+    gap: 8,
+  },
+  offerCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 10,
+  },
+  offerCardApplied: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#86efac',
+  },
+  offerCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  offerCodeBadge: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    borderStyle: 'dashed',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  offerCodeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#1d4ed8',
+    letterSpacing: 0.8,
+  },
+  offerApplyBtn: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  offerApplyBtnText: {
+    color: '#2563eb',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  offerAppliedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  offerAppliedText: {
+    color: '#065f46',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  offerCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  offerDiscountText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  offerMinOrderText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  offerDescText: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
   },
   priceSection: {
     paddingTop: 14,

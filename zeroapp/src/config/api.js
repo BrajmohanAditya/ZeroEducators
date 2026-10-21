@@ -385,6 +385,23 @@ export const validateCouponApi = async (payload) => {
   return data;
 };
 
+export const fetchApplicableCourseCouponsApi = async (courseId) => {
+  if (!courseId) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/coupon/course/${courseId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    const data = await res.json();
+    return data?.coupons || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching applicable course coupons:', err);
+    return [];
+  }
+};
+
 export default {
   BASE_URL,
   fetchLiveCourses,
@@ -405,5 +422,6 @@ export default {
   checkoutSuccessApi,
   refreshUserProfileApi,
   validateCouponApi,
+  fetchApplicableCourseCouponsApi,
 };
 

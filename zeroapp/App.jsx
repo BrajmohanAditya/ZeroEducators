@@ -372,6 +372,7 @@ export function App() {
             onNavigate={navigate}
             onCoursePress={handleCoursePress}
             onUserRefresh={setCurrentUser}
+            initialCourses={liveCourses}
           />
         )}
 
