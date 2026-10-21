@@ -6,6 +6,7 @@ import {
   toggleCouponStatusApi,
   deleteCouponApi,
   validateCouponApi,
+  getApplicableCourseCouponsApi,
 } from "../api/coupon.api";
 import { toast } from "sonner";
 
@@ -99,5 +100,16 @@ export const useValidateCouponHook = () => {
     onError: (err) => {
       toast.error(err.response?.data?.message || "Invalid coupon code");
     },
+  });
+};
+
+// ===================================
+// USER / PUBLIC: Get Applicable Course Coupons Query
+// ===================================
+export const useGetApplicableCouponsHook = (courseId) => {
+  return useQuery({
+    queryKey: ["getApplicableCoupons", courseId],
+    queryFn: () => getApplicableCourseCouponsApi(courseId),
+    enabled: Boolean(courseId),
   });
 };

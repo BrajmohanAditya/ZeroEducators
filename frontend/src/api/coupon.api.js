@@ -18,6 +18,18 @@ export const validateCouponApi = async ({ code, courseId, planId, planDuration }
 };
 
 // ===================================
+// USER / PUBLIC: Get Applicable Coupons for Course
+// ===================================
+export const getApplicableCourseCouponsApi = async (courseId) => {
+  if (!courseId) return { success: true, coupons: [] };
+  const res = await axios.get(`${baseUrl}/coupon/course/${courseId}`, {
+    headers: { "Content-Type": "application/json" },
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+// ===================================
 // ADMIN: Get All Coupons
 // ===================================
 export const getAllCouponsApi = async () => {

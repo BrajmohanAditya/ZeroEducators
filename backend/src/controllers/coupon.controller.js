@@ -291,3 +291,53 @@ export const validateCoupon = async (req, res, next) => {
     next(error);
   }
 };
+
+// ==========================================
+// USER / PUBLIC: Get Active Applicable Coupons for a Course
+// ==========================================
+export const getActiveCourseCoupons = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const now = new Date();
+
+    const query = {
+      isActive: true,
+      $and: [
+        {
+          $or: [{ startDate: null }, { startDate: { $lte: now } }],
+        },
+        {
+          $or: [{ expiryDate: null }, { expiryDate: { $gte: now } }],
+        },
+        {
+          $or: [
+            { maxTotalUses: null },
+            { $expr: { $lt: ["$usedCount", "$maxTotalUses"] } },
+          ],
+        },
+      ],
+    };
+
+    if (courseId) {
+      query.$and.push({
+        $or: [
+          { applicableCourses: { $size: 0 } },
+          { applicableCourses: { $exists: false } },
+          { applicableCourses: courseId },
+        ],
+      });
+    }
+
+    const coupons = await Coupon.find(query)
+      .select("code description discountType discountAmount maxDiscountLimit minOrderAmount expiryDate")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      coupons,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

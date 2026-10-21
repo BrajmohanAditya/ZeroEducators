@@ -7,11 +7,13 @@ import {
   deleteCoupon,
   toggleCouponStatus,
   validateCoupon,
+  getActiveCourseCoupons,
 } from "../controllers/coupon.controller.js";
 
 const couponRoute = express.Router();
 
-// User Route (Requires login to validate user-specific usage)
+// Public / User Routes
+couponRoute.get("/course/:courseId", getActiveCourseCoupons);
 couponRoute.post("/validate", isLoggedIn, validateCoupon);
 
 // Admin Routes
