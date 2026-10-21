@@ -1,6 +1,12 @@
-import {configDotenv} from 'dotenv'
+import { configDotenv } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-configDotenv({});
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env relative to backend root directory
+configDotenv({ path: path.resolve(__dirname, '../../.env') });
 
 export const ENV = {
   MONGO_URI: process.env.MONGO_URI,

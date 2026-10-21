@@ -49,6 +49,9 @@ import {
   initiateBunnyVideoUpload,
   getAdminVideoLibrary,
   importChaptersFromCourse,
+  triggerBunnyBackup,
+  getBunnyBackupProgress,
+  restoreBunnyVideoController,
 } from "../controllers/course.controller.js";
 
 const courseRoute = express.Router();
@@ -172,6 +175,11 @@ courseRoute.put("/video/multipart/stream-chunk", isLoggedIn, isAdmin, streamMult
 
 // Bunny Stream Direct Video Upload Route
 courseRoute.post("/video/bunny/initiate", isLoggedIn, isAdmin, initiateBunnyVideoUpload);
+
+// Bunny Stream S3 Backup & Disaster Recovery Routes
+courseRoute.post("/video/bunny/backup/run", isLoggedIn, isAdmin, triggerBunnyBackup);
+courseRoute.get("/video/bunny/backup/status", isLoggedIn, isAdmin, getBunnyBackupProgress);
+courseRoute.post("/video/bunny/restore", isLoggedIn, isAdmin, restoreBunnyVideoController);
 
 courseRoute.post(
   "/:courseId/subject/:subjectId/chapter/:chapterId/video",

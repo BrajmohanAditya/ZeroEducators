@@ -25,6 +25,8 @@ import { moduleUploadProgressMap } from "./module.controller.js";
 import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry.js";
 import { applyFaststart } from "../utils/faststart.js";
 import { createBunnyVideo, getBunnyHlsUrl, deleteBunnyVideo } from "../config/bunny.js";
+import { runBunnyVideosBackup, getBunnyBackupStatus } from "../jobs/bunnyBackup.job.js";
+import { restoreVideoFromZataToBunny } from "../services/bunnyBackup.service.js";
 
 /**
  * Safely delete PDF from Zata S3 storage:
@@ -2965,5 +2967,50 @@ export const importChaptersFromCourse = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * ⚡ Trigger on-demand backup of all Bunny Stream videos to Zata Cloud S3
+ */
+export const triggerBunnyBackup = async (req, res, next) => {
+  try {
+    const result = await runBunnyVideosBackup({ force: req.body?.force === true });
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 📊 Get live status/progress of Bunny Stream to Zata S3 backup
+ */
+export const getBunnyBackupProgress = async (req, res, next) => {
+  try {
+    const status = getBunnyBackupStatus();
+    return res.status(200).json({
+      success: true,
+      status,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 🚀 Restore video from Zata S3 back into Bunny Stream ("Suck Back")
+ */
+export const restoreBunnyVideoController = async (req, res, next) => {
+  try {
+    const { fileKey, title } = req.body;
+    if (!fileKey) {
+      return res.status(400).json({ success: false, message: "fileKey is required (e.g. bunny-backups/{guid}.ts)" });
+    }
+
+    const result = await restoreVideoFromZataToBunny(fileKey, title || "Restored Lecture");
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 
