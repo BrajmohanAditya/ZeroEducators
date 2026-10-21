@@ -288,6 +288,14 @@ export const restoreVideoFromZataToBunny = async (fileKey, videoTitle = "Restore
 export const queueSingleBunnyVideoBackup = (guid, title = "New Lecture") => {
   if (!guid) return;
 
+  // Guard: Disable real-time video download and re-upload through EC2 by default
+  if (!ENV.ENABLE_BUNNY_REALTIME_BACKUP) {
+    console.log(
+      `[Bunny-Auto-Backup] Real-time backup skipped on EC2 for "${title}" (${guid}) to prevent AWS bandwidth/CPU charges. Run 'npm run backup:bunny' locally when desired.`
+    );
+    return;
+  }
+
   // Run in background without blocking response
   (async () => {
     try {

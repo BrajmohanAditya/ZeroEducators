@@ -2,6 +2,7 @@ import {
   getAllBunnyVideos,
   backupSingleBunnyVideo,
 } from "../services/bunnyBackup.service.js";
+import { ENV } from "../config/env.js";
 
 let isBackupRunning = false;
 let backupState = {
@@ -114,6 +115,15 @@ export const runBunnyVideosBackup = async ({ force = false } = {}) => {
  * Runs every 24 hours to automatically backup any new videos uploaded to Bunny
  */
 export const startBunnyBackupSchedule = () => {
+  // Guard: Disable by default on EC2 to eliminate AWS Data Transfer Out ($0.09/GB) and high CPU charges.
+  // Backups can still be run locally via `npm run backup:bunny` (0 AWS cost) or triggered manually via Admin API.
+  if (!ENV.ENABLE_BUNNY_AUTO_BACKUP) {
+    console.log(
+      "[Bunny-Auto-Backup] Automated sync on EC2 is DISABLED to save AWS bandwidth and CPU credits. Run 'npm run backup:bunny' locally or set ENABLE_BUNNY_AUTO_BACKUP=true in .env to enable."
+    );
+    return;
+  }
+
   const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
   // Run initial sync 30 seconds after boot (allows database & server to stabilize first)

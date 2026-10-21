@@ -28,6 +28,8 @@ export const ENV = {
   BUNNY_STREAM_API_KEY: process.env.BUNNY_STREAM_API_KEY || "396285c8-9b33-450c-bc7ddfe79110-8a3b-40fc",
   BUNNY_STREAM_CDN_HOSTNAME: process.env.BUNNY_STREAM_CDN_HOSTNAME || "vz-519ac044-098.b-cdn.net",
   TESTER_EMAIL: process.env.TESTER_EMAIL || "cckumarsingh39ar@gmail.com",
+  ENABLE_BUNNY_AUTO_BACKUP: process.env.ENABLE_BUNNY_AUTO_BACKUP === "true",
+  ENABLE_BUNNY_REALTIME_BACKUP: process.env.ENABLE_BUNNY_REALTIME_BACKUP === "true",
 };
 
 export const isTesterEmail = (email) => {
