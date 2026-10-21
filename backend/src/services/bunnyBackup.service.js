@@ -2,7 +2,7 @@ import { Readable } from "stream";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, uploadToZata } from "../config/zata.js";
 import { ENV } from "../config/env.js";
-import { fetchBunnyVideo } from "../config/bunny.js";
+import { fetchBunnyVideo, getBunnyVideo } from "../config/bunny.js";
 
 const CDN_HOST = ENV.BUNNY_STREAM_CDN_HOSTNAME;
 const LIB_ID = ENV.BUNNY_STREAM_LIBRARY_ID;
@@ -279,4 +279,47 @@ export const restoreVideoFromZataToBunny = async (fileKey, videoTitle = "Restore
     newBunnyVideo: bunnyResult,
     sourceFileKey: fileKey,
   };
+};
+
+/**
+ * ⚡ Real-Time Auto Backup Hook for Newly Uploaded Video:
+ * Automatically waits for Bunny to finish transcoding, then immediately backs it up to Zata S3!
+ */
+export const queueSingleBunnyVideoBackup = (guid, title = "New Lecture") => {
+  if (!guid) return;
+
+  // Run in background without blocking response
+  (async () => {
+    try {
+      console.log(`[Bunny-Auto-Backup] Queued real-time Zata S3 backup for newly uploaded video: ${title} (${guid})`);
+
+      // Wait for Bunny Stream to complete transcoding (status === 4 means completed)
+      let isTranscoded = false;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 * 20s = 10 minutes max wait
+
+      while (!isTranscoded && attempts < maxAttempts) {
+        attempts++;
+        await new Promise((r) => setTimeout(r, 20000)); // check every 20 seconds
+        try {
+          const videoInfo = await getBunnyVideo(guid);
+          if (videoInfo && (videoInfo.status === 4 || videoInfo.encodeProgress === 100)) {
+            isTranscoded = true;
+            console.log(`[Bunny-Auto-Backup] Video ${title} (${guid}) finished transcoding on Bunny. Starting Zata S3 backup...`);
+            const res = await backupSingleBunnyVideo(videoInfo);
+            console.log(`[Bunny-Auto-Backup] ✅ Real-time backup complete for: ${title} (${guid})!`, res);
+            break;
+          }
+        } catch (pollErr) {
+          console.warn(`[Bunny-Auto-Backup] Poll notice for ${guid}:`, pollErr.message);
+        }
+      }
+
+      if (!isTranscoded) {
+        console.warn(`[Bunny-Auto-Backup] Video ${guid} did not finish transcoding within 10 minutes. The daily 24h cron will back it up later.`);
+      }
+    } catch (err) {
+      console.error(`[Bunny-Auto-Backup] Error in real-time backup for ${guid}:`, err.message);
+    }
+  })();
 };

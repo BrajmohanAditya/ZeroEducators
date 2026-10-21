@@ -26,7 +26,7 @@ import { syncUserCourseExpiry, calculatePlanExpiry } from "../utils/courseExpiry
 import { applyFaststart } from "../utils/faststart.js";
 import { createBunnyVideo, getBunnyHlsUrl, deleteBunnyVideo } from "../config/bunny.js";
 import { runBunnyVideosBackup, getBunnyBackupStatus } from "../jobs/bunnyBackup.job.js";
-import { restoreVideoFromZataToBunny } from "../services/bunnyBackup.service.js";
+import { restoreVideoFromZataToBunny, queueSingleBunnyVideoBackup } from "../services/bunnyBackup.service.js";
 
 /**
  * Safely delete PDF from Zata S3 storage:
@@ -1515,6 +1515,11 @@ export const addVideoToChapter = async (req, res, next) => {
 
       course.modules.push(moduleDoc._id);
       await course.save();
+
+      // ⚡ Instant Auto-Backup Hook: Automatically waits for Bunny transcoding and backs up to Zata S3 in background
+      if (isBunny && bunnyGuid) {
+        queueSingleBunnyVideoBackup(bunnyGuid, title.trim());
+      }
 
       return res.status(201).json({
         success: true,
