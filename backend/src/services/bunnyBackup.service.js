@@ -185,22 +185,54 @@ export const backupSingleBunnyVideo = async (video, onProgress) => {
     `[Bunny-Backup] Streaming ${segmentFiles.length} segments for ${title} (${guid}) via ${selectedVariant.height || "adaptive"}p...`
   );
 
-  // Use Readable.from with an async generator for robust chunk-by-chunk streaming with native backpressure
+  // High-performance Sliding Window Prefetching (downloads up to 8 segments in parallel in advance)
+  const CONCURRENCY = 8;
   const segmentStream = Readable.from(
     (async function* () {
-      let count = 0;
-      for (const segFile of segmentFiles) {
+      const activeFetches = new Map();
+      let nextFetchIdx = 0;
+
+      const startFetch = (idx) => {
+        const segFile = segmentFiles[idx];
         const segUrl = segFile.startsWith("http") ? segFile : `${basePath}${segFile}`;
-        const segRes = await fetch(segUrl);
-        if (!segRes.ok) {
-          throw new Error(`Failed to fetch segment ${segFile} (Status: ${segRes.status})`);
+        return (async () => {
+          let attempts = 0;
+          while (attempts < 3) {
+            try {
+              const segRes = await fetch(segUrl);
+              if (!segRes.ok) throw new Error(`HTTP ${segRes.status}`);
+              const ab = await segRes.arrayBuffer();
+              return Buffer.from(ab);
+            } catch (err) {
+              attempts++;
+              if (attempts >= 3) throw new Error(`Failed segment ${segFile}: ${err.message}`);
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          }
+        })();
+      };
+
+      // Prime the pipeline with initial CONCURRENCY fetches
+      while (nextFetchIdx < segmentFiles.length && activeFetches.size < CONCURRENCY) {
+        activeFetches.set(nextFetchIdx, startFetch(nextFetchIdx));
+        nextFetchIdx++;
+      }
+
+      for (let i = 0; i < segmentFiles.length; i++) {
+        // Enqueue next segment to keep pipeline filled
+        if (nextFetchIdx < segmentFiles.length) {
+          activeFetches.set(nextFetchIdx, startFetch(nextFetchIdx));
+          nextFetchIdx++;
         }
-        const arrayBuffer = await segRes.arrayBuffer();
-        count++;
-        if (count % 50 === 0 || count === segmentFiles.length) {
-          console.log(`[Bunny-Backup] Streamed ${count}/${segmentFiles.length} segments (${title})...`);
+
+        // Await current segment in strict sequence
+        const buffer = await activeFetches.get(i);
+        activeFetches.delete(i);
+
+        if ((i + 1) % 50 === 0 || i + 1 === segmentFiles.length) {
+          console.log(`[Bunny-Backup] ⚡ Fast-Streamed ${i + 1}/${segmentFiles.length} segments (${title})...`);
         }
-        yield Buffer.from(arrayBuffer);
+        yield buffer;
       }
     })()
   );
