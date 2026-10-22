@@ -32,9 +32,33 @@ app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+const allowedOrigins = [
+  ENV.CLIENT_URL,
+  "https://zeroeducators.com",
+  "https://www.zeroeducators.com",
+  "http://zeroeducators.com",
+  "http://www.zeroeducators.com",
+  "http://54.152.147.94",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: ENV.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/([a-zA-Z0-9-]+\.)*zeroeducators\.com$/.test(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
