@@ -4,6 +4,10 @@ import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  server: {
+    host: true, // Listen on all network addresses (0.0.0.0) so mobile can access
+    port: 5173,
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
