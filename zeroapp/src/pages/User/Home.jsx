@@ -9,6 +9,7 @@ import TrendingBar from '../../components/userComponent/TrendingBar';
 import HeroSection from '../../components/userComponent/HeroSection/heroSection';
 import StudyMaterial from './study.material';
 import CourseSection from '../../components/userComponent/courseSection';
+import FocusBanner from '../../components/userComponent/FocusBanner';
 import Footer from '../../components/userComponent/footer';
 import { colors } from '../../theme/colors';
 import {
@@ -107,6 +108,9 @@ export const Home = ({
           banners={heroData?.banners || []}
           upcomingExams={heroData?.upcomingExams || []}
         />
+
+        {/* 2.5 Live Focus Study Room Banner */}
+        <FocusBanner onNavigate={onNavigate} />
 
         {/* 3. Study Dashboard (Live Free/Paid Quizzes, eBooks, Study Materials, Follow Us) */}
         <StudyMaterial onNavigate={onNavigate} />

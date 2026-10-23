@@ -17,6 +17,7 @@ import StudyMaterial from './src/pages/User/study.material';
 import QuizList from './src/pages/User/quize/QuizList';
 import QuizInterface from './src/pages/User/quize/QuizInterface';
 import QuizResult from './src/pages/User/quize/QuizResult';
+import FocusTimer from './src/pages/User/FocusTime/FocusTimer';
 import { fetchLiveCourses, refreshUserProfileApi } from './src/config/api';
 import { getUserSession, clearUserSession } from './src/utils/storage';
 
@@ -67,6 +68,7 @@ export function App() {
     // Sync tab if matching
     const tabMap = {
       Home: 'Home',
+      FocusTime: 'FocusTime',
       eBooks: 'eBooks',
       MyCourses: 'MyCourses',
       Profile: 'MyCourses',
@@ -400,6 +402,13 @@ export function App() {
           <AllEbooks
             onSelectEbook={(ebook) => navigate('Courses')}
             onBack={() => navigate('Home')}
+          />
+        )}
+
+        {currentScreen === 'FocusTime' && (
+          <FocusTimer
+            user={currentUser}
+            onNavigate={navigate}
           />
         )}
 

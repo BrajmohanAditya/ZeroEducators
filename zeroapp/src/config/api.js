@@ -402,6 +402,74 @@ export const fetchApplicableCourseCouponsApi = async (courseId) => {
   }
 };
 
+export const startFocusApi = async ({ userId, deviceId, userName, durationMinutes }) => {
+  try {
+    const res = await fetch(`${BASE_URL}/focus/start`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, deviceId, userName, durationMinutes }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[Focus API] Error starting focus:', err?.message || err);
+    return null;
+  }
+};
+
+export const pingFocusApi = async ({ sessionId, actualMinutes }) => {
+  try {
+    const res = await fetch(`${BASE_URL}/focus/ping`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sessionId, actualMinutes }),
+    });
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+};
+
+export const stopFocusApi = async ({ sessionId, actualMinutes, status }) => {
+  try {
+    const res = await fetch(`${BASE_URL}/focus/stop`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sessionId, actualMinutes, status }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[Focus API] Error stopping focus:', err?.message || err);
+    return null;
+  }
+};
+
+export const fetchFocusStatsApi = async ({ userId, deviceId } = {}) => {
+  try {
+    const query = new URLSearchParams();
+    if (userId) query.append('userId', userId);
+    if (deviceId) query.append('deviceId', deviceId);
+    const res = await fetch(`${BASE_URL}/focus/stats?${query.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('[Focus API] Error fetching stats:', err?.message || err);
+    return null;
+  }
+};
+
 export default {
   BASE_URL,
   fetchLiveCourses,
@@ -423,5 +491,10 @@ export default {
   refreshUserProfileApi,
   validateCouponApi,
   fetchApplicableCourseCouponsApi,
+  startFocusApi,
+  pingFocusApi,
+  stopFocusApi,
+  fetchFocusStatsApi,
 };
+
 

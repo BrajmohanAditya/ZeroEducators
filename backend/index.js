@@ -20,6 +20,7 @@ import ebookQuestionRoute from "./src/routes/ebookQuestion.route.js";
 import couponRoute from "./src/routes/coupon.route.js";
 import videoInteractionRoute from "./src/routes/videoInteraction.route.js";
 import analyticsRoute from "./src/routes/analytics.route.js";
+import focusRoute from "./src/routes/focus.route.js";
 import compression from "compression";
 import { startCourseCleanupJob } from "./src/jobs/courseCleanup.job.js";
 import { startDbBackupSchedule } from "./src/jobs/dbBackup.job.js";
@@ -80,6 +81,7 @@ app.use("/api/mentor", qualifiedMentorRoute);
 app.use("/api/ebook", ebookRoute);
 app.use("/api/ebookQuestion", ebookQuestionRoute);
 app.use("/api/analytics", analyticsRoute);
+app.use("/api/focus", focusRoute);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
