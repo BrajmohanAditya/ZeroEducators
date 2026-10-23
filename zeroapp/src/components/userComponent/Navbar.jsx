@@ -175,14 +175,6 @@ export const Navbar = ({
                   <>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => handleNav('Profile')}
-                    >
-                      <User size={16} color="#64748b" />
-                      <Text style={styles.menuItemLabel}>Profile</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
                       onPress={() => handleNav('MyCourses')}
                     >
                       <BookOpen size={16} color="#64748b" />

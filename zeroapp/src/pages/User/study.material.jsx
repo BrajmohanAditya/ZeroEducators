@@ -173,6 +173,7 @@ export const StudyMaterial = ({ onNavigate }) => {
                       source={{ uri: exam.logoUrl }}
                       style={styles.examIconImg}
                       resizeMode="contain"
+                      fadeDuration={0}
                     />
                   ) : (
                     <PlaySquare size={22} color="#7e22ce" />
@@ -234,6 +235,7 @@ export const StudyMaterial = ({ onNavigate }) => {
                       source={{ uri: exam.logoUrl }}
                       style={styles.examIconImg}
                       resizeMode="contain"
+                      fadeDuration={0}
                     />
                   ) : (
                     <Crown size={22} color="#059669" />
@@ -528,4 +530,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default StudyMaterial;
+export default React.memo(StudyMaterial);

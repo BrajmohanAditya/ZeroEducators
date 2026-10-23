@@ -166,4 +166,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TrendingBar;
+export default React.memo(TrendingBar);

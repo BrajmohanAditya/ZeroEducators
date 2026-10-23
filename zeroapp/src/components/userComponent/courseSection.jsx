@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,114 @@ import {
 import { colors, shadows } from '../../theme/colors';
 import { fetchLiveCourses } from '../../config/api';
 
+// Memoized individual course card: keeps memory usage low and scrolling at 60fps on 2GB RAM
+const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.92}
+      onPress={() => onCoursePress && onCoursePress(item)}
+      style={styles.courseCard}
+    >
+      {/* Thumbnail Container */}
+      <View style={styles.thumbnailContainer}>
+        {item.thumbnail ? (
+          <Image
+            source={{ uri: item.thumbnail }}
+            style={styles.thumbnail}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
+        ) : (
+          <View style={styles.thumbnailFallback}>
+            <BookOpen size={32} color={colors.textMuted} />
+          </View>
+        )}
+        {/* Rating Badge */}
+        <View style={styles.ratingBadge}>
+          <Star size={12} color="#f59e0b" fill="#f59e0b" />
+          <Text style={styles.ratingText}>
+            {item.rating || '4.9'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Card Body */}
+      <View style={styles.cardBody}>
+        <Text style={styles.courseTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+
+        {/* Course Metadata (Duration & Students) */}
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <Users size={14} color="#64748b" />
+            <Text style={styles.metaText}>1.5k students</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Clock size={14} color="#64748b" />
+            <Text style={styles.metaText}>
+              {item.duration || '6 Months'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Price and Action Row */}
+        <View style={styles.cardFooter}>
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceLabel}>
+              {purchased
+                ? 'Enrolled'
+                : item.isFree || Number(item.amount) === 0
+                ? 'Course Fee'
+                : 'Starting at'}
+            </Text>
+            <View style={styles.priceValuesRow}>
+              {purchased ? (
+                <Text style={[styles.amountText, { color: '#059669', fontSize: 16 }]}>
+                  Active Access
+                </Text>
+              ) : item.isFree || Number(item.amount) === 0 ? (
+                <Text style={styles.freePrice}>FREE</Text>
+              ) : (
+                <>
+                  <Text style={styles.amountText}>
+                    ₹{item.amount !== undefined ? item.amount : '2,999'}
+                  </Text>
+                  <Text style={styles.originalAmountText}>
+                    ₹
+                    {item.amount !== undefined
+                      ? Math.round(Number(item.amount) * 1.25)
+                      : '3,999'}
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* Enroll or Continue Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => onCoursePress && onCoursePress(item)}
+            style={[
+              styles.enrollBtn,
+              purchased && { backgroundColor: '#059669' },
+            ]}
+          >
+            {purchased ? (
+              <Play size={14} color="#ffffff" fill="#ffffff" />
+            ) : (
+              <Zap size={14} color="#ffffff" fill="#ffffff" />
+            )}
+            <Text style={styles.enrollBtnText}>
+              {purchased ? 'Continue' : 'Enroll Now'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export const CourseSection = ({
   courses: initialCourses = [],
   onCoursePress,
@@ -32,6 +140,7 @@ export const CourseSection = ({
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(6);
 
   // Sync if parent passes updated live courses
   useEffect(() => {
@@ -72,7 +181,12 @@ export const CourseSection = ({
     );
   }, [allCourses, searchQuery]);
 
-  const isCoursePurchased = (item) => {
+  const displayedCourses = useMemo(() => {
+    if (searchQuery.trim()) return filteredCourses;
+    return filteredCourses.slice(0, displayLimit);
+  }, [filteredCourses, searchQuery, displayLimit]);
+
+  const isCoursePurchased = useCallback((item) => {
     if (!user || !item?._id) return false;
     const cid = String(item._id);
     const list = user.purchasedCourse || user.purchasedCourses || [];
@@ -89,7 +203,7 @@ export const CourseSection = ({
       }
       return false;
     });
-  };
+  }, [user]);
 
   return (
     <View style={styles.container}>
@@ -246,115 +360,32 @@ export const CourseSection = ({
         </View>
       ) : null}
 
-      {/* Course Cards Feed */}
+      {/* Course Cards Feed (Rendered smoothly via memoized CourseCards & displayedCourses limit) */}
       <View style={styles.courseFeed}>
-        {filteredCourses.map((item) => {
-          const purchased = isCoursePurchased(item);
-          return (
+        {displayedCourses.map((item) => (
+          <CourseCard
+            key={item._id}
+            item={item}
+            purchased={isCoursePurchased(item)}
+            onCoursePress={onCoursePress}
+          />
+        ))}
+
+        {/* Load More Button for low-RAM performance */}
+        {filteredCourses.length > displayLimit && !searchQuery.trim() && (
+          <View style={styles.paginationRow}>
             <TouchableOpacity
-              key={item._id}
-              activeOpacity={0.92}
-              onPress={() => onCoursePress && onCoursePress(item)}
-              style={styles.courseCard}
+              activeOpacity={0.8}
+              onPress={() => setDisplayLimit((prev) => prev + 6)}
+              style={styles.loadMoreBtn}
             >
-              {/* Thumbnail Container */}
-              <View style={styles.thumbnailContainer}>
-                {item.thumbnail ? (
-                  <Image
-                    source={{ uri: item.thumbnail }}
-                    style={styles.thumbnail}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.thumbnailFallback}>
-                    <BookOpen size={32} color={colors.textMuted} />
-                  </View>
-                )}
-                {/* Rating Badge */}
-                <View style={styles.ratingBadge}>
-                  <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                  <Text style={styles.ratingText}>
-                    {item.rating || '4.9'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Card Body */}
-              <View style={styles.cardBody}>
-                <Text style={styles.courseTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-
-                {/* Course Metadata (Duration & Students) */}
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Users size={14} color="#64748b" />
-                    <Text style={styles.metaText}>1.5k students</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Clock size={14} color="#64748b" />
-                    <Text style={styles.metaText}>
-                      {item.duration || '6 Months'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Price and Action Row */}
-                <View style={styles.cardFooter}>
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>
-                      {purchased
-                        ? 'Enrolled'
-                        : item.isFree || Number(item.amount) === 0
-                        ? 'Course Fee'
-                        : 'Starting at'}
-                    </Text>
-                    <View style={styles.priceValuesRow}>
-                      {purchased ? (
-                        <Text style={[styles.amountText, { color: '#059669', fontSize: 16 }]}>
-                          Active Access
-                        </Text>
-                      ) : item.isFree || Number(item.amount) === 0 ? (
-                        <Text style={styles.freePrice}>FREE</Text>
-                      ) : (
-                        <>
-                          <Text style={styles.amountText}>
-                            ₹{item.amount !== undefined ? item.amount : '2,999'}
-                          </Text>
-                          <Text style={styles.originalAmountText}>
-                            ₹
-                            {item.amount !== undefined
-                              ? Math.round(Number(item.amount) * 1.25)
-                              : '3,999'}
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Enroll or Continue Button */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => onCoursePress && onCoursePress(item)}
-                    style={[
-                      styles.enrollBtn,
-                      purchased && { backgroundColor: '#059669' },
-                    ]}
-                  >
-                    {purchased ? (
-                      <Play size={14} color="#ffffff" fill="#ffffff" />
-                    ) : (
-                      <Zap size={14} color="#ffffff" fill="#ffffff" />
-                    )}
-                    <Text style={styles.enrollBtnText}>
-                      {purchased ? 'Continue' : 'Enroll Now'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <Text style={styles.loadMoreBtnText}>
+                Show More Courses ({filteredCourses.length - displayLimit} remaining)
+              </Text>
+              <ChevronDown size={16} color={colors.primary} />
             </TouchableOpacity>
-          );
-        })}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -698,6 +729,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.2,
   },
+  paginationRow: {
+    marginTop: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    width: '100%',
+    ...shadows.sm,
+  },
+  loadMoreBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
 });
 
-export default CourseSection;
+export default React.memo(CourseSection);

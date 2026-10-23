@@ -84,6 +84,7 @@ export const HeroSection = ({
                     source={{ uri: exam.imageUrl }}
                     style={styles.examImage}
                     resizeMode="contain"
+                    fadeDuration={0}
                   />
                 ) : (
                   <View style={styles.placeholderBox} />
@@ -107,6 +108,7 @@ export const HeroSection = ({
               source={{ uri: banners[currentBanner].imageUrl }}
               style={styles.bannerImage}
               resizeMode="cover"
+              fadeDuration={0}
             />
 
             {/* Carousel Dots */}
@@ -240,4 +242,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HeroSection;
+export default React.memo(HeroSection);

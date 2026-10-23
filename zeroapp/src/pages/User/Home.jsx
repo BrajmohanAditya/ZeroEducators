@@ -84,6 +84,8 @@ export const Home = ({
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        overScrollMode="never"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

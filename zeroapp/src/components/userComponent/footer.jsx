@@ -343,7 +343,7 @@ export const Footer = ({ onNavigate, onLinkPress }) => {
   );
 };
 
-export default Footer;
+export default React.memo(Footer);
 
 const styles = StyleSheet.create({
   footerContainer: {

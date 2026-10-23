@@ -59,6 +59,7 @@ const PurchasedCourseCard = ({ item, onOpenCourse }) => {
             source={{ uri: thumbnailUri }}
             style={styles.thumbnailImage}
             resizeMode="cover"
+            fadeDuration={0}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -127,6 +128,8 @@ export const YourAllPurchasedCourse = ({
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews={true}
+      overScrollMode="never"
     >
       <View style={styles.header}>
         <View style={styles.headerBadge}>

@@ -241,6 +241,8 @@ export const QuizList = ({
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          overScrollMode="never"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -43,6 +43,8 @@ export const AllEbooks = ({ onSelectEbook, onBack }) => {
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews={true}
+      overScrollMode="never"
     >
       {/* Header */}
       <View style={styles.header}>
@@ -113,6 +115,7 @@ export const AllEbooks = ({ onSelectEbook, onBack }) => {
                     source={{ uri: ebook.thumbnail }}
                     style={styles.coverImage}
                     resizeMode="cover"
+                    fadeDuration={0}
                   />
                 ) : (
                   <FileText size={32} color="#cbd5e1" />
