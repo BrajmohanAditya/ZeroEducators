@@ -139,7 +139,7 @@ export const CourseSection = ({
   const [courses, setCourses] = useState(initialCourses);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(6);
 
   // Sync if parent passes updated live courses
@@ -221,122 +221,39 @@ export const CourseSection = ({
         <Text style={styles.title}>Explore Our Top Courses</Text>
       </View>
 
-      {/* Search Dropdown Component */}
+      {/* Search Box - Direct Filter (Matches Web Frontend, No Laggy Dropdown) */}
       <View style={styles.searchContainer}>
         <View
           style={[
             styles.searchBar,
-            isDropdownOpen && styles.searchBarActive,
+            isFocused && styles.searchBarActive,
           ]}
         >
-          <Search size={16} color="#94a3b8" style={styles.searchIcon} />
+          <Search
+            size={16}
+            color={isFocused ? '#059669' : '#94a3b8'}
+            style={styles.searchIcon}
+          />
           <TextInput
             value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              setIsDropdownOpen(true);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            placeholder="Search courses or click for all..."
+            onChangeText={(text) => setSearchQuery(text)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Search courses..."
             placeholderTextColor="#94a3b8"
             style={styles.searchInput}
+            returnKeyType="search"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
               onPress={() => setSearchQuery('')}
               style={styles.iconBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <X size={16} color="#64748b" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-            style={styles.iconBtn}
-          >
-            <ChevronDown
-              size={16}
-              color={isDropdownOpen ? '#059669' : '#64748b'}
-              style={isDropdownOpen ? styles.chevronRotated : null}
-            />
-          </TouchableOpacity>
         </View>
-
-        {/* Dropdown Menu showing courses */}
-        {isDropdownOpen && (
-          <View style={styles.dropdownMenu}>
-            <View style={styles.dropdownHeader}>
-              <Text style={styles.dropdownHeaderText}>
-                {searchQuery.trim()
-                  ? `Matching Courses (${filteredCourses.length})`
-                  : `All Available Courses (${allCourses.length})`}
-              </Text>
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Text style={styles.showAllText}>Show all</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={styles.dropdownList}>
-              {filteredCourses.length > 0 ? (
-                filteredCourses.map((course) => (
-                  <TouchableOpacity
-                    key={course._id}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setIsDropdownOpen(false);
-                      if (onCoursePress) onCoursePress(course);
-                    }}
-                    style={styles.dropdownItem}
-                  >
-                    {course.thumbnail ? (
-                      <Image
-                        source={{ uri: course.thumbnail }}
-                        style={styles.dropdownThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.dropdownThumbPlaceholder} />
-                    )}
-
-                    <View style={styles.dropdownItemInfo}>
-                      <Text style={styles.dropdownItemTitle} numberOfLines={1}>
-                        {course.title}
-                      </Text>
-                      <View style={styles.dropdownItemMeta}>
-                        <Text style={styles.dropdownMetaText}>
-                          {course.duration || '12 hrs'}
-                        </Text>
-                        <Text style={styles.dropdownMetaDot}>•</Text>
-                        <Text style={styles.dropdownItemPrice}>
-                          {course.isFree || Number(course.amount) === 0
-                            ? 'FREE'
-                            : `₹${course.amount}`}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text
-                      style={[
-                        styles.dropdownViewAction,
-                        isCoursePurchased(course) && { color: '#059669', fontWeight: '800' },
-                      ]}
-                    >
-                      {isCoursePurchased(course) ? 'Continue →' : 'View →'}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <View style={styles.emptyDropdown}>
-                  <BookOpen size={24} color="#cbd5e1" />
-                  <Text style={styles.emptyDropdownText}>
-                    No courses found matching "{searchQuery}"
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Active Filter Badge */}
@@ -360,16 +277,32 @@ export const CourseSection = ({
         </View>
       ) : null}
 
-      {/* Course Cards Feed (Rendered smoothly via memoized CourseCards & displayedCourses limit) */}
+      {/* Course Cards Feed */}
       <View style={styles.courseFeed}>
-        {displayedCourses.map((item) => (
-          <CourseCard
-            key={item._id}
-            item={item}
-            purchased={isCoursePurchased(item)}
-            onCoursePress={onCoursePress}
-          />
-        ))}
+        {displayedCourses.length > 0 ? (
+          displayedCourses.map((item) => (
+            <CourseCard
+              key={item._id}
+              item={item}
+              purchased={isCoursePurchased(item)}
+              onCoursePress={onCoursePress}
+            />
+          ))
+        ) : searchQuery.trim().length > 0 ? (
+          <View style={styles.noResultsBox}>
+            <BookOpen size={36} color="#cbd5e1" />
+            <Text style={styles.noResultsTitle}>No courses found</Text>
+            <Text style={styles.noResultsSub}>
+              We couldn't find any courses matching "{searchQuery}"
+            </Text>
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearchBtn}
+            >
+              <Text style={styles.clearSearchBtnText}>Show All Courses</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Load More Button for low-RAM performance */}
         {filteredCourses.length > displayLimit && !searchQuery.trim() && (
@@ -464,105 +397,42 @@ const styles = StyleSheet.create({
   iconBtn: {
     padding: 6,
   },
-  chevronRotated: {
-    transform: [{ rotate: '180deg' }],
-  },
-  dropdownMenu: {
-    marginTop: 6,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...shadows.lg,
-  },
-  dropdownHeader: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dropdownHeaderText: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    color: '#64748b',
-    letterSpacing: 0.5,
-  },
-  showAllText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  dropdownList: {
-    maxHeight: 250,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    gap: 10,
-  },
-  dropdownThumb: {
-    width: 48,
-    height: 34,
-    borderRadius: 6,
-    backgroundColor: '#0f172a',
-  },
-  dropdownThumbPlaceholder: {
-    width: 48,
-    height: 34,
-    borderRadius: 6,
-    backgroundColor: '#e2e8f0',
-  },
-  dropdownItemInfo: {
-    flex: 1,
-  },
-  dropdownItemTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  dropdownItemMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  dropdownMetaText: {
-    fontSize: 11,
-    color: '#64748b',
-  },
-  dropdownMetaDot: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  dropdownItemPrice: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  dropdownViewAction: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  emptyDropdown: {
-    padding: 20,
+  noResultsBox: {
+    paddingVertical: 36,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginTop: 4,
+    marginBottom: 20,
   },
-  emptyDropdownText: {
-    fontSize: 12,
+  noResultsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginTop: 12,
+  },
+  noResultsSub: {
+    fontSize: 13,
     color: '#64748b',
     textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  clearSearchBtn: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  clearSearchBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   activeFilterBanner: {
     flexDirection: 'row',
