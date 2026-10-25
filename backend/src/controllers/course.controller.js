@@ -27,6 +27,7 @@ import { applyFaststart } from "../utils/faststart.js";
 import { createBunnyVideo, getBunnyHlsUrl, deleteBunnyVideo } from "../config/bunny.js";
 import { runBunnyVideosBackup, getBunnyBackupStatus } from "../jobs/bunnyBackup.job.js";
 import { restoreVideoFromZataToBunny, queueSingleBunnyVideoBackup } from "../services/bunnyBackup.service.js";
+import { markTempFileActive, markTempFileInactive } from "../middlewares/videoUpload.js";
 
 /**
  * Safely delete PDF from Zata S3 storage:
@@ -1534,6 +1535,7 @@ export const addVideoToChapter = async (req, res, next) => {
     }
 
     tempFilePath = req.file.path;
+    markTempFileActive(tempFilePath);
     const fileSize = req.file.size || (tempFilePath ? fs.statSync(tempFilePath).size : 0);
 
     if (uploadId) {
@@ -1551,6 +1553,7 @@ export const addVideoToChapter = async (req, res, next) => {
     // 🚀 FastStart Optimization: Move moov atom to the beginning for zero-buffer instant streaming
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       optimizedTempPath = `${tempFilePath}-faststart.mp4`;
+      markTempFileActive(optimizedTempPath);
       const isOptimized = await applyFaststart(tempFilePath, optimizedTempPath);
       if (isOptimized && fs.existsSync(optimizedTempPath)) {
         uploadFilePath = optimizedTempPath;
@@ -1605,14 +1608,21 @@ export const addVideoToChapter = async (req, res, next) => {
     await course.save();
 
     // Remove temporary files from local disk after upload
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, (err) => {
-        if (err) console.error("Error removing temp video file:", err);
-      });
+    if (tempFilePath) {
+      markTempFileInactive(tempFilePath);
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error("Error removing temp video file:", err);
+        });
+      }
       tempFilePath = null;
     }
-    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
-      fs.unlink(optimizedTempPath, () => {});
+    if (optimizedTempPath) {
+      markTempFileInactive(optimizedTempPath);
+      if (fs.existsSync(optimizedTempPath)) {
+        fs.unlink(optimizedTempPath, () => {});
+      }
+      optimizedTempPath = null;
     }
 
     if (uploadId) {
@@ -1642,11 +1652,22 @@ export const addVideoToChapter = async (req, res, next) => {
       });
     }
 
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      try {
-        fs.unlinkSync(tempFilePath);
-      } catch (err) {
-        console.error("Error cleaning up temp video on failure:", err);
+    if (tempFilePath) {
+      markTempFileInactive(tempFilePath);
+      if (fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (err) {
+          console.error("Error cleaning up temp video on failure:", err);
+        }
+      }
+    }
+    if (optimizedTempPath) {
+      markTempFileInactive(optimizedTempPath);
+      if (fs.existsSync(optimizedTempPath)) {
+        try {
+          fs.unlinkSync(optimizedTempPath);
+        } catch (_) {}
       }
     }
 

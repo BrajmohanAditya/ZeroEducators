@@ -271,7 +271,7 @@ export const deleteFromZata = async (fileKey) => {
 
   // Clean if a full URL was passed instead of relative S3 key
   let cleanKey = fileKey;
-  if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
+  if (typeof cleanKey === "string" && (cleanKey.startsWith("http://") || cleanKey.startsWith("https://"))) {
     try {
       const urlObj = new URL(cleanKey);
       let pathname = urlObj.pathname.replace(/^\/+/, "");
@@ -282,26 +282,51 @@ export const deleteFromZata = async (fileKey) => {
     } catch {}
   }
 
+  cleanKey = (cleanKey || "").trim();
+  // Safety guard: Never proceed if key is empty, root, dot, or invalid
+  if (!cleanKey || cleanKey === "/" || cleanKey === "." || cleanKey === "\\") {
+    console.warn("[Zata S3] Ignored delete attempt for empty/root key:", fileKey);
+    return;
+  }
+
+  // Top-level / system folders that must NEVER be recursively wiped out
+  const PROTECTED_PREFIXES = new Set([
+    "",
+    "/",
+    ".",
+    "courses/",
+    "courseModule/",
+    "ebooks/",
+    "uploads/",
+    "database-backups/",
+    "bunny-backups/",
+  ]);
+
   try {
-    // If it's an HLS stream, folder, or directory key without file extension
-    const isFolderOrHls =
-      cleanKey.includes("/hls/") ||
-      cleanKey.endsWith(".m3u8") ||
-      cleanKey.endsWith("/") ||
-      !path.extname(cleanKey);
+    // Only resolve a folderPrefix if this is explicitly an HLS multi-segment folder
+    let folderPrefix = null;
 
-    if (isFolderOrHls) {
-      let folderPrefix = cleanKey;
-      if (folderPrefix.endsWith("/index.m3u8")) {
-        folderPrefix = folderPrefix.replace("/index.m3u8", "");
-      } else if (folderPrefix.endsWith(".m3u8")) {
-        folderPrefix = folderPrefix.substring(0, folderPrefix.lastIndexOf("/"));
+    if (cleanKey.includes("/hls/")) {
+      if (cleanKey.endsWith(".m3u8")) {
+        const lastSlash = cleanKey.lastIndexOf("/");
+        if (lastSlash > 0) {
+          folderPrefix = cleanKey.substring(0, lastSlash + 1);
+        }
+      } else {
+        folderPrefix = cleanKey.endsWith("/") ? cleanKey : `${cleanKey}/`;
       }
+    } else if (cleanKey.endsWith("/index.m3u8")) {
+      folderPrefix = cleanKey.replace("/index.m3u8", "/");
+    }
 
-      if (!folderPrefix.endsWith("/")) {
-        folderPrefix += "/";
-      }
+    // Safety check: ensure folderPrefix is deep enough (e.g. at least 2 path segments)
+    // and NOT a root or top-level directory
+    const isSafeFolderPrefix =
+      folderPrefix &&
+      !PROTECTED_PREFIXES.has(folderPrefix) &&
+      folderPrefix.split("/").filter(Boolean).length >= 2;
 
+    if (isSafeFolderPrefix) {
       let continuationToken = undefined;
       let totalDeleted = 0;
       do {
@@ -331,7 +356,7 @@ export const deleteFromZata = async (fileKey) => {
       }
     }
 
-    // Always attempt deleting the specific key as well
+    // Always attempt deleting the specific key as well (standard S3 object delete)
     const command = new DeleteObjectCommand({
       Bucket: ENV.ZATA_BUCKET_NAME,
       Key: cleanKey,

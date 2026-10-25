@@ -13,9 +13,7 @@ import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { spawn } from "child_process";
 import { Readable } from "stream";
 import { syncUserCourseExpiry } from "../utils/courseExpiry.js";
-
-
-
+import { markTempFileActive, markTempFileInactive } from "../middlewares/videoUpload.js";
 export const moduleUploadProgressMap = new Map();
 
 export const getUploadProgress = (req, res) => {
@@ -47,6 +45,7 @@ export const createModule = async (req, res) => {
     }
 
     tempFilePath = req.file.path;
+    markTempFileActive(tempFilePath);
     const fileSize = req.file.size || (tempFilePath ? fs.statSync(tempFilePath).size : 0);
 
     if (uploadId) {
@@ -64,6 +63,7 @@ export const createModule = async (req, res) => {
     // 🚀 FastStart Optimization: Move moov atom to the beginning for zero-buffer instant streaming
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       optimizedTempPath = `${tempFilePath}-faststart.mp4`;
+      markTempFileActive(optimizedTempPath);
       const isOptimized = await applyFaststart(tempFilePath, optimizedTempPath);
       if (isOptimized && fs.existsSync(optimizedTempPath)) {
         uploadFilePath = optimizedTempPath;
@@ -104,12 +104,19 @@ export const createModule = async (req, res) => {
     });
 
     // Remove temporary files from local disk after successful S3 upload
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlink(tempFilePath, () => {});
+    if (tempFilePath) {
+      markTempFileInactive(tempFilePath);
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlink(tempFilePath, () => {});
+      }
       tempFilePath = null;
     }
-    if (optimizedTempPath && fs.existsSync(optimizedTempPath)) {
-      fs.unlink(optimizedTempPath, () => {});
+    if (optimizedTempPath) {
+      markTempFileInactive(optimizedTempPath);
+      if (fs.existsSync(optimizedTempPath)) {
+        fs.unlink(optimizedTempPath, () => {});
+      }
+      optimizedTempPath = null;
     }
 
     if (uploadId) {
@@ -139,11 +146,22 @@ export const createModule = async (req, res) => {
     }
 
     // Ensure temporary file cleanup on failure
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      try {
-        fs.unlinkSync(tempFilePath);
-      } catch (err) {
-        console.error("Error cleaning up temp video on failure:", err);
+    if (tempFilePath) {
+      markTempFileInactive(tempFilePath);
+      if (fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (err) {
+          console.error("Error cleaning up temp video on failure:", err);
+        }
+      }
+    }
+    if (optimizedTempPath) {
+      markTempFileInactive(optimizedTempPath);
+      if (fs.existsSync(optimizedTempPath)) {
+        try {
+          fs.unlinkSync(optimizedTempPath);
+        } catch (_) {}
       }
     }
 
