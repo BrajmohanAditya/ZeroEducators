@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -7,13 +7,24 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Folder, FolderPlus, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useForm, useFieldArray } from "react-hook-form";
-import { useCreateQuizHook, useUpdateQuizHook } from "../../hooks/quiz/quiz.hook";
+import {
+  useCreateQuizHook,
+  useUpdateQuizHook,
+  useGetQuizzesHook,
+} from "../../hooks/quiz/quiz.hook";
 import { useGetExamsHook } from "../../hooks/quiz/exam.hook";
 
-const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: controlledOnClose }) => {
+const CreateQuiz = ({
+  children,
+  quiz,
+  exam,
+  initialSubCategory,
+  isOpen: controlledIsOpen,
+  onClose: controlledOnClose,
+}) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledIsOpen !== undefined;
   const isOpen = isControlled ? controlledIsOpen : internalOpen;
@@ -27,6 +38,7 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
   };
 
   const isEditMode = !!quiz;
+  const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
 
   const { mutate: createQuiz, isPending: isCreating } = useCreateQuizHook();
   const { mutate: updateQuiz, isPending: isUpdating } = useUpdateQuizHook();
@@ -44,11 +56,37 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
       totalNoOfQueation: "",
       negativeMark: 0,
       totalMarks: "",
+      testType: "Mock Tests",
+      subCategory: initialSubCategory || "Full Test (Prelims)",
       sections: [{ name: "", totalQuestions: "" }],
     },
   });
 
   const selectedExamId = watch("examId");
+  const targetExamId = exam?._id || selectedExamId;
+
+  // Fetch quizzes strictly for this target exam to get only this exam's folders
+  const { data: examQuizzesData } = useGetQuizzesHook(
+    targetExamId ? { examId: targetExamId } : null
+  );
+
+  const currentTab = watch("testType") || "Mock Tests";
+
+  // Unique folders strictly belonging to THIS specific exam
+  const examExistingFolders = useMemo(() => {
+    if (!targetExamId) return [];
+    const set = new Set();
+    (examQuizzesData?.quizzes || []).forEach((q) => {
+      const qExamId = (q.examId?._id || q.examId || "").toString();
+      if (qExamId === String(targetExamId)) {
+        const qTab = q.testType || "Mock Tests";
+        if (qTab === currentTab && q.subCategory?.trim()) {
+          set.add(q.subCategory.trim());
+        }
+      }
+    });
+    return Array.from(set);
+  }, [examQuizzesData, targetExamId, currentTab]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -67,6 +105,8 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           negativeMark: quiz.negativeMark || 0,
           totalMarks: quiz.totalMarks || "",
           isFreeDemo: quiz.isFreeDemo || quiz.quizType === "Free" || false,
+          testType: quiz.testType || "Mock Tests",
+          subCategory: quiz.subCategory || "Full Test (Prelims)",
           sections:
             quiz.section && quiz.section.length > 0
               ? quiz.section.map((s) => ({
@@ -85,6 +125,8 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
           negativeMark: 0,
           totalMarks: "",
           isFreeDemo: false,
+          testType: "Mock Tests",
+          subCategory: "Full Test (Prelims)",
           sections: [{ name: "", totalQuestions: "" }],
         });
       }
@@ -114,6 +156,8 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
     formData.append("totalMarks", Number(data.totalMarks));
     formData.append("isFreeDemo", data.isFreeDemo ? "true" : "false");
     formData.append("quizType", data.isFreeDemo ? "Free" : "Paid");
+    formData.append("testType", data.testType || "Mock Tests");
+    formData.append("subCategory", data.subCategory || "Full Test (Prelims)");
 
     const sectionsData = data.sections.map((s) => ({
       name: s.name,
@@ -210,6 +254,122 @@ const CreateQuiz = ({ children, quiz, exam, isOpen: controlledIsOpen, onClose: c
               placeholder="e.g. Mock Test 1, Set 1, Final Practice"
               className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
+          </div>
+
+          {/* Test Type: Mock Tests vs PYPs */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Primary Section / Tab <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setValue("testType", "Mock Tests");
+                  if (watch("subCategory")?.startsWith("Previous Year")) {
+                    setValue("subCategory", "Full Test (Prelims)");
+                  }
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-bold border transition text-center cursor-pointer ${
+                  watch("testType") === "Mock Tests"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                📝 Mock Tests
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setValue("testType", "PYPs");
+                  setValue("subCategory", "Previous Year Paper (2024)");
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-bold border transition text-center cursor-pointer ${
+                  watch("testType") === "PYPs"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                📚 PYPs (Previous Year Papers)
+              </button>
+            </div>
+
+            {/* Folder / Sub-Category */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Folder / Section in this Exam <span className="text-red-500">*</span>
+                </label>
+                {examExistingFolders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewFolder((prev) => !prev);
+                      if (!isCreatingNewFolder) {
+                        setValue("subCategory", "");
+                      } else {
+                        setValue("subCategory", examExistingFolders[0]);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                  >
+                    {isCreatingNewFolder ? (
+                      <>
+                        <ArrowLeft className="w-3 h-3" /> Pick Existing Folder
+                      </>
+                    ) : (
+                      <>
+                        <FolderPlus className="w-3 h-3" /> + Create New Folder
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {!isCreatingNewFolder && examExistingFolders.length > 0 ? (
+                <div>
+                  <div className="relative">
+                    <select
+                      value={watch("subCategory")}
+                      onChange={(e) => {
+                        if (e.target.value === "__create_new__") {
+                          setIsCreatingNewFolder(true);
+                          setValue("subCategory", "");
+                        } else {
+                          setValue("subCategory", e.target.value);
+                        }
+                      }}
+                      className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-white font-bold text-slate-800"
+                    >
+                      <option value="">-- Choose Existing Folder in this Exam --</option>
+                      {examExistingFolders.map((folder) => (
+                        <option key={folder} value={folder}>
+                          📁 {folder}
+                        </option>
+                      ))}
+                      <option value="__create_new__" className="text-indigo-600 font-bold">
+                        ➕ [ + Create New Folder in this Exam ]
+                      </option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Select an existing folder in this exam so this quiz joins that group automatically.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    {...register("subCategory", { required: true })}
+                    placeholder="e.g. Full Test (Prelims), Reasoning Ability, 2024 Paper"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-white font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    💡 Do not include numbers like "31" or "2". The system counts and displays tests automatically.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Test Access Type (Free Demo vs Exam Package) */}

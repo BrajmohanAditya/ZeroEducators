@@ -72,6 +72,16 @@ const quizSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    testType: {
+      type: String,
+      enum: ["Mock Tests", "PYPs"],
+      default: "Mock Tests",
+    },
+    subCategory: {
+      type: String,
+      default: "Full Test (Prelims)",
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -79,6 +89,7 @@ const quizSchema = new mongoose.Schema(
 );
 
 quizSchema.index({ examId: 1, createdAt: 1 });
+quizSchema.index({ examId: 1, testType: 1, subCategory: 1 });
 quizSchema.index({ quizType: 1, isFreeDemo: 1, price: 1 });
 
 export const Quiz = mongoose.model("Quiz", quizSchema);

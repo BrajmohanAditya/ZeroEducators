@@ -188,40 +188,17 @@ const QuizManagement = () => {
                       </span>
                     </td>
 
-                    {/* Enrolled Students & Linked Courses */}
+                    {/* Enrolled Students */}
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5 items-start">
-                        <button
-                          type="button"
-                          onClick={() => setGrantExamDialog({ exam, tab: "students" })}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 transition cursor-pointer"
-                          title="View Enrolled Students"
-                        >
-                          <Users className="w-3.5 h-3.5 text-emerald-600" />
-                          {exam.enrolled || 0} Students
-                        </button>
-
-                        {exam.linkedCourses && exam.linkedCourses.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setGrantExamDialog({ exam, tab: "courses" })}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition cursor-pointer"
-                            title="Linked to Video Courses (Automated Free Access)"
-                          >
-                            <BookOpen className="w-3 h-3 text-purple-600" />
-                            {exam.linkedCourses.length} {exam.linkedCourses.length === 1 ? "Course" : "Courses"} Linked
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setGrantExamDialog({ exam, tab: "courses" })}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-purple-600 hover:underline transition cursor-pointer"
-                            title="Link a video course to give students free access"
-                          >
-                            + Link Course
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGrantExamDialog({ exam, tab: "students" })}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 transition cursor-pointer"
+                        title="View Enrolled Students"
+                      >
+                        <Users className="w-3.5 h-3.5 text-emerald-600" />
+                        {exam.enrolled || 0} Students
+                      </button>
                     </td>
 
                     {/* Status */}

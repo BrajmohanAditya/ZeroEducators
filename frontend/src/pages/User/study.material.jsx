@@ -25,42 +25,31 @@ const StudyMaterial = () => {
   const { data: examsData } = useGetExamsHook();
   const allExams = examsData?.exams || [];
 
-  // Fetch Free Quizzes
-  const { data: freeData, isLoading: isFreeLoading } =
-    useGetQuizzesHook("Free");
+  // Fetch Free & Paid Quizzes to catch any legacy or standalone tests
+  const { data: freeData } = useGetQuizzesHook("Free");
   const freeQuizzes = freeData?.quizzes || [];
 
-  // Fetch Paid Quizzes
-  const { data: paidData, isLoading: isPaidLoading } =
-    useGetQuizzesHook("Paid");
+  const { data: paidData } = useGetQuizzesHook("Paid");
   const paidQuizzes = paidData?.quizzes || [];
 
-  const freeExamsMap = new Map();
-  const paidExamsMap = new Map();
+  // Combine all exams (Free + Paid) into a single list
+  const examsMap = new Map();
 
   // 1. Add from Exams collection
   allExams.forEach((exam) => {
-    const examPrice = Number(exam.price) || 0;
-    const item = {
+    examsMap.set(exam._id.toString(), {
       id: exam._id,
       name: exam.title,
       logoUrl: exam.logoUrl,
-    };
-    if (examPrice > 0) {
-      paidExamsMap.set(exam._id.toString(), item);
-    } else {
-      freeExamsMap.set(exam._id.toString(), item);
-    }
+    });
   });
 
-  // 2. Also support legacy quizzes if any exist without examId
-  freeQuizzes.forEach((quiz) => {
+  // 2. Also support quizzes if any exist without examId
+  [...freeQuizzes, ...paidQuizzes].forEach((quiz) => {
     const examObj = quiz.examId;
-    const examPrice = examObj?.price ?? quiz.price ?? 0;
-    if (examPrice > 0) return; // STRICT: paid packages must not appear under Free
     const examKey = (examObj?._id || quiz.examId || quiz.nameOfExam || "").toString();
-    if (examKey && !freeExamsMap.has(examKey)) {
-      freeExamsMap.set(examKey, {
+    if (examKey && !examsMap.has(examKey)) {
+      examsMap.set(examKey, {
         id: examObj?._id || quiz.examId,
         name: examObj?.title || quiz.nameOfExam || "Exam",
         logoUrl: examObj?.logoUrl || quiz.logoUrl,
@@ -68,58 +57,9 @@ const StudyMaterial = () => {
     }
   });
 
-  paidQuizzes.forEach((quiz) => {
-    const examObj = quiz.examId;
-    const examPrice = examObj?.price ?? quiz.price ?? 0;
-    if (examPrice <= 0) return;
-    const examKey = (examObj?._id || quiz.examId || quiz.nameOfExam || "").toString();
-    if (examKey && !paidExamsMap.has(examKey)) {
-      paidExamsMap.set(examKey, {
-        id: examObj?._id || quiz.examId,
-        name: examObj?.title || quiz.nameOfExam || "Exam",
-        logoUrl: examObj?.logoUrl || quiz.logoUrl,
-      });
-    }
-  });
-
-  const freeExams = Array.from(freeExamsMap.values());
-  const paidExams = Array.from(paidExamsMap.values());
+  const combinedExams = Array.from(examsMap.values());
 
   const cards = [
-    {
-      title: "Today Live Test",
-      bgColor: "bg-[#F3E8FF]", // Light purple
-      titleColor: "text-purple-700",
-      mainIcon: (
-        <div className="relative flex items-center justify-center w-20 h-20">
-          <div className="absolute w-8 h-8 bg-red-400 rounded-full animate-pulse opacity-60"></div>
-          <div className="relative w-6 h-6 bg-red-500 rounded-full shadow-lg border-2 border-white"></div>
-        </div>
-      ),
-      items: freeExams.slice(0, 4).map((exam) => {
-        return {
-          name: exam.name,
-          action: () => {
-            navigate(
-              exam.id
-                ? `/quizeDetail?type=Free&examId=${exam.id}`
-                : "/quizeDetail?type=Free"
-            );
-          },
-          icon: exam.logoUrl ? (
-            <img
-              src={exam.logoUrl}
-              alt={exam.name}
-              className="w-14 h-14 object-contain hover:scale-110 transition-transform rounded-lg mix-blend-multiply"
-            />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200" />
-          ),
-          iconBg: "",
-        };
-      }),
-    },
-
     {
       title: "Premium Test",
       bgColor: "bg-[#E6F8EA]", // Light green
@@ -130,14 +70,14 @@ const StudyMaterial = () => {
           strokeWidth={1}
         />
       ),
-      items: paidExams.slice(0, 4).map((exam) => {
+      items: combinedExams.slice(0, 4).map((exam) => {
         return {
           name: exam.name,
           action: () => {
             navigate(
               exam.id
-                ? `/quizeDetail?type=Paid&examId=${exam.id}`
-                : "/quizeDetail?type=Paid"
+                ? `/quizeDetail?examId=${exam.id}`
+                : "/quizeDetail"
             );
           },
           icon: exam.logoUrl ? (
@@ -238,7 +178,7 @@ const StudyMaterial = () => {
           Access your materials, tests, and community in one place.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {cards.map((card, index) => (
             <div
               key={index}
@@ -293,7 +233,10 @@ const StudyMaterial = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex-grow flex items-center justify-center relative z-10 h-32 mt-4">
+                <div 
+                  onClick={() => navigate("/quizeDetail")}
+                  className="flex-grow flex items-center justify-center relative z-10 h-32 mt-4"
+                >
                   <div
                     className={`px-8 py-3 bg-white/60 backdrop-blur-md rounded-xl font-bold ${card.titleColor} border border-white/60 hover:bg-white transition-colors cursor-pointer shadow-sm w-full text-center flex items-center justify-center gap-2`}
                   >

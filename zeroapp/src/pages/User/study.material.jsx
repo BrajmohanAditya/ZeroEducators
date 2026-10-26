@@ -42,8 +42,7 @@ const InstagramIcon = ({ size = 22, color = '#db2777' }) => (
 );
 
 export const StudyMaterial = ({ onNavigate }) => {
-  const [freeExams, setFreeExams] = useState([]);
-  const [paidExams, setPaidExams] = useState([]);
+  const [premiumExams, setPremiumExams] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,46 +57,23 @@ export const StudyMaterial = ({ onNavigate }) => {
 
         if (!isMounted) return;
 
-        const freeMap = new Map();
-        const paidMap = new Map();
+        const examsMap = new Map();
 
         // 1. Map from Exams collection
         (exams || []).forEach((exam) => {
-          const price = Number(exam.price) || 0;
-          const item = {
+          examsMap.set(exam._id.toString(), {
             id: exam._id,
             name: exam.title || 'Exam',
             logoUrl: exam.logoUrl,
-          };
-          if (price > 0) {
-            paidMap.set(exam._id.toString(), item);
-          } else {
-            freeMap.set(exam._id.toString(), item);
-          }
+          });
         });
 
-        // 2. Also map from Quizzes
-        (freeQ || []).forEach((quiz) => {
+        // 2. Also map from Quizzes if any exist without examId
+        [...(freeQ || []), ...(paidQ || [])].forEach((quiz) => {
           const examObj = quiz.examId;
-          const price = examObj?.price ?? quiz.price ?? 0;
-          if (price > 0) return;
           const key = (examObj?._id || quiz.examId || quiz.nameOfExam || '').toString();
-          if (key && !freeMap.has(key)) {
-            freeMap.set(key, {
-              id: examObj?._id || quiz.examId,
-              name: examObj?.title || quiz.nameOfExam || 'Free Quiz',
-              logoUrl: examObj?.logoUrl || quiz.logoUrl,
-            });
-          }
-        });
-
-        (paidQ || []).forEach((quiz) => {
-          const examObj = quiz.examId;
-          const price = examObj?.price ?? quiz.price ?? 0;
-          if (price <= 0) return;
-          const key = (examObj?._id || quiz.examId || quiz.nameOfExam || '').toString();
-          if (key && !paidMap.has(key)) {
-            paidMap.set(key, {
+          if (key && !examsMap.has(key)) {
+            examsMap.set(key, {
               id: examObj?._id || quiz.examId,
               name: examObj?.title || quiz.nameOfExam || 'Premium Test',
               logoUrl: examObj?.logoUrl || quiz.logoUrl,
@@ -105,8 +81,7 @@ export const StudyMaterial = ({ onNavigate }) => {
           }
         });
 
-        setFreeExams(Array.from(freeMap.values()));
-        setPaidExams(Array.from(paidMap.values()));
+        setPremiumExams(Array.from(examsMap.values()));
       } catch (err) {
         console.warn('Error loading study material quiz exams:', err);
       }
@@ -138,71 +113,7 @@ export const StudyMaterial = ({ onNavigate }) => {
 
       <View style={styles.cardsList}>
         {/* ==================================================== */}
-        {/* 1. TODAY LIVE TEST (Soft Purple Full-Width Card)     */}
-        {/* ==================================================== */}
-        <View style={[styles.card, styles.purpleCard]}>
-          {/* Top-Right Glowing Live Dot */}
-          <View style={styles.topRightCorner}>
-            <View style={styles.livePulseHalo}>
-              <View style={styles.livePulseDot} />
-            </View>
-          </View>
-
-          {/* Card Title */}
-          <Text style={[styles.cardTitle, styles.purpleText]}>Today Live Test</Text>
-
-          {/* 2x2 Grid of Free Tests */}
-          <View style={styles.itemsGrid}>
-            {freeExams.slice(0, 3).map((exam, idx) => (
-              <TouchableOpacity
-                key={exam.id || idx}
-                activeOpacity={0.8}
-                onPress={() =>
-                  onNavigate &&
-                  onNavigate('Quizzes', {
-                    type: 'Free',
-                    examId: exam.id,
-                    examTitle: exam.name,
-                  })
-                }
-                style={styles.itemBox}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: '#f3e8ff' }]}>
-                  {exam.logoUrl ? (
-                    <Image
-                      source={{ uri: exam.logoUrl }}
-                      style={styles.examIconImg}
-                      resizeMode="contain"
-                      fadeDuration={0}
-                    />
-                  ) : (
-                    <PlaySquare size={22} color="#7e22ce" />
-                  )}
-                </View>
-                <Text style={styles.itemName} numberOfLines={1}>
-                  {exam.name}
-                </Text>
-                <Text style={styles.itemSubText}>Free Demo Test</Text>
-              </TouchableOpacity>
-            ))}
-
-            {/* Enter Now Box */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => onNavigate && onNavigate('Quizzes', { type: 'Free' })}
-              style={styles.itemBox}
-            >
-              <View style={[styles.iconCircle, { backgroundColor: '#f5eeff' }]}>
-                <Sparkles size={22} color="#7e22ce" />
-              </View>
-              <Text style={styles.itemName}>Enter Now</Text>
-              <Text style={styles.itemSubText}>All Free Tests</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ==================================================== */}
-        {/* 2. PREMIUM TEST (Soft Mint Green Full-Width Card)    */}
+        {/* 1. PREMIUM TEST (Soft Mint Green Full-Width Card)    */}
         {/* ==================================================== */}
         <View style={[styles.card, styles.greenCard]}>
           {/* Top-Right Crown Icon */}
@@ -215,14 +126,13 @@ export const StudyMaterial = ({ onNavigate }) => {
 
           {/* 2x2 Grid of Premium Tests */}
           <View style={styles.itemsGrid}>
-            {paidExams.slice(0, 4).map((exam, idx) => (
+            {premiumExams.slice(0, 4).map((exam, idx) => (
               <TouchableOpacity
                 key={exam.id || idx}
                 activeOpacity={0.8}
                 onPress={() =>
                   onNavigate &&
                   onNavigate('Quizzes', {
-                    type: 'Paid',
                     examId: exam.id,
                     examTitle: exam.name,
                   })

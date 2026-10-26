@@ -18,6 +18,8 @@ export const createQuiz = async (req, res, next) => {
       totalMarks,
       price,
       quizType,
+      testType,
+      subCategory,
     } = req.body;
 
     const file = req.file;
@@ -89,6 +91,8 @@ export const createQuiz = async (req, res, next) => {
       price: numericPrice,
       quizType: computedQuizType,
       isFreeDemo: booleanFreeDemo,
+      testType: testType || "Mock Tests",
+      subCategory: subCategory ? subCategory.trim() : "Full Test (Prelims)",
       logoUrl: finalLogoUrl,
       logoId: finalLogoId,
     });
@@ -108,10 +112,18 @@ export const createQuiz = async (req, res, next) => {
 // Get all quizzes
 export const getQuizzes = async (req, res, next) => {
   try {
-    const { quizType, examId } = req.query;
+    const { quizType, examId, testType, subCategory } = req.query;
     
     // Create a filter object. Default is empty (fetch all).
     const filter = {};
+
+    if (testType) {
+      filter.testType = testType;
+    }
+
+    if (subCategory) {
+      filter.subCategory = subCategory;
+    }
 
     if (examId) {
       // Find the exam to support legacy quizzes that only had nameOfExam
