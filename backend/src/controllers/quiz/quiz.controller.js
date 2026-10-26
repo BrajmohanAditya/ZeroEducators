@@ -272,7 +272,7 @@ export const deleteQuiz = async (req, res, next) => {
         message: "Quiz not found",
       });
     }
-    if (deletedQuiz.logoId) {
+    if (deletedQuiz.logoId && !deletedQuiz.logoId.startsWith("exams/")) {
       try {
         await deleteFromB2(deletedQuiz.logoId);
       } catch (e) {

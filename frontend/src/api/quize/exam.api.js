@@ -70,3 +70,55 @@ export const getMyPurchasedExamsApi = async () => {
   }
 };
 
+export const searchUsersForExamEnrollmentApi = async (query, examId) => {
+  const url = `${baseUrl}/exam/admin/users/search?query=${encodeURIComponent(query || "")}${
+    examId ? `&examId=${examId}` : ""
+  }`;
+  const res = await axios.get(url, { withCredentials: true });
+  return res.data;
+};
+
+export const grantExamAccessApi = async (payload) => {
+  const res = await axios.post(`${baseUrl}/exam/admin/grant-access`, payload, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const revokeExamAccessApi = async (payload) => {
+  const res = await axios.post(`${baseUrl}/exam/admin/revoke-access`, payload, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const getExamEnrolledStudentsApi = async (examId) => {
+  const res = await axios.get(`${baseUrl}/exam/admin/${examId}/enrolled-students`, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const updateExamStudentExpiryApi = async (payload) => {
+  const res = await axios.put(`${baseUrl}/exam/admin/update-student-expiry`, payload, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const getExamLinkedCoursesApi = async (examId) => {
+  const res = await axios.get(`${baseUrl}/exam/admin/${examId}/linked-courses`, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+export const updateExamLinkedCoursesApi = async (payload) => {
+  const res = await axios.put(`${baseUrl}/exam/admin/link-courses`, payload, {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+
+

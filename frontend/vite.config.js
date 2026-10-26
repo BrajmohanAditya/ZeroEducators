@@ -7,6 +7,13 @@ export default defineConfig({
   server: {
     host: true, // Listen on all network addresses (0.0.0.0) so mobile can access
     port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   plugins: [react(), tailwindcss()],
   resolve: {

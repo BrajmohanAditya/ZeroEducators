@@ -44,7 +44,7 @@ export const useDeleteQuizHook = () => {
     onSuccess: (data) => {
       toast.success(data?.message || "Quiz deleted successfully");
       // This immediately refreshes the table so the deleted quiz disappears!
-      queryClient.invalidateQueries(["getQuizzes"]);
+      queryClient.invalidateQueries({ queryKey: ["getQuizzes"] });
     },
     onError: (err) => {
       const errorMessage =
@@ -71,7 +71,7 @@ export const useToggleQuizLockHook = () => {
     mutationFn: toggleQuizLockApi,
     onSuccess: (data) => {
       toast.success(data?.message || "Quiz status updated");
-      queryClient.invalidateQueries(["getQuizzes"]); // Table refresh karega
+      queryClient.invalidateQueries({ queryKey: ["getQuizzes"] }); // Table refresh karega
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to update status");
@@ -85,7 +85,7 @@ export const useToggleQuizTypeHook = () => {
     mutationFn: toggleQuizTypeApi,
     onSuccess: (data) => {
       toast.success(data?.message || "Quiz type changed successfully");
-      queryClient.invalidateQueries(["getQuizzes"]); // Table refresh karega
+      queryClient.invalidateQueries({ queryKey: ["getQuizzes"] }); // Table refresh karega
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to change quiz type");
@@ -99,7 +99,7 @@ export const useUpdateQuizHook = () => {
     mutationFn: updateQuizApi,
     onSuccess: (data) => {
       toast.success(data?.message || "Quiz updated successfully");
-      queryClient.invalidateQueries(["getQuizzes"]); // Table refresh karega
+      queryClient.invalidateQueries({ queryKey: ["getQuizzes"] }); // Table refresh karega
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to update quiz");
@@ -113,7 +113,7 @@ export const useUpdateQuizPriceHook = () => {
     mutationFn: updateQuizPriceApi,
     onSuccess: (data) => {
       toast.success(data?.message || "Quiz price updated successfully");
-      queryClient.invalidateQueries(["getQuizzes"]);
+      queryClient.invalidateQueries({ queryKey: ["getQuizzes"] });
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to update quiz price");

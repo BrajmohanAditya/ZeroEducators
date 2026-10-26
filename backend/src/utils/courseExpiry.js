@@ -32,7 +32,18 @@ export const calculatePlanExpiry = (planDuration, purchaseDate = new Date()) => 
   // Check for "Valid till <date>" or "Valid until <date>"
   const validTillMatch = clean.match(/valid\s*(?:till|until)\s*[:\-]?\s*(.+)/i);
   if (validTillMatch && validTillMatch[1]) {
-    const parsedTarget = new Date(validTillMatch[1].trim());
+    const rawDateStr = validTillMatch[1].trim();
+    let parsedTarget = new Date(rawDateStr);
+    if (isNaN(parsedTarget.getTime())) {
+      const parts = rawDateStr.split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          parsedTarget = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else {
+          parsedTarget = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        }
+      }
+    }
     if (!isNaN(parsedTarget.getTime())) {
       // Set to end of that day (23:59:59)
       parsedTarget.setHours(23, 59, 59, 999);
@@ -104,89 +115,157 @@ export const syncUserCourseExpiry = async (userId, cachedUser = null) => {
     }
 
     const purchasedList = user.purchasedCourse || [];
-    if (purchasedList.length === 0) {
+    const purchasedExamsList = user.purchasedExams || [];
+
+    if (purchasedList.length === 0 && purchasedExamsList.length === 0) {
       return user;
     }
 
-    // Find all successful orders for this user
-    const orders = await Order.find({
-      user: userId,
-      paymentGateway: { $ne: "failed" },
-    })
-      .select("course expiresAt planDuration createdAt")
-      .sort({ createdAt: -1 })
-      .lean();
-
     const now = new Date();
     const coursesToRemove = [];
+    const examsToRemove = [];
 
-    for (const courseRef of purchasedList) {
-      const courseIdStr = courseRef?._id
-        ? courseRef._id.toString()
-        : courseRef.toString();
+    // 1. Check Course Expiry
+    if (purchasedList.length > 0) {
+      const courseOrders = await Order.find({
+        user: userId,
+        course: { $exists: true },
+        paymentGateway: { $ne: "failed" },
+      })
+        .select("course expiresAt planDuration createdAt")
+        .sort({ createdAt: -1 })
+        .lean();
 
-      // Find all orders associated with this specific course
-      const courseOrders = orders.filter((o) => {
-        if (!o.course) return false;
-        return o.course.toString() === courseIdStr;
-      });
+      for (const courseRef of purchasedList) {
+        const courseIdStr = courseRef?._id
+          ? courseRef._id.toString()
+          : courseRef.toString();
 
-      // If no order exists at all (e.g. legacy direct database insert without order), retain access
-      if (courseOrders.length === 0) {
-        continue;
-      }
+        const matchingOrders = courseOrders.filter((o) => {
+          if (!o.course) return false;
+          return o.course.toString() === courseIdStr;
+        });
 
-      // Check if user has ANY active order for this course
-      let hasActiveAccess = false;
-
-      for (const ord of courseOrders) {
-        // If order already has expiresAt, use it; otherwise compute from planDuration
-        let expiry = ord.expiresAt;
-        if (!expiry && ord.planDuration) {
-          expiry = calculatePlanExpiry(ord.planDuration, ord.createdAt);
+        if (matchingOrders.length === 0) {
+          continue;
         }
 
-        // If expiry is null -> Lifetime access!
-        if (expiry === null) {
-          hasActiveAccess = true;
-          break;
+        let hasActiveAccess = false;
+        for (const ord of matchingOrders) {
+          let expiry = ord.expiresAt;
+          if (!expiry && ord.planDuration) {
+            expiry = calculatePlanExpiry(ord.planDuration, ord.createdAt);
+          }
+
+          if (expiry === null) {
+            hasActiveAccess = true;
+            break;
+          }
+
+          if (new Date(expiry) > now) {
+            hasActiveAccess = true;
+            break;
+          }
         }
 
-        // If expiry date is still in the future -> Active access!
-        if (new Date(expiry) > now) {
-          hasActiveAccess = true;
-          break;
+        if (!hasActiveAccess) {
+          coursesToRemove.push(courseIdStr);
         }
-      }
-
-      // If every order for this course has expired, mark for removal
-      if (!hasActiveAccess) {
-        coursesToRemove.push(courseIdStr);
       }
     }
 
-    // If any courses expired, pull them from user's purchasedCourse array in DB
-    if (coursesToRemove.length > 0) {
-      console.log(
-        `[Auto-Expiry] User ${user.email} has ${coursesToRemove.length} expired course(s):`,
-        coursesToRemove
-      );
+    // 2. Check Exam Expiry
+    if (purchasedExamsList.length > 0) {
+      const examOrders = await Order.find({
+        user: userId,
+        exam: { $exists: true },
+        paymentGateway: { $ne: "failed" },
+      })
+        .select("exam expiresAt planDuration createdAt")
+        .sort({ createdAt: -1 })
+        .lean();
 
-      const objectIdsToRemove = coursesToRemove
-        .map((id) => {
-          try {
-            return new mongoose.Types.ObjectId(id);
-          } catch {
-            return null;
+      for (const examRef of purchasedExamsList) {
+        const examIdStr = examRef?._id
+          ? examRef._id.toString()
+          : examRef.toString();
+
+        const matchingOrders = examOrders.filter((o) => {
+          if (!o.exam) return false;
+          return o.exam.toString() === examIdStr;
+        });
+
+        if (matchingOrders.length === 0) {
+          continue;
+        }
+
+        let hasActiveAccess = false;
+        for (const ord of matchingOrders) {
+          let expiry = ord.expiresAt;
+          if (!expiry && ord.planDuration) {
+            expiry = calculatePlanExpiry(ord.planDuration, ord.createdAt);
           }
-        })
-        .filter(Boolean);
+
+          if (expiry === null) {
+            hasActiveAccess = true;
+            break;
+          }
+
+          if (new Date(expiry) > now) {
+            hasActiveAccess = true;
+            break;
+          }
+        }
+
+        if (!hasActiveAccess) {
+          examsToRemove.push(examIdStr);
+        }
+      }
+    }
+
+    // 3. Apply updates if any courses or exams expired
+    if (coursesToRemove.length > 0 || examsToRemove.length > 0) {
+      const updateOps = {};
+
+      if (coursesToRemove.length > 0) {
+        console.log(
+          `[Auto-Expiry] User ${user.email} has ${coursesToRemove.length} expired course(s):`,
+          coursesToRemove
+        );
+        const objectIds = coursesToRemove
+          .map((id) => {
+            try {
+              return new mongoose.Types.ObjectId(id);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+
+        updateOps.purchasedCourse = { $in: [...coursesToRemove, ...objectIds] };
+      }
+
+      if (examsToRemove.length > 0) {
+        console.log(
+          `[Auto-Expiry] User ${user.email} has ${examsToRemove.length} expired exam(s):`,
+          examsToRemove
+        );
+        const objectIds = examsToRemove
+          .map((id) => {
+            try {
+              return new mongoose.Types.ObjectId(id);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+
+        updateOps.purchasedExams = { $in: [...examsToRemove, ...objectIds] };
+      }
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        {
-          $pull: { purchasedCourse: { $in: [...coursesToRemove, ...objectIdsToRemove] } },
-        },
+        { $pull: updateOps },
         { returnDocument: "after" }
       );
 

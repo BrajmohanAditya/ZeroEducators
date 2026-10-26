@@ -158,12 +158,12 @@ export const getUser = async (req, res, next) => {
       });
     }
 
-    // Only run auto-expiry sync if non-admin/non-tester actually has enrolled courses
+    // Only run auto-expiry sync if non-admin/non-tester actually has enrolled courses or exams
     if (
       user.role !== "admin" &&
       !isTesterEmail(user.email) &&
-      user.purchasedCourse &&
-      user.purchasedCourse.length > 0
+      ((user.purchasedCourse && user.purchasedCourse.length > 0) ||
+        (user.purchasedExams && user.purchasedExams.length > 0))
     ) {
       const updatedUser = await syncUserCourseExpiry(userId, user);
       if (updatedUser) {

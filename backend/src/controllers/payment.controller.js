@@ -374,17 +374,27 @@ export const createExamCheckOutSession = async (req, res, next) => {
     const userId = req.user._id;
     const user = await User.findById(userId);
 
-    // Check if already purchased
+    // Check if already purchased directly
     const alreadyPurchased = user?.purchasedExams?.some(
       (id) => id.toString() === examId.toString()
     );
 
-    if (alreadyPurchased) {
+    // Check if user has access via a linked course
+    const userPurchasedCourseIds = (user?.purchasedCourse || []).map((c) =>
+      typeof c === "object" && c?._id ? c._id.toString() : c.toString()
+    );
+    const hasLinkedCourseAccess = (exam.linkedCourses || []).some((lc) =>
+      userPurchasedCourseIds.includes(lc.toString())
+    );
+
+    if (alreadyPurchased || hasLinkedCourseAccess) {
       return res.status(200).json({
         success: true,
         alreadyPurchased: true,
         examId,
-        message: "You have already unlocked this exam package!",
+        message: hasLinkedCourseAccess
+          ? "You already have full access to this exam package via your enrolled video course!"
+          : "You have already unlocked this exam package!",
       });
     }
 

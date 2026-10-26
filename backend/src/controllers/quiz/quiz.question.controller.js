@@ -101,11 +101,18 @@ export const getQuizQuestions = async (req, res, next) => {
           const decoded = jwt.verify(token, ENV.JWT_SECRET);
           const user = await User.findById(decoded.userId);
           const isAdmin = user?.role === "admin" || user?.role === "Instructor";
+          const userPurchasedCourseIds = (user?.purchasedCourse || []).map((c) =>
+            typeof c === "object" && c?._id ? c._id.toString() : c.toString()
+          );
+          const hasLinkedCourseAccess = (exam.linkedCourses || []).some((lc) =>
+            userPurchasedCourseIds.includes(lc.toString())
+          );
           const hasPurchased =
             isAdmin ||
             user?.purchasedExams?.some(
               (id) => id.toString() === exam._id.toString()
-            );
+            ) ||
+            hasLinkedCourseAccess;
 
           if (!hasPurchased) {
             return res.status(403).json({

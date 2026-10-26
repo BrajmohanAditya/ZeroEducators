@@ -12,11 +12,14 @@ import {
   Lock,
   Unlock,
   FolderKanban,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import CreateExamDialog from "../../components/Admin/quiz/create.exam";
 import ExamQuizzesDialog from "../../components/Admin/quiz/exam.quizzes.dialog";
 import CreateQuiz from "../../components/Admin/quiz";
+import GrantExamAccessDialog from "../../components/Admin/quiz/GrantExamAccessDialog";
 import DeleteAlertbox from "../../components/ui/DeleteAlertbox";
 import {
   useGetExamsHook,
@@ -36,6 +39,7 @@ const QuizManagement = () => {
   const [examToDelete, setExamToDelete] = useState(null);
   const [selectedExamForQuizzes, setSelectedExamForQuizzes] = useState(null);
   const [examForDirectAddQuiz, setExamForDirectAddQuiz] = useState(null);
+  const [grantExamDialog, setGrantExamDialog] = useState(null);
 
   const handleDeleteExam = (exam) => {
     setExamToDelete(exam);
@@ -112,12 +116,13 @@ const QuizManagement = () => {
             <table className="w-full min-w-[750px] text-sm text-left relative">
               <thead className="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0 z-20 shadow-sm">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Exam Title & Logo</th>
+                  <th className="px-6 py-4 font-semibold">Title & Logo</th>
                   <th className="px-6 py-4 font-semibold">Category</th>
-                  <th className="px-6 py-4 font-semibold">Mock Tests / Quizzes</th>
+                  <th className="px-6 py-4 font-semibold">Mock</th>
                   <th className="px-6 py-4 font-semibold">Price</th>
+                  <th className="px-6 py-4 font-semibold">Students</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold">Created Date</th>
+                  <th className="px-6 py-4 font-semibold">Created</th>
                   <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
@@ -183,6 +188,42 @@ const QuizManagement = () => {
                       </span>
                     </td>
 
+                    {/* Enrolled Students & Linked Courses */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <button
+                          type="button"
+                          onClick={() => setGrantExamDialog({ exam, tab: "students" })}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 transition cursor-pointer"
+                          title="View Enrolled Students"
+                        >
+                          <Users className="w-3.5 h-3.5 text-emerald-600" />
+                          {exam.enrolled || 0} Students
+                        </button>
+
+                        {exam.linkedCourses && exam.linkedCourses.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setGrantExamDialog({ exam, tab: "courses" })}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition cursor-pointer"
+                            title="Linked to Video Courses (Automated Free Access)"
+                          >
+                            <BookOpen className="w-3 h-3 text-purple-600" />
+                            {exam.linkedCourses.length} {exam.linkedCourses.length === 1 ? "Course" : "Courses"} Linked
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setGrantExamDialog({ exam, tab: "courses" })}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-purple-600 hover:underline transition cursor-pointer"
+                            title="Link a video course to give students free access"
+                          >
+                            + Link Course
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
                     {/* Status */}
                     <td className="px-6 py-4">
                       <button
@@ -225,6 +266,16 @@ const QuizManagement = () => {
                         >
                           <Layers className="w-3.5 h-3.5" />
                           Manage Quizzes
+                        </button>
+
+                        {/* Grant Exam Access to Students */}
+                        <button
+                          onClick={() => setGrantExamDialog({ exam, tab: "grant" })}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer shadow-xs"
+                          title="Grant access to a student"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Grant
                         </button>
 
                         {/* Add Quiz directly under this Exam */}
@@ -292,6 +343,17 @@ const QuizManagement = () => {
             refetch();
           }}
           exam={examForDirectAddQuiz}
+        />
+      )}
+
+      {/* Grant Exam Access Dialog */}
+      {grantExamDialog && (
+        <GrantExamAccessDialog
+          isOpen={Boolean(grantExamDialog)}
+          onClose={() => setGrantExamDialog(null)}
+          exam={grantExamDialog.exam}
+          allExams={exams}
+          initialTab={grantExamDialog.tab || "grant"}
         />
       )}
 

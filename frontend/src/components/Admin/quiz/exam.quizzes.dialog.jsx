@@ -267,6 +267,19 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
               </div>
             )}
           </div>
+
+          {/* Delete Quiz Alert */}
+          <DeleteAlertbox
+            isOpen={!!quizToDelete}
+            itemName={quizToDelete?.quizName}
+            isDeleting={isDeleting}
+            onCancel={() => setQuizToDelete(null)}
+            onConfirm={() => {
+              deleteQuiz(quizToDelete?._id, {
+                onSuccess: () => setQuizToDelete(null),
+              });
+            }}
+          />
         </DialogContent>
       </Dialog>
 
@@ -318,19 +331,6 @@ const ExamQuizzesDialog = ({ isOpen, onClose, exam }) => {
           quiz={selectedQuizForManageQ}
         />
       )}
-
-      {/* Delete Quiz Alert */}
-      <DeleteAlertbox
-        isOpen={!!quizToDelete}
-        itemName={quizToDelete?.quizName}
-        isDeleting={isDeleting}
-        onCancel={() => setQuizToDelete(null)}
-        onConfirm={() => {
-          deleteQuiz(quizToDelete?._id, {
-            onSuccess: () => setQuizToDelete(null),
-          });
-        }}
-      />
     </>
   );
 };

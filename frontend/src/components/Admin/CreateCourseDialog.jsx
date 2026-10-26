@@ -8,16 +8,59 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useCreateCourseHook, useEditCourseHook } from "../../hooks/course.hook";
-import { Loader2, UploadCloud, Gift, CreditCard, Sparkles, Video, FileText, Plus, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  UploadCloud,
+  Gift,
+  CreditCard,
+  Sparkles,
+  Video,
+  FileText,
+  Plus,
+  Trash2,
+  Calendar,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
+
+// Helpers for calendar date selection & formatting
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
+const getDefaultTargetDate = (monthsFromNow = 6) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + monthsFromNow);
+  return d.toISOString().split("T")[0];
+};
+
+const formatDateToValidTill = (dateStr) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  return `Valid till ${d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })}`;
+};
+
+const extractDateFromDuration = (durationStr) => {
+  if (!durationStr) return "";
+  const match = durationStr.match(/valid\s*(?:till|until)\s*[:\-]?\s*(.+)/i);
+  const toParse = match ? match[1].trim() : durationStr.trim();
+  const d = new Date(toParse);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 2020) {
+    return d.toISOString().split("T")[0];
+  }
+  return "";
+};
 
 const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFreeMode, setIsFreeMode] = useState(false);
   const [courseType, setCourseType] = useState("video");
-  const [pricingPlans, setPricingPlans] = useState([
-    { duration: "6 Months", price: "999", label: "" },
+  const [pricingPlans, setPricingPlans] = useState(() => [
+    { duration: formatDateToValidTill(getDefaultTargetDate(6)), price: "999", label: "" },
   ]);
 
   const { register, handleSubmit, reset: resetForm, watch, setValue } = useForm({
@@ -59,7 +102,13 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
           },
         ]);
       } else {
-        setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
+        setPricingPlans([
+          {
+            duration: formatDateToValidTill(getDefaultTargetDate(6)),
+            price: "999",
+            label: "",
+          },
+        ]);
       }
 
       resetForm({
@@ -71,7 +120,13 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     } else {
       setIsFreeMode(false);
       setCourseType("video");
-      setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
+      setPricingPlans([
+        {
+          duration: formatDateToValidTill(getDefaultTargetDate(6)),
+          price: "999",
+          label: "",
+        },
+      ]);
     }
   }, [editingCourse, resetForm]);
 
@@ -80,7 +135,13 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     if (!open) {
       resetForm({});
       setIsFreeMode(false);
-      setPricingPlans([{ duration: "6 Months", price: "999", label: "" }]);
+      setPricingPlans([
+        {
+          duration: formatDateToValidTill(getDefaultTargetDate(6)),
+          price: "999",
+          label: "",
+        },
+      ]);
       if (onCloseEdit) onCloseEdit();
     }
   };
@@ -90,7 +151,14 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
   };
 
   const addPricingPlan = () => {
-    setPricingPlans((prev) => [...prev, { duration: "", price: "", label: "" }]);
+    setPricingPlans((prev) => [
+      ...prev,
+      {
+        duration: formatDateToValidTill(getDefaultTargetDate(6)),
+        price: "",
+        label: "",
+      },
+    ]);
   };
 
   const removePricingPlan = (index) => {
@@ -322,67 +390,91 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
                 </button>
               </div>
 
-              <div className="space-y-2 pt-1">
-                {pricingPlans.map((plan, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-black">
-                          {idx + 1}
+              <div className="space-y-3 pt-1">
+                {pricingPlans.map((plan, idx) => {
+                  const extractedDate = extractDateFromDuration(plan.duration);
+                  const selectedDateVal = extractedDate || getDefaultTargetDate(6);
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl shadow-2xs space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-black">
+                            {idx + 1}
+                          </span>
+                          <span>Plan Option {idx + 1}</span>
+                          {plan.duration && (
+                            <span className="text-[11px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200 shadow-2xs">
+                              {plan.duration}
+                            </span>
+                          )}
                         </span>
-                        <span>Plan Option {idx + 1}</span>
-                      </span>
-                      {pricingPlans.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removePricingPlan(idx)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition cursor-pointer"
-                          title="Delete Plan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                          Validity / Duration *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={plan.duration}
-                          onChange={(e) =>
-                            updatePricingPlan(idx, "duration", e.target.value)
-                          }
-                          placeholder="e.g. 6 Months, 1 Year"
-                          className="w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        {pricingPlans.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePricingPlan(idx)}
+                            className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition cursor-pointer"
+                            title="Delete Plan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                          Price (₹) *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          required
-                          value={plan.price}
-                          onChange={(e) =>
-                            updatePricingPlan(idx, "price", e.target.value)
-                          }
-                          placeholder="e.g. 999"
-                          className="w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3 rounded-lg border border-slate-200">
+                        {/* Validity Calendar Picker */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                              Select Expiry Date *
+                            </span>
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            min={getTodayDateString()}
+                            value={selectedDateVal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                updatePricingPlan(idx, "duration", formatDateToValidTill(val));
+                              }
+                            }}
+                            className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                            <span className="font-semibold text-blue-700">Display:</span> {plan.duration || formatDateToValidTill(selectedDateVal)}
+                          </p>
+                        </div>
+
+                        {/* Price */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Price (₹) *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            required
+                            value={plan.price}
+                            onChange={(e) =>
+                              updatePricingPlan(idx, "price", e.target.value)
+                            }
+                            placeholder="e.g. 999"
+                            className="w-full p-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            Student will pay ₹{plan.price || 0} for this plan.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
