@@ -18,7 +18,7 @@ import QuizList from './src/pages/User/quize/QuizList';
 import QuizInterface from './src/pages/User/quize/QuizInterface';
 import QuizResult from './src/pages/User/quize/QuizResult';
 import FocusTimer from './src/pages/User/FocusTime/FocusTimer';
-import { fetchLiveCourses, refreshUserProfileApi } from './src/config/api';
+import { fetchLiveCourses, refreshUserProfileApi, fetchMyPurchasedExamsApi } from './src/config/api';
 import { getUserSession, clearUserSession } from './src/utils/storage';
 
 export function App() {
@@ -28,6 +28,7 @@ export function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userToken, setUserToken] = useState(null);
   const [liveCourses, setLiveCourses] = useState([]);
+  const [myPurchasedExams, setMyPurchasedExams] = useState([]);
 
   // Hardware Back button & navigation history
   const exitToastRef = useRef(null);
@@ -198,6 +199,9 @@ export function App() {
         refreshUserProfileApi().then((fresh) => {
           if (fresh) setCurrentUser(fresh);
         });
+        fetchMyPurchasedExamsApi(userToken).then((exams) => {
+          if (exams) setMyPurchasedExams(exams);
+        });
         navigate('MyCourses');
       } else {
         navigate('Login');
@@ -240,6 +244,7 @@ export function App() {
           course={screenParams?.course}
           user={currentUser}
           onBack={goBack}
+          onNavigate={navigate}
         />
       </SafeAreaProvider>
     );
@@ -393,8 +398,17 @@ export function App() {
         {currentScreen === 'MyCourses' && (
           <YourAllPurchasedCourse
             purchasedCourses={myPurchasedCourses}
+            purchasedExams={myPurchasedExams}
             onOpenCourse={(course) => navigate('CoursePlayer', { course })}
+            onOpenExam={(exam) =>
+              navigate('Quizzes', {
+                type: 'Paid',
+                examId: exam._id || exam.id,
+                examTitle: exam.title || exam.name,
+              })
+            }
             onExploreCourses={() => navigate('Home')}
+            onExploreExams={() => navigate('StudyMaterial')}
           />
         )}
 

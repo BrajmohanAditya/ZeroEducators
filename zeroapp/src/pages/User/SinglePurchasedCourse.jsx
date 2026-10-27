@@ -24,6 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  ArrowRight,
+  GraduationCap,
   ThumbsUp,
   MessageSquare,
   Send,
@@ -40,7 +42,7 @@ import { getUserSession, saveUserSession } from '../../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-export const SinglePurchasedCourse = ({ course, user, onBack }) => {
+export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
   const insets = useSafeAreaInsets();
   const [courseData, setCourseData] = useState(course || {});
   const [activeLecture, setActiveLecture] = useState(null);
@@ -474,6 +476,79 @@ export const SinglePurchasedCourse = ({ course, user, onBack }) => {
             )}
           </View>
         </View>
+        ) : null}
+
+        {/* ── Included Mock Tests Card ── */}
+        {courseData?.linkedExams && courseData.linkedExams.length > 0 ? (
+          <View style={styles.includedMocksCard}>
+            <View style={styles.includedMocksHeader}>
+              <View style={styles.includedMocksTitleRow}>
+                <View style={styles.mockIconBox}>
+                  <GraduationCap size={15} color="#ffffff" />
+                </View>
+                <View>
+                  <Text style={styles.includedMocksTitle}>INCLUDED MOCK TESTS</Text>
+                  <Text style={styles.includedMocksSubtitle}>
+                    Full access unlocked with this course
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.mockCountPill}>
+                <Text style={styles.mockCountPillText}>
+                  {courseData.linkedExams.length} Series
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.includedMocksList}>
+              {courseData.linkedExams.map((exam) => (
+                <TouchableOpacity
+                  key={exam._id}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    onNavigate &&
+                    onNavigate('Quizzes', {
+                      type: 'Paid',
+                      examId: exam._id,
+                      examTitle: exam.title,
+                    })
+                  }
+                  style={styles.mockItemCard}
+                >
+                  <View style={styles.mockItemLeft}>
+                    <View style={styles.mockItemLogoBox}>
+                      {exam.logoUrl ? (
+                        <Image
+                          source={{ uri: exam.logoUrl }}
+                          style={styles.mockItemLogo}
+                          resizeMode="contain"
+                          fadeDuration={0}
+                        />
+                      ) : (
+                        <GraduationCap size={20} color="#4f46e5" />
+                      )}
+                    </View>
+                    <View style={styles.mockItemDetails}>
+                      <Text style={styles.mockItemName} numberOfLines={1}>
+                        {exam.title}
+                      </Text>
+                      <Text style={styles.mockItemMeta}>
+                        {exam.totalQuizzes
+                          ? `${exam.totalQuizzes} Tests Available`
+                          : 'Full Test Series'}
+                        {exam.category ? ` • ${exam.category}` : ''}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.mockStartBtn}>
+                    <Text style={styles.mockStartBtnText}>Start</Text>
+                    <ArrowRight size={11} color="#ffffff" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         ) : null}
 
         {/* ── 3. Course Curriculum Section (Exact match with web screenshot) ── */}
@@ -1414,6 +1489,118 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 18,
+  },
+
+  // Included Mock Tests Card
+  includedMocksCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
+    padding: 14,
+    marginBottom: 20,
+    ...shadows.sm,
+  },
+  includedMocksHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  includedMocksTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mockIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#4f46e5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  includedMocksTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1e1b4b',
+    letterSpacing: 0.5,
+  },
+  includedMocksSubtitle: {
+    fontSize: 11,
+    color: '#4338ca',
+  },
+  mockCountPill: {
+    backgroundColor: '#e0e7ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  mockCountPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#3730a3',
+  },
+  includedMocksList: {
+    gap: 8,
+  },
+  mockItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 10,
+  },
+  mockItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  mockItemLogoBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 2,
+  },
+  mockItemLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  mockItemDetails: {
+    flex: 1,
+  },
+  mockItemName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  mockItemMeta: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  mockStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 3,
+  },
+  mockStartBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#ffffff',
   },
 });
 

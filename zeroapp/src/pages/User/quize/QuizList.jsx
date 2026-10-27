@@ -181,56 +181,6 @@ export const QuizList = ({
         })}
       </View>
 
-      {/* Exam Categories Filter Pills */}
-      {exams.length > 0 && (
-        <View style={styles.examsFilterWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.examsFilterScroll}
-          >
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedExamId('All')}
-              style={[
-                styles.examPill,
-                selectedExamId === 'All' && styles.examPillActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.examPillText,
-                  selectedExamId === 'All' && styles.examPillTextActive,
-                ]}
-              >
-                All Exams
-              </Text>
-            </TouchableOpacity>
-
-            {exams.map((exam) => {
-              const isSelected = selectedExamId === exam._id?.toString();
-              return (
-                <TouchableOpacity
-                  key={exam._id}
-                  activeOpacity={0.8}
-                  onPress={() => setSelectedExamId(exam._id?.toString())}
-                  style={[styles.examPill, isSelected && styles.examPillActive]}
-                >
-                  <Text
-                    style={[
-                      styles.examPillText,
-                      isSelected && styles.examPillTextActive,
-                    ]}
-                  >
-                    {exam.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
       {/* Quizzes List */}
       {isLoading ? (
         <View style={styles.loadingWrap}>

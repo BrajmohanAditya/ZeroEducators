@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   BookOpen,
   Film,
   Maximize2,

@@ -77,6 +77,27 @@ export const fetchLiveExams = async (params = {}) => {
   }
 };
 
+export const fetchMyPurchasedExamsApi = async (token) => {
+  try {
+    const session = await getUserSession();
+    const effectiveToken = token || session?.token;
+    if (!effectiveToken) return [];
+
+    const res = await fetch(`${BASE_URL}/exam/my-purchased-exams`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${effectiveToken}`,
+      },
+    });
+    const data = await res.json();
+    return data?.purchasedExams || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching my purchased exams:', err?.message || err);
+    return [];
+  }
+};
+
 export const fetchLiveQuizzes = async (quizType = '', examId = '') => {
   try {
     let url = `${BASE_URL}/quiz/getQuizzes`;
@@ -475,6 +496,7 @@ export default {
   fetchLiveCourses,
   fetchLiveHeroSection,
   fetchLiveExams,
+  fetchMyPurchasedExamsApi,
   fetchLiveQuizzes,
   fetchQuizById,
   fetchQuizQuestions,
