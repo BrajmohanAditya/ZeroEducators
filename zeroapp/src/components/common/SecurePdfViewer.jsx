@@ -47,6 +47,7 @@ export const SecurePdfViewer = ({
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1.0);
+  const [useFallbackViewer, setUseFallbackViewer] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -56,6 +57,7 @@ export const SecurePdfViewer = ({
       setZoomLevel(1.0);
       setTotalPages(0);
       setCurrentPage(1);
+      setUseFallbackViewer(false);
     }
   }, [visible, pdfUrl]);
 
@@ -147,10 +149,10 @@ export const SecurePdfViewer = ({
 
   <script>
     // Disable right-click & copy shortcuts
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('copy', e => e.preventDefault());
-    document.addEventListener('selectstart', e => e.preventDefault());
-    window.addEventListener('keydown', e => {
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('copy', function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+    window.addEventListener('keydown', function(e) {
       if ((e.ctrlKey || e.metaKey) && ['p', 's', 'c', 'u'].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
@@ -158,7 +160,14 @@ export const SecurePdfViewer = ({
 
     const pdfUrl = "${sanitizedUrl}";
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // Configure worker via Blob URL to bypass cross-origin worker restriction in WebView
+    try {
+      var workerScript = "importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');";
+      var blob = new Blob([workerScript], { type: 'application/javascript' });
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+    } catch (e) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
     function sendToNative(data) {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -170,10 +179,17 @@ export const SecurePdfViewer = ({
       const container = document.getElementById('pdf-container');
       const loadingBox = document.getElementById('loading-box');
 
+      if (typeof pdfjsLib === 'undefined') {
+        sendToNative({ type: 'ERROR', message: 'PDF engine could not be loaded.' });
+        return;
+      }
+
       try {
         const loadingTask = pdfjsLib.getDocument({
           url: pdfUrl,
           withCredentials: false,
+          cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+          cMapPacked: true,
         });
 
         loadingTask.onProgress = function(progressData) {
@@ -362,17 +378,33 @@ export const SecurePdfViewer = ({
               <Text style={styles.errorSubtitle}>
                 {errorMessage || 'Unable to stream or render this PDF note securely.'}
               </Text>
-              <TouchableOpacity
-                style={styles.retryBtn}
-                onPress={() => {
-                  setHasError(false);
-                  setLoading(true);
-                  if (webViewRef.current) webViewRef.current.reload();
-                }}
-              >
-                <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                <Text style={styles.retryBtnText}>Retry</Text>
-              </TouchableOpacity>
+              <View style={styles.errorButtonsRow}>
+                <TouchableOpacity
+                  style={styles.retryBtn}
+                  onPress={() => {
+                    setHasError(false);
+                    setLoading(true);
+                    if (webViewRef.current) webViewRef.current.reload();
+                  }}
+                >
+                  <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={styles.retryBtnText}>Retry</Text>
+                </TouchableOpacity>
+
+                {!useFallbackViewer && pdfUrl && (
+                  <TouchableOpacity
+                    style={styles.fallbackBtn}
+                    onPress={() => {
+                      setHasError(false);
+                      setLoading(true);
+                      setUseFallbackViewer(true);
+                    }}
+                  >
+                    <FileText size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                    <Text style={styles.fallbackBtnText}>Standard Viewer</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           ) : !WebView ? (
             <View style={styles.errorContainer}>
@@ -386,16 +418,28 @@ export const SecurePdfViewer = ({
           ) : (
             <WebView
               ref={webViewRef}
-              source={{ html: htmlContent, baseUrl: 'https://zeroeducators.com' }}
+              source={
+                useFallbackViewer
+                  ? { uri: `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(pdfUrl)}` }
+                  : { html: htmlContent, baseUrl: 'https://zeroeducators.com' }
+              }
               style={styles.webView}
               originWhitelist={['*']}
               javaScriptEnabled={true}
               domStorageEnabled={true}
+              allowFileAccess={true}
+              allowFileAccessFromFileURLs={true}
+              allowUniversalAccessFromFileURLs={true}
+              mixedContentMode="always"
+              cacheEnabled={true}
               onMessage={handleWebViewMessage}
+              onLoadEnd={() => {
+                if (useFallbackViewer) setLoading(false);
+              }}
               startInLoadingState={false}
               showsVerticalScrollIndicator={true}
               showsHorizontalScrollIndicator={false}
-              scalesPageToFit={false}
+              scalesPageToFit={true}
               bounces={false}
             />
           )}
@@ -547,15 +591,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     maxWidth: 280,
   },
+  errorButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#6366f1',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
   },
   retryBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fallbackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  fallbackBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',

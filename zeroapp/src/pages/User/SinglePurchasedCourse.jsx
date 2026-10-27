@@ -215,15 +215,27 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
   };
 
   // Open PDF notes securely through in-app secure viewer
-  const handleOpenPdf = (pdf) => {
-    const tokenQuery = userToken ? `?token=${encodeURIComponent(userToken)}` : '';
+  const handleOpenPdf = async (pdf) => {
+    let currentToken = userToken;
+    if (!currentToken) {
+      try {
+        const session = await getUserSession();
+        currentToken = session?.token;
+        if (currentToken) setUserToken(currentToken);
+      } catch (e) {
+        console.warn('Error reading session token:', e);
+      }
+    }
+    const tokenQuery = currentToken ? `?token=${encodeURIComponent(currentToken)}` : '';
     let url = null;
     const courseId = courseData?._id || course?._id;
 
-    if (courseId && pdf?._id && String(pdf._id).length === 24) {
+    if (courseId && pdf?._id && String(pdf._id).length === 24 && currentToken) {
       url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}${tokenQuery}`;
     } else if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string') {
       url = pdf.pdfUrl;
+    } else if (courseId && pdf?._id) {
+      url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}`;
     }
 
     if (url) {
