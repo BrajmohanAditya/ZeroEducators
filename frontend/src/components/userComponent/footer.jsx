@@ -818,12 +818,12 @@ const Footer = () => {
               Designed & Developed by{" "}
               <strong style={{ color: "#94a3b8" }}>IITNS</strong> | Contact:{" "}
               <a
-                href="https://wa.me/919119202035"
+                href="https://wa.me/918521859948"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "#94a3b8", textDecoration: "none" }}
               >
-                WhatsApp (+91 91192 02035)
+                WhatsApp (+91 8521859948)
               </a>
             </p>
           </div>

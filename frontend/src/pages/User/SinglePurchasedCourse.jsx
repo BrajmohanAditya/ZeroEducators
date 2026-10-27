@@ -13,6 +13,8 @@ import {
   Maximize2,
   Minimize2,
   Lock,
+  GraduationCap,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -471,8 +473,81 @@ const SinglePurchasedCourse = () => {
                   {totalPdfs} {totalPdfs === 1 ? "PDF" : "PDFs"}
                 </span>
               )}
+              {data?.linkedExams?.length > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full flex items-center gap-1">
+                  <GraduationCap className="w-3 h-3 text-indigo-600" />
+                  {data.linkedExams.length} {data.linkedExams.length === 1 ? "Mock Series" : "Mock Series"}
+                </span>
+              )}
             </div>
           </div>
+
+          {/* ── Included Mock Tests Section ── */}
+          {data?.linkedExams?.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-indigo-150 bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-white p-4 shadow-xs">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xs text-indigo-950 uppercase tracking-wide">
+                      Included Mock Tests
+                    </h3>
+                    <p className="text-[11px] text-indigo-700">
+                      Full access unlocked with this course
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-bold rounded-full">
+                  {data.linkedExams.length} Package{data.linkedExams.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {data.linkedExams.map((exam) => (
+                  <div
+                    key={exam._id}
+                    onClick={() => navigate(`/quizeDetail?examId=${exam._id}`)}
+                    className="group flex items-center justify-between p-3 rounded-xl bg-white border border-indigo-100 hover:border-indigo-300 hover:shadow-md transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                        {exam.logoUrl ? (
+                          <img
+                            src={exam.logoUrl}
+                            alt={exam.title}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <GraduationCap className="w-5 h-5 text-indigo-600" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-slate-900 group-hover:text-indigo-600 transition truncate">
+                          {exam.title}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {exam.totalQuizzes
+                            ? `${exam.totalQuizzes} Tests Available`
+                            : "All Tests Unlocked"}
+                          {exam.category ? ` • ${exam.category}` : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-xs transition cursor-pointer"
+                    >
+                      Start
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Subjects Hierarchy (Subject -> Chapter -> Content) */}
           {hasSubjects ? (

@@ -382,7 +382,13 @@ export const getMyPurchasedExams = async (req, res, next) => {
     );
 
     let linkedExams = [];
+    const courseMap = new Map();
     if (userCourseIds.length > 0) {
+      const userCourses = await Course.find({ _id: { $in: userCourseIds } })
+        .select("_id title")
+        .lean();
+      userCourses.forEach((c) => courseMap.set(c._id.toString(), c.title));
+
       linkedExams = await Exam.find({
         linkedCourses: { $in: userCourseIds },
       }).lean();
@@ -395,12 +401,39 @@ export const getMyPurchasedExams = async (req, res, next) => {
       const leIdStr = le._id.toString();
       linkedExamIds.push(leIdStr);
       if (!directExamIds.includes(leIdStr)) {
+        // Find which linked course granted access
+        const matchingCourseId = (le.linkedCourses || []).find((cId) =>
+          courseMap.has(cId.toString())
+        );
+        const linkedCourseTitle = matchingCourseId
+          ? courseMap.get(matchingCourseId.toString())
+          : null;
+
         mergedPurchasedExams.push({
           ...le,
           accessSource: "course_linked",
+          linkedCourseTitle,
         });
       }
     }
+
+    // Attach total quizzes count to each exam for rich card presentation
+    const allExamIds = mergedPurchasedExams.map((e) => e._id);
+    let quizCounts = {};
+    if (allExamIds.length > 0) {
+      const quizAgg = await Quiz.aggregate([
+        { $match: { examId: { $in: allExamIds } } },
+        { $group: { _id: "$examId", count: { $sum: 1 } } },
+      ]);
+      quizAgg.forEach((q) => {
+        quizCounts[q._id.toString()] = q.count;
+      });
+    }
+
+    const finalPurchasedExams = mergedPurchasedExams.map((e) => ({
+      ...e,
+      totalQuizzes: quizCounts[e._id.toString()] || 0,
+    }));
 
     const allPurchasedExamIds = Array.from(
       new Set([...directExamIds, ...linkedExamIds])
@@ -408,7 +441,7 @@ export const getMyPurchasedExams = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      purchasedExams: mergedPurchasedExams,
+      purchasedExams: finalPurchasedExams,
       purchasedExamIds: allPurchasedExamIds,
       isAdmin: user.role === "admin",
     });

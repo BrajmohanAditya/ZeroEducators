@@ -13,6 +13,7 @@ import {
   Loader2,
   LogIn,
   UserPlus,
+  GraduationCap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -59,6 +60,11 @@ const Navbar = () => {
         label: "Your Courses",
         icon: BookOpen,
         onClick: () => navigate("/yourAllPurchasedCourse"),
+      },
+      {
+        label: "Mock Test Series",
+        icon: GraduationCap,
+        onClick: () => navigate("/quizeDetail"),
       },
       {
         label: "Logout",

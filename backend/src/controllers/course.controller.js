@@ -19,6 +19,8 @@ import { Modules } from "../models/module.model.js";
 import { VideoComment } from "../models/videoComment.model.js";
 import { VideoLike } from "../models/videoLike.model.js";
 import { VideoRating } from "../models/videoRating.model.js";
+import { Exam } from "../models/quiz/exam.model.js";
+import { Quiz } from "../models/quiz/quiz.model.js";
 import bcryptjs from "bcryptjs";
 import fs from "fs";
 import { moduleUploadProgressMap } from "./module.controller.js";
@@ -340,7 +342,34 @@ export const getSinglePurchasedCourse = async (req, res) => {
       });
     }
 
-    return res.status(200).json(purchasedOrder);
+        // Fetch linked exams/mocks for this course
+    const linkedExams = await Exam.find({
+      linkedCourses: courseId,
+    })
+      .select("title description logoUrl category price isLocked")
+      .lean();
+
+    const examIds = linkedExams.map((e) => e._id);
+    let quizCounts = {};
+    if (examIds.length > 0) {
+      const quizAgg = await Quiz.aggregate([
+        { $match: { examId: { $in: examIds } } },
+        { $group: { _id: "$examId", count: { $sum: 1 } } },
+      ]);
+      quizAgg.forEach((q) => {
+        quizCounts[q._id.toString()] = q.count;
+      });
+    }
+
+    const linkedExamsWithStats = linkedExams.map((e) => ({
+      ...e,
+      totalQuizzes: quizCounts[e._id.toString()] || 0,
+    }));
+
+    const responseData = purchasedOrder.toObject ? purchasedOrder.toObject() : { ...purchasedOrder };
+    responseData.linkedExams = linkedExamsWithStats;
+
+    return res.status(200).json(responseData);
   } catch (error) {
     console.error("Error in getSinglePurchasedCourse:", error);
     return res.status(500).json({ message: "Failed to fetch course details" });
@@ -375,6 +404,51 @@ export const getAllPurchasedCourse = async (req, res) => {
         .lean();
       userObj.purchasedCourse = allCourses;
     }
+
+        // Dynamic course-linked exams & direct purchased exams for this user
+    const userCourseIds = (user.purchasedCourse || []).map((c) => (c._id ? c._id : c));
+    let linkedExams = [];
+    if (userCourseIds.length > 0) {
+      linkedExams = await Exam.find({
+        linkedCourses: { $in: userCourseIds },
+      }).lean();
+    }
+
+    let directExams = [];
+    if (user.purchasedExams && user.purchasedExams.length > 0) {
+      directExams = await Exam.find({
+        _id: { $in: user.purchasedExams },
+      }).lean();
+    }
+
+    const allExamIds = [...directExams.map(e => e._id), ...linkedExams.map(e => e._id)];
+    let quizCounts = {};
+    if (allExamIds.length > 0) {
+      const quizAgg = await Quiz.aggregate([
+        { $match: { examId: { $in: allExamIds } } },
+        { $group: { _id: "$examId", count: { $sum: 1 } } },
+      ]);
+      quizAgg.forEach((q) => {
+        quizCounts[q._id.toString()] = q.count;
+      });
+    }
+
+    const mergedExams = directExams.map(e => ({
+      ...e,
+      totalQuizzes: quizCounts[e._id.toString()] || 0
+    }));
+    const directIds = new Set(directExams.map((e) => e._id.toString()));
+    for (const le of linkedExams) {
+      if (!directIds.has(le._id.toString())) {
+        mergedExams.push({
+          ...le,
+          accessSource: "course_linked",
+          totalQuizzes: quizCounts[le._id.toString()] || 0
+        });
+      }
+    }
+
+    userObj.purchasedExams = mergedExams;
 
     return res.status(201).json(userObj);
   } catch (error) {

@@ -193,40 +193,7 @@ const QuizeDetail = () => {
     <PageLoader isLoading={loading} isError={isError}>
       <div className="p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-80px)] bg-[#f8fafc] flex-1">
         <div className="max-w-5xl mx-auto space-y-5">
-          {/* 1. Exam Horizontal Tabs */}
-          {exams.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
-              {exams.map((exam) => {
-                const isSelected = String(exam._id) === String(currentExamId);
-                return (
-                  <button
-                    key={exam._id}
-                    onClick={() => handleSelectExam(exam._id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer border ${
-                      isSelected
-                        ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    {exam.logoUrl ? (
-                      <img
-                        src={exam.logoUrl}
-                        alt={exam.title}
-                        className="w-4 h-4 object-contain rounded-sm"
-                      />
-                    ) : (
-                      <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] flex items-center justify-center font-bold">
-                        {exam.title.charAt(0)}
-                      </span>
-                    )}
-                    <span>{exam.title}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* 2. Top Banner / Selection Sale Bar (Photo Style) */}
+          {/* Top Banner / Selection Sale Bar */}
           {currentExam && (
             <div className="w-full">
               {currentExam.price > 0 && !isCurrentExamPurchased ? (
