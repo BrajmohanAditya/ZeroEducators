@@ -531,6 +531,34 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
               </View>
             </View>
 
+            {/* What's Included in this Combo */}
+            {currentCourse?.isBundle && currentCourse?.bundledCourses && currentCourse.bundledCourses.length > 0 && (
+              <View style={styles.comboIncludedContainer}>
+                <View style={styles.comboIncludedHeader}>
+                  <Text style={styles.comboIncludedHeaderText}>
+                    WHAT'S INCLUDED ({currentCourse.bundledCourses.length} COURSES)
+                  </Text>
+                </View>
+                <View style={styles.comboIncludedList}>
+                  {currentCourse.bundledCourses.map((bc, idx) => (
+                    <View key={bc._id || idx} style={styles.comboIncludedItem}>
+                      <View style={styles.comboIncludedIndexCircle}>
+                        <Text style={styles.comboIncludedIndexText}>{idx + 1}</Text>
+                      </View>
+                      <View style={styles.flex1}>
+                        <Text style={styles.comboIncludedItemTitle} numberOfLines={1}>
+                          {bc.title}
+                        </Text>
+                        <Text style={styles.comboIncludedItemType}>
+                          {bc.courseType === 'pdf' ? 'PDF Study Notes' : 'Full Video Lectures'}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {isAlreadyPurchased ? (
               <View style={styles.enrolledAccessContainer}>
                 <View style={styles.enrolledCard}>
@@ -796,9 +824,22 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
                   ) : (
                     <View style={styles.priceRow}>
                       <Text style={styles.mainPriceText}>₹{activePrice}</Text>
-                      <Text style={styles.strikethroughPrice}>
-                        ₹{Math.round(activePrice * 1.3)}
-                      </Text>
+                      {currentCourse?.isBundle && Number(currentCourse?.bundleOriginalPrice) > Number(activePrice) ? (
+                        <>
+                          <Text style={styles.strikethroughPrice}>
+                            ₹{Number(currentCourse.bundleOriginalPrice).toLocaleString()}
+                          </Text>
+                          <View style={styles.discountBadge}>
+                            <Text style={styles.discountBadgeText}>
+                              {Math.round(((currentCourse.bundleOriginalPrice - activePrice) / currentCourse.bundleOriginalPrice) * 100)}% OFF
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.strikethroughPrice}>
+                          ₹{Math.round(activePrice * 1.3)}
+                        </Text>
+                      )}
                       {activePlan && (
                         <View style={styles.planDurationBadge}>
                           <Text style={styles.planDurationBadgeText}>
@@ -883,6 +924,63 @@ const styles = StyleSheet.create({
   backBtn: {
     padding: 6,
     marginRight: 10,
+  },
+  flex1: {
+    flex: 1,
+  },
+  comboIncludedContainer: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  comboIncludedHeader: {
+    marginBottom: 8,
+  },
+  comboIncludedHeaderText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#92400e',
+    letterSpacing: 0.5,
+  },
+  comboIncludedList: {
+    gap: 6,
+  },
+  comboIncludedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+    padding: 8,
+  },
+  comboIncludedIndexCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  comboIncludedIndexText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#b45309',
+  },
+  comboIncludedItemTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  comboIncludedItemType: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 1,
   },
   topBarTitle: {
     fontSize: 16,

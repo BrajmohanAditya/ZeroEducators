@@ -52,6 +52,15 @@ const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
             {item.rating || '4.9'}
           </Text>
         </View>
+
+        {/* Combo Badge */}
+        {item.isBundle && (
+          <View style={styles.comboBadge}>
+            <Text style={styles.comboBadgeText}>
+              COMBO • {item.bundledCourses?.length || 2} IN 1
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Card Body */}
@@ -59,6 +68,13 @@ const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
         <Text style={styles.courseTitle} numberOfLines={2}>
           {item.title}
         </Text>
+        {item.isBundle && (
+          <View style={styles.comboSubRow}>
+            <Text style={styles.comboSubText}>
+              Includes {item.bundledCourses?.length || 0} Full Courses
+            </Text>
+          </View>
+        )}
 
         {/* Course Metadata (Duration & Students) */}
         <View style={styles.metaRow}>
@@ -94,14 +110,27 @@ const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
               ) : (
                 <>
                   <Text style={styles.amountText}>
-                    ₹{item.amount !== undefined ? item.amount : '2,999'}
+                    ₹{item.amount !== undefined ? Number(item.amount).toLocaleString() : '2,999'}
                   </Text>
-                  <Text style={styles.originalAmountText}>
-                    ₹
-                    {item.amount !== undefined
-                      ? Math.round(Number(item.amount) * 1.25)
-                      : '3,999'}
-                  </Text>
+                  {item.isBundle && Number(item.bundleOriginalPrice) > Number(item.amount) ? (
+                    <>
+                      <Text style={styles.originalAmountText}>
+                        ₹{Number(item.bundleOriginalPrice).toLocaleString()}
+                      </Text>
+                      <View style={styles.discountPill}>
+                        <Text style={styles.discountPillText}>
+                          {Math.round(((item.bundleOriginalPrice - item.amount) / item.bundleOriginalPrice) * 100)}% OFF
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={styles.originalAmountText}>
+                      ₹
+                      {item.amount !== undefined
+                        ? Math.round(Number(item.amount) * 1.25)
+                        : '3,999'}
+                    </Text>
+                  )}
                 </>
               )}
             </View>

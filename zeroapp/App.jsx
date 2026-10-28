@@ -14,6 +14,7 @@ import Register from './src/pages/Auth/Register';
 import VerifyOtp from './src/pages/Auth/VerifyOtp';
 import ForgotPassword from './src/pages/Auth/ForgotPassword';
 import StudyMaterial from './src/pages/User/study.material';
+import MockTestCatalog from './src/pages/User/quize/MockTestCatalog';
 import QuizList from './src/pages/User/quize/QuizList';
 import QuizInterface from './src/pages/User/quize/QuizInterface';
 import QuizResult from './src/pages/User/quize/QuizResult';
@@ -423,6 +424,21 @@ export function App() {
           <FocusTimer
             user={currentUser}
             onNavigate={navigate}
+          />
+        )}
+
+        {currentScreen === 'MockTests' && (
+          <MockTestCatalog
+            user={currentUser}
+            token={userToken}
+            purchasedExams={myPurchasedExams}
+            onSelectExam={(exam) =>
+              navigate('Quizzes', {
+                examId: exam._id || exam.id,
+                examTitle: exam.title || exam.name,
+              })
+            }
+            onBack={() => navigate('StudyMaterial')}
           />
         )}
 

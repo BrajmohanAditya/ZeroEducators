@@ -13,6 +13,8 @@ import {
   X,
   Sparkles,
   BookOpen,
+  Layers,
+  Package,
 } from "lucide-react";
 
 const courseSection = () => {
@@ -152,6 +154,12 @@ const courseSection = () => {
                     }}
                     className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                   />
+                  {item.isBundle && (
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 uppercase tracking-wider">
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Combo • {item.bundledCourses?.length || 2} in 1</span>
+                    </div>
+                  )}
                   <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
                     <Star className="w-4 h-4 text-yellow-500 fill-current inline mr-1" />
                     <span className="text-sm font-bold text-slate-800">
@@ -162,9 +170,16 @@ const courseSection = () => {
 
                 {/*content*/}
                 <div className="flex flex-col flex-1">
-                  <h3 className="font-bold text-xl text-slate-900 leading-tight mb-3 line-clamp-2 group-hover:text-slate-700">
+                  <h3 className="font-bold text-xl text-slate-900 leading-tight mb-2 line-clamp-2 group-hover:text-slate-700">
                     {item.title}
                   </h3>
+                  {item.isBundle && (
+                    <div className="mb-3">
+                      <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md inline-block">
+                        Includes {item.bundledCourses?.length || 0} Full Courses
+                      </span>
+                    </div>
+                  )}
 
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -194,14 +209,25 @@ const courseSection = () => {
                           ) : (
                             <>
                               <span className="text-xl font-bold text-slate-900">
-                                ₹{item.amount !== undefined ? item.amount : "20,000"}
+                                ₹{item.amount !== undefined ? Number(item.amount).toLocaleString() : "20,000"}
                               </span>
-                              <span className="text-sm text-slate-400 line-through">
-                                ₹
-                                {item.amount !== undefined
-                                  ? Math.round(item.amount * 1.25)
-                                  : 25000}
-                              </span>
+                              {item.isBundle && Number(item.bundleOriginalPrice) > Number(item.amount) ? (
+                                <>
+                                  <span className="text-sm text-slate-400 line-through">
+                                    ₹{Number(item.bundleOriginalPrice).toLocaleString()}
+                                  </span>
+                                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    {Math.round(((item.bundleOriginalPrice - item.amount) / item.bundleOriginalPrice) * 100)}% OFF
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-sm text-slate-400 line-through">
+                                  ₹
+                                  {item.amount !== undefined
+                                    ? Math.round(item.amount * 1.25).toLocaleString()
+                                    : "25,000"}
+                                </span>
+                              )}
                             </>
                           )}
                         </div>

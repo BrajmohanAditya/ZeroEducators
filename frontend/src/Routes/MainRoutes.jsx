@@ -11,6 +11,7 @@ const SingleCourse = lazy(() => import("@/pages/User/SingleCourse"));
 const YourAllPurchasedCourse = lazy(() => import("@/pages/User/yourAllPurchasedCourse"));
 const SinglePurchasedCourse = lazy(() => import("@/pages/User/SinglePurchasedCourse"));
 const QuizeDetail = lazy(() => import("@/pages/User/quize/quize.detail"));
+const AllMockTests = lazy(() => import("@/pages/User/quize/AllMockTests"));
 const QuizResult = lazy(() => import("@/pages/User/quize/quize.result"));
 const QuizeInterface = lazy(() => import("@/pages/User/quize/quize.interface"));
 const QualifiedMentors = lazy(() => import("@/pages/Admin/qualifiedMentors"));
@@ -79,6 +80,14 @@ const MainRoutes = () => {
           element={
             <ProtectedRoutes>
               <QuizeDetail />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/mock-tests"
+          element={
+            <ProtectedRoutes>
+              <AllMockTests />
             </ProtectedRoutes>
           }
         />

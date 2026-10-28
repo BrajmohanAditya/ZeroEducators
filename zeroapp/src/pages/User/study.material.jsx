@@ -19,6 +19,7 @@ import {
   Crown,
   PlaySquare,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react-native';
 import Svg, { Rect, Path, Line } from 'react-native-svg';
 import { fetchLiveExams, fetchLiveQuizzes } from '../../config/api';
@@ -121,8 +122,18 @@ export const StudyMaterial = ({ onNavigate }) => {
             <Crown size={38} color="#059669" opacity={0.35} strokeWidth={1.5} />
           </View>
 
-          {/* Card Title */}
-          <Text style={[styles.cardTitle, styles.greenText]}>Premium Test</Text>
+          {/* Header Row */}
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.cardTitle, styles.greenText]}>Premium Test</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onNavigate && onNavigate('MockTests')}
+              style={styles.viewAllHeaderBtn}
+            >
+              <Text style={styles.viewAllHeaderText}>View All</Text>
+              <ArrowRight size={11} color="#065f46" />
+            </TouchableOpacity>
+          </View>
 
           {/* 2x2 Grid of Premium Tests */}
           <View style={styles.itemsGrid}>
@@ -357,6 +368,29 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 20,
     letterSpacing: -0.3,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingRight: 40,
+  },
+  viewAllHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  viewAllHeaderText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065f46',
   },
   purpleText: {
     color: '#6b21a8',

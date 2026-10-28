@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 
 import {
   PlaySquare,
-
   FileCheck,
   Book,
   FileBox,
@@ -13,11 +12,13 @@ import {
   Target,
   Megaphone,
   Crown,
+  ArrowRight,
 } from "lucide-react";
 
 import { useGetQuizzesHook } from "@/hooks/quiz/quiz.hook";
 import { useGetExamsHook } from "@/hooks/quiz/exam.hook";
 import InstagramIcon from "@/components/icons/InstagramIcon";
+
 const StudyMaterial = () => {
   const navigate = useNavigate();
 
@@ -62,6 +63,7 @@ const StudyMaterial = () => {
   const cards = [
     {
       title: "Premium Test",
+      isPremiumTest: true,
       bgColor: "bg-[#E6F8EA]", // Light green
       titleColor: "text-emerald-700",
       mainIcon: (
@@ -191,11 +193,28 @@ const StudyMaterial = () => {
 
               {/* Card Header */}
               <div className="relative z-10 mb-8 min-h-[4rem]">
-                <h2
-                  className={`text-2xl font-extrabold ${card.titleColor} mb-2`}
-                >
-                  {card.title}
-                </h2>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h2
+                    className={`text-2xl font-extrabold ${card.titleColor}`}
+                  >
+                    {card.title}
+                  </h2>
+
+                  {card.isPremiumTest && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/mock-tests");
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white/90 hover:bg-white text-emerald-800 text-xs font-bold rounded-full border border-emerald-300 shadow-2xs transition-all hover:scale-105 cursor-pointer"
+                    >
+                      View All
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 {card.subtitle && (
                   <p className="text-slate-600 font-medium text-sm leading-relaxed max-w-[85%]">
                     {card.subtitle}
@@ -234,14 +253,14 @@ const StudyMaterial = () => {
                 </div>
               ) : (
                 <div 
-                  onClick={() => navigate("/quizeDetail")}
+                  onClick={() => navigate("/mock-tests")}
                   className="flex-grow flex items-center justify-center relative z-10 h-32 mt-4"
                 >
                   <div
                     className={`px-8 py-3 bg-white/60 backdrop-blur-md rounded-xl font-bold ${card.titleColor} border border-white/60 hover:bg-white transition-colors cursor-pointer shadow-sm w-full text-center flex items-center justify-center gap-2`}
                   >
                     <PlaySquare className="w-5 h-5" />
-                    Enter Now
+                    Explore Mock Tests
                   </div>
                 </div>
               )}

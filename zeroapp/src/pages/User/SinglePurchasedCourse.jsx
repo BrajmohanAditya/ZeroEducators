@@ -46,6 +46,15 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
   const insets = useSafeAreaInsets();
   const [courseData, setCourseData] = useState(course || {});
   const [activeLecture, setActiveLecture] = useState(null);
+  const [selectedBundleCourseIndex, setSelectedBundleCourseIndex] = useState(0);
+
+  const isBundle = Boolean(courseData?.isBundle && Array.isArray(courseData?.bundledCourses) && courseData.bundledCourses.length > 0);
+  const activeCourse = useMemo(() => {
+    if (isBundle) {
+      return courseData.bundledCourses[selectedBundleCourseIndex] || courseData;
+    }
+    return courseData;
+  }, [courseData, isBundle, selectedBundleCourseIndex]);
   const [isPlaying, setIsPlaying] = useState(true);
   const [userToken, setUserToken] = useState(null);
   const [activePdf, setActivePdf] = useState(null);
@@ -576,6 +585,51 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
               </View>
             </View>
           </View>
+
+          {/* Bundle Course Switcher Chips */}
+          {isBundle && courseData.bundledCourses && courseData.bundledCourses.length > 0 && (
+            <View style={styles.bundleSwitcherContainer}>
+              <View style={styles.bundleSwitcherHeader}>
+                <Text style={styles.bundleSwitcherHeaderText}>
+                  COMBO PACK COURSES ({courseData.bundledCourses.length})
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.bundleSwitcherScroll}
+              >
+                {courseData.bundledCourses.map((bc, idx) => {
+                  const isSelected = selectedBundleCourseIndex === idx;
+                  return (
+                    <TouchableOpacity
+                      key={bc._id || idx}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setSelectedBundleCourseIndex(idx);
+                        setActiveLecture(null);
+                        setOpenSubjects({});
+                      }}
+                      style={[
+                        styles.bundleChip,
+                        isSelected && styles.bundleChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.bundleChipText,
+                          isSelected && styles.bundleChipTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {idx + 1}. {bc.title}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Subjects Hierarchy */}
           {subjects.length > 0 ? (

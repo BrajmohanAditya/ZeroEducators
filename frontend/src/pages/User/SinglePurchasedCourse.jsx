@@ -59,6 +59,15 @@ const SinglePurchasedCourse = () => {
   const [openChapters, setOpenChapters] = useState({});
   const [openTopics, setOpenTopics] = useState({});
 
+  const [selectedBundleCourseIndex, setSelectedBundleCourseIndex] = useState(0);
+  const isBundle = Boolean(data?.isBundle && Array.isArray(data?.bundledCourses) && data.bundledCourses.length > 0);
+  const activeCourse = React.useMemo(() => {
+    if (isBundle) {
+      return data.bundledCourses[selectedBundleCourseIndex] || data;
+    }
+    return data;
+  }, [data, isBundle, selectedBundleCourseIndex]);
+
   // 1. Fetch stream authentication token for seamless playback across browsers
   useEffect(() => {
     let isMounted = true;
@@ -157,14 +166,15 @@ const SinglePurchasedCourse = () => {
 
   // Auto-select first video or first PDF
   useEffect(() => {
-    if (!data) return;
+    const targetCourse = activeCourse || data;
+    if (!targetCourse) return;
 
     // Check subjects hierarchy first (Subject -> Chapter -> Videos/PDFs)
-    if (data.subjects && data.subjects.length > 0) {
+    if (targetCourse.subjects && targetCourse.subjects.length > 0) {
       let foundVideo = false;
       let foundPdf = false;
 
-      for (const subject of data.subjects) {
+      for (const subject of targetCourse.subjects) {
         if (subject.chapters && subject.chapters.length > 0) {
           for (const chapter of subject.chapters) {
             if (!foundVideo && chapter.videos && chapter.videos.length > 0) {
@@ -194,19 +204,19 @@ const SinglePurchasedCourse = () => {
 
       // If no video or pdf set open subjects yet, ensure the first subject is open
       setOpenSubjects((prev) => {
-        if (Object.keys(prev).length === 0 && data.subjects[0]?._id) {
-          return { [data.subjects[0]._id]: true };
+        if (Object.keys(prev).length === 0 && targetCourse.subjects[0]?._id) {
+          return { [targetCourse.subjects[0]._id]: true };
         }
         return prev;
       });
     }
 
     // Check legacy topics with videos
-    if ((!module || !activePdf) && data.topics && data.topics.length > 0) {
+    if ((!module || !activePdf) && targetCourse.topics && targetCourse.topics.length > 0) {
       let foundVideo = Boolean(module);
       let foundPdf = Boolean(activePdf);
 
-      for (const topic of data.topics) {
+      for (const topic of targetCourse.topics) {
         if (!foundVideo && topic.videos && topic.videos.length > 0) {
           if (!module) {
             setModule(topic.videos[0]);
@@ -230,10 +240,10 @@ const SinglePurchasedCourse = () => {
     }
 
     // Fallback for legacy flat modules
-    if (!module && data.modules && data.modules.length > 0) {
-      setModule(data.modules[0]);
+    if (!module && targetCourse.modules && targetCourse.modules.length > 0) {
+      setModule(targetCourse.modules[0]);
     }
-  }, [data, module, activePdf, isPdfCourse]);
+  }, [activeCourse, data, module, activePdf, isPdfCourse]);
 
   // Keyboard shortcut protection (disable Ctrl+S, Ctrl+P, Ctrl+U, etc.)
   useEffect(() => {
@@ -286,8 +296,9 @@ const SinglePurchasedCourse = () => {
     }));
   };
 
+  const currentCourse = activeCourse || data;
   const totalSubjectVideos =
-    data?.subjects?.reduce(
+    currentCourse?.subjects?.reduce(
       (acc, s) =>
         acc +
         (s.chapters?.reduce((cAcc, c) => cAcc + (c.videos?.length || 0), 0) || 0),
@@ -295,15 +306,15 @@ const SinglePurchasedCourse = () => {
     ) || 0;
 
   const totalTopicVideos =
-    data?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
+    currentCourse?.topics?.reduce((acc, t) => acc + (t.videos?.length || 0), 0) || 0;
 
   const totalVideos =
     totalSubjectVideos + totalTopicVideos > 0
       ? totalSubjectVideos + totalTopicVideos
-      : data?.modules?.length || 0;
+      : currentCourse?.modules?.length || 0;
 
   const totalSubjectPdfs =
-    data?.subjects?.reduce(
+    currentCourse?.subjects?.reduce(
       (acc, s) =>
         acc +
         (s.chapters?.reduce((cAcc, c) => cAcc + (c.pdfs?.length || 0), 0) || 0),
@@ -311,12 +322,12 @@ const SinglePurchasedCourse = () => {
     ) || 0;
 
   const totalTopicPdfs =
-    data?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
+    currentCourse?.topics?.reduce((acc, t) => acc + (t.pdfs?.length || 0), 0) || 0;
 
   const totalPdfs = totalSubjectPdfs + totalTopicPdfs;
 
-  const hasSubjects = data?.subjects && data.subjects.length > 0;
-  const hasTopics = data?.topics && data.topics.length > 0;
+  const hasSubjects = currentCourse?.subjects && currentCourse.subjects.length > 0;
+  const hasTopics = currentCourse?.topics && currentCourse.topics.length > 0;
 
   if (isLoading) {
     return (
@@ -550,10 +561,54 @@ const SinglePurchasedCourse = () => {
             </div>
           )}
 
+          {/* Bundle Course Switcher Tabs */}
+          {isBundle && data.bundledCourses && data.bundledCourses.length > 0 && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-amber-900">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-amber-600" />
+                  Included in Combo:
+                </span>
+                <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                  {selectedBundleCourseIndex + 1} of {data.bundledCourses.length} Courses
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {data.bundledCourses.map((bc, idx) => {
+                  const isSelected = selectedBundleCourseIndex === idx;
+                  return (
+                    <button
+                      key={bc._id || idx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBundleCourseIndex(idx);
+                        setModule(null);
+                        setActivePdf(null);
+                        setOpenSubjects({});
+                        setOpenChapters({});
+                        setOpenTopics({});
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? "bg-amber-600 text-white shadow-sm"
+                          : "bg-white text-slate-700 hover:bg-amber-100/60 border border-amber-200"
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate max-w-[180px]">{bc.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Subjects Hierarchy (Subject -> Chapter -> Content) */}
           {hasSubjects ? (
             <div className="space-y-4">
-              {data.subjects.map((subject, sIdx) => {
+              {currentCourse.subjects.map((subject, sIdx) => {
                 const isSubjectOpen = Boolean(openSubjects[subject._id]);
                 const subjectChapters = subject.chapters || [];
                 const sVideosCount = subjectChapters.reduce(

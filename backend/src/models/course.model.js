@@ -62,6 +62,22 @@ const courseSchema = new mongoose.Schema({
     index: true,
   },
 
+  isBundle: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  bundledCourses: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+    },
+  ],
+  bundleOriginalPrice: {
+    type: Number,
+    default: 0,
+  },
+
   modules:[
     {
         type:mongoose.Schema.Types.ObjectId,

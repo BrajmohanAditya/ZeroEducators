@@ -38,9 +38,24 @@ export const createCheckOutSession = async (req, res, next) => {
       );
 
       if (!alreadyEnrolled) {
+        let coursesToEnroll = [courseId];
+        if (course?.isBundle && Array.isArray(course?.bundledCourses) && course.bundledCourses.length > 0) {
+          coursesToEnroll = [...coursesToEnroll, ...course.bundledCourses];
+        }
+
         await User.findByIdAndUpdate(req.user._id, {
-          $addToSet: { purchasedCourse: courseId },
+          $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
         });
+
+        const linkedExams = await Exam.find({
+          linkedCourses: { $in: coursesToEnroll },
+        }).select("_id");
+        if (linkedExams.length > 0) {
+          const examIds = linkedExams.map((e) => e._id);
+          await User.findByIdAndUpdate(req.user._id, {
+            $addToSet: { purchasedExams: { $each: examIds } },
+          });
+        }
 
         const freeOrder = new Order({
           user: req.user._id,
@@ -127,9 +142,24 @@ export const createCheckOutSession = async (req, res, next) => {
       );
 
       if (!alreadyEnrolled) {
+        let coursesToEnroll = [courseId];
+        if (course?.isBundle && Array.isArray(course?.bundledCourses) && course.bundledCourses.length > 0) {
+          coursesToEnroll = [...coursesToEnroll, ...course.bundledCourses];
+        }
+
         await User.findByIdAndUpdate(req.user._id, {
-          $addToSet: { purchasedCourse: courseId },
+          $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
         });
+
+        const linkedExams = await Exam.find({
+          linkedCourses: { $in: coursesToEnroll },
+        }).select("_id");
+        if (linkedExams.length > 0) {
+          const examIds = linkedExams.map((e) => e._id);
+          await User.findByIdAndUpdate(req.user._id, {
+            $addToSet: { purchasedExams: { $each: examIds } },
+          });
+        }
 
         const couponOrder = new Order({
           user: req.user._id,
@@ -342,9 +372,25 @@ export const checkoutSuccess = async (req, res, next) => {
 
     await newOrder.save();
 
+    const courseDoc = await Course.findById(courseId);
+    let coursesToEnroll = [courseId];
+    if (courseDoc?.isBundle && Array.isArray(courseDoc?.bundledCourses) && courseDoc.bundledCourses.length > 0) {
+      coursesToEnroll = [...coursesToEnroll, ...courseDoc.bundledCourses];
+    }
+
     await User.findByIdAndUpdate(userId, {
-      $addToSet: { purchasedCourse: courseId },
+      $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
     });
+
+    const linkedExams = await Exam.find({
+      linkedCourses: { $in: coursesToEnroll },
+    }).select("_id");
+    if (linkedExams.length > 0) {
+      const examIds = linkedExams.map((e) => e._id);
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { purchasedExams: { $each: examIds } },
+      });
+    }
 
     return res.status(201).json({
       success: true,

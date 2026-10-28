@@ -64,7 +64,7 @@ const Navbar = () => {
       {
         label: "Mock Test Series",
         icon: GraduationCap,
-        onClick: () => navigate("/quizeDetail"),
+        onClick: () => navigate("/mock-tests"),
       },
       {
         label: "Logout",

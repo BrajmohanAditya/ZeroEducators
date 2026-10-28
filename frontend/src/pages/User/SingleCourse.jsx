@@ -11,6 +11,8 @@ import {
   Copy,
   Check,
   Percent,
+  Package,
+  Layers,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
@@ -233,6 +235,36 @@ const SingleCourse = () => {
               {activeDuration}
             </div>
           </div>
+
+          {/* What's Included in this Combo */}
+          {course?.isBundle && course?.bundledCourses && course.bundledCourses.length > 0 && (
+            <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-amber-600" />
+                  What's Included ({course.bundledCourses.length} Courses):
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {course.bundledCourses.map((bc, idx) => (
+                  <div
+                    key={bc._id || idx}
+                    className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200/80 text-xs shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 truncate mr-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-[10px] font-black shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-slate-800 truncate">{bc.title}</span>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-medium text-slate-500">
+                      {bc.courseType === "pdf" ? "PDF Course" : "Full Video Batch"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Multi-Plan Validity Selector (if multiple options available) */}
           {hasPlans && course.pricingPlans.length > 1 && (
@@ -460,13 +492,24 @@ const SingleCourse = () => {
                   </p>
                 </div>
               ) : (
-                <div className="flex items-baseline">
+                <div className="flex items-baseline flex-wrap gap-2">
                   <span className="text-3xl font-black text-slate-900">₹{activePrice}</span>
-                  <span className="ml-3 text-slate-400 line-through">
-                    ₹{Math.round(activePrice * 1.3)}
-                  </span>
+                  {course?.isBundle && Number(course?.bundleOriginalPrice) > Number(activePrice) ? (
+                    <>
+                      <span className="text-slate-400 line-through">
+                        ₹{Number(course.bundleOriginalPrice).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        {Math.round(((course.bundleOriginalPrice - activePrice) / course.bundleOriginalPrice) * 100)}% OFF
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 line-through">
+                      ₹{Math.round(activePrice * 1.3)}
+                    </span>
+                  )}
                   {activePlan && (
-                    <span className="ml-2.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
                       {activePlan.duration}
                     </span>
                   )}
