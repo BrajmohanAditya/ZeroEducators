@@ -16,6 +16,8 @@ import {
   Lock,
   GraduationCap,
   Sparkles,
+  Layers,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -32,7 +34,16 @@ const SinglePurchasedCourse = () => {
   const user = useUserStore((state) => state.user);
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
-  const isPdfCourse = data?.courseType === "pdf";
+  const [selectedBundleCourseIndex, setSelectedBundleCourseIndex] = useState(0);
+  const isBundle = Boolean(data?.isBundle && Array.isArray(data?.bundledCourses) && data.bundledCourses.length > 0);
+  const activeCourse = React.useMemo(() => {
+    if (isBundle) {
+      return data.bundledCourses[selectedBundleCourseIndex] || data;
+    }
+    return data;
+  }, [data, isBundle, selectedBundleCourseIndex]);
+
+  const isPdfCourse = Boolean((activeCourse || data)?.courseType === "pdf");
 
   // Active view: 'video' | 'pdf'
   const [activeContentType, setActiveContentType] = useState("video");
@@ -58,15 +69,6 @@ const SinglePurchasedCourse = () => {
   const [openSubjects, setOpenSubjects] = useState({});
   const [openChapters, setOpenChapters] = useState({});
   const [openTopics, setOpenTopics] = useState({});
-
-  const [selectedBundleCourseIndex, setSelectedBundleCourseIndex] = useState(0);
-  const isBundle = Boolean(data?.isBundle && Array.isArray(data?.bundledCourses) && data.bundledCourses.length > 0);
-  const activeCourse = React.useMemo(() => {
-    if (isBundle) {
-      return data.bundledCourses[selectedBundleCourseIndex] || data;
-    }
-    return data;
-  }, [data, isBundle, selectedBundleCourseIndex]);
 
   // 1. Fetch stream authentication token for seamless playback across browsers
   useEffect(() => {
@@ -243,7 +245,7 @@ const SinglePurchasedCourse = () => {
     if (!module && targetCourse.modules && targetCourse.modules.length > 0) {
       setModule(targetCourse.modules[0]);
     }
-  }, [activeCourse, data, module, activePdf, isPdfCourse]);
+  }, [activeCourse, data, isPdfCourse]);
 
   // Keyboard shortcut protection (disable Ctrl+S, Ctrl+P, Ctrl+U, etc.)
   useEffect(() => {
@@ -425,9 +427,9 @@ const SinglePurchasedCourse = () => {
               className="w-full aspect-video flex items-center justify-center relative rounded-xl sm:rounded-3xl overflow-hidden bg-black shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] ring-1 ring-black/5 shrink-0"
               onContextMenu={(e) => e.preventDefault()}
             >
-              {videoStreamUrl ? (
+              {module && videoStreamUrl ? (
                 <SecureVideoPlayer
-                  videoKey={module._id || module.Video_id || videoStreamUrl}
+                  videoKey={module?._id || module?.Video_id || videoStreamUrl || "video"}
                   src={videoStreamUrl}
                   user={user}
                   onQualityChange={(newQuality) => {
@@ -584,9 +586,16 @@ const SinglePurchasedCourse = () => {
                         setSelectedBundleCourseIndex(idx);
                         setModule(null);
                         setActivePdf(null);
+                        setVideoStreamUrl(null);
                         setOpenSubjects({});
                         setOpenChapters({});
                         setOpenTopics({});
+                        const target = data?.bundledCourses?.[idx] || data;
+                        if (target?.courseType === "pdf") {
+                          setActiveContentType("pdf");
+                        } else {
+                          setActiveContentType("video");
+                        }
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                         isSelected
