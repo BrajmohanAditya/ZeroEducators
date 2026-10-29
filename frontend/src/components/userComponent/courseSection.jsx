@@ -157,7 +157,7 @@ const courseSection = () => {
                   {item.isBundle && (
                     <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 uppercase tracking-wider">
                       <Layers className="w-3.5 h-3.5" />
-                      <span>Combo • {item.bundledCourses?.length || 2} in 1</span>
+                      <span>Combo • {((item.bundledCourses?.length || 0) + (item.bundledExams?.length || 0)) || 2} in 1</span>
                     </div>
                   )}
                   <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
@@ -176,7 +176,7 @@ const courseSection = () => {
                   {item.isBundle && (
                     <div className="mb-3">
                       <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md inline-block">
-                        Includes {item.bundledCourses?.length || 0} Full Courses
+                        Includes {(item.bundledCourses?.length || 0)} Courses{item.bundledExams?.length ? ` + ${item.bundledExams.length} Mock Tests` : ''}
                       </span>
                     </div>
                   )}

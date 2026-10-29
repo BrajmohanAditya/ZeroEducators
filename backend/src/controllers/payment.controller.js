@@ -47,13 +47,19 @@ export const createCheckOutSession = async (req, res, next) => {
           $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
         });
 
+        let examsToEnroll = [];
+        if (course?.isBundle && Array.isArray(course?.bundledExams) && course.bundledExams.length > 0) {
+          examsToEnroll.push(...course.bundledExams);
+        }
         const linkedExams = await Exam.find({
           linkedCourses: { $in: coursesToEnroll },
         }).select("_id");
         if (linkedExams.length > 0) {
-          const examIds = linkedExams.map((e) => e._id);
+          examsToEnroll.push(...linkedExams.map((e) => e._id));
+        }
+        if (examsToEnroll.length > 0) {
           await User.findByIdAndUpdate(req.user._id, {
-            $addToSet: { purchasedExams: { $each: examIds } },
+            $addToSet: { purchasedExams: { $each: examsToEnroll } },
           });
         }
 
@@ -151,13 +157,19 @@ export const createCheckOutSession = async (req, res, next) => {
           $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
         });
 
+        let examsToEnroll = [];
+        if (course?.isBundle && Array.isArray(course?.bundledExams) && course.bundledExams.length > 0) {
+          examsToEnroll.push(...course.bundledExams);
+        }
         const linkedExams = await Exam.find({
           linkedCourses: { $in: coursesToEnroll },
         }).select("_id");
         if (linkedExams.length > 0) {
-          const examIds = linkedExams.map((e) => e._id);
+          examsToEnroll.push(...linkedExams.map((e) => e._id));
+        }
+        if (examsToEnroll.length > 0) {
           await User.findByIdAndUpdate(req.user._id, {
-            $addToSet: { purchasedExams: { $each: examIds } },
+            $addToSet: { purchasedExams: { $each: examsToEnroll } },
           });
         }
 
@@ -382,13 +394,19 @@ export const checkoutSuccess = async (req, res, next) => {
       $addToSet: { purchasedCourse: { $each: coursesToEnroll } },
     });
 
+    let examsToEnroll = [];
+    if (courseDoc?.isBundle && Array.isArray(courseDoc?.bundledExams) && courseDoc.bundledExams.length > 0) {
+      examsToEnroll.push(...courseDoc.bundledExams);
+    }
     const linkedExams = await Exam.find({
       linkedCourses: { $in: coursesToEnroll },
     }).select("_id");
     if (linkedExams.length > 0) {
-      const examIds = linkedExams.map((e) => e._id);
+      examsToEnroll.push(...linkedExams.map((e) => e._id));
+    }
+    if (examsToEnroll.length > 0) {
       await User.findByIdAndUpdate(userId, {
-        $addToSet: { purchasedExams: { $each: examIds } },
+        $addToSet: { purchasedExams: { $each: examsToEnroll } },
       });
     }
 

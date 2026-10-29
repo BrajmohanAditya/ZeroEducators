@@ -8,6 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useCreateCourseHook, useEditCourseHook, useGetCourseHook } from "../../hooks/course.hook";
+import { useGetExamsHook } from "../../hooks/quiz/exam.hook";
 import {
   Loader2,
   UploadCloud,
@@ -22,6 +23,7 @@ import {
   Package,
   Layers,
   Check,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -67,9 +69,13 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
   ]);
 
   const { data: allCoursesData } = useGetCourseHook();
+  const { data: allExamsData } = useGetExamsHook();
   const [isBundleMode, setIsBundleMode] = useState(false);
   const [selectedBundledCourses, setSelectedBundledCourses] = useState([]);
+  const [selectedBundledExams, setSelectedBundledExams] = useState([]);
+  const [bundleSubTab, setBundleSubTab] = useState("courses"); // "courses" | "exams"
   const [bundleSearchTerm, setBundleSearchTerm] = useState("");
+  const [bundleExamSearchTerm, setBundleExamSearchTerm] = useState("");
 
   const { register, handleSubmit, reset: resetForm, watch, setValue } = useForm({
     defaultValues: {
@@ -134,10 +140,19 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
       } else {
         setSelectedBundledCourses([]);
       }
+      if (editingCourse.bundledExams && Array.isArray(editingCourse.bundledExams)) {
+        setSelectedBundledExams(
+          editingCourse.bundledExams.map((e) => (typeof e === "object" ? e._id : e))
+        );
+      } else {
+        setSelectedBundledExams([]);
+      }
     } else {
       setIsFreeMode(false);
       setIsBundleMode(false);
       setSelectedBundledCourses([]);
+      setSelectedBundledExams([]);
+      setBundleSubTab("courses");
       setCourseType("video");
       setPricingPlans([
         {
@@ -163,7 +178,10 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
       ]);
       setIsBundleMode(false);
       setSelectedBundledCourses([]);
+      setSelectedBundledExams([]);
+      setBundleSubTab("courses");
       setBundleSearchTerm("");
+      setBundleExamSearchTerm("");
       if (onCloseEdit) onCloseEdit();
     }
   };
@@ -209,18 +227,41 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     );
   }, [availableCoursesForBundle, selectedBundledCourses]);
 
+  const availableExamsForBundle = React.useMemo(() => {
+    return allExamsData?.exams || [];
+  }, [allExamsData?.exams]);
+
+  const selectedExamsList = React.useMemo(() => {
+    return availableExamsForBundle.filter((e) =>
+      selectedBundledExams.includes(e._id)
+    );
+  }, [availableExamsForBundle, selectedBundledExams]);
+
   const totalBundleOriginalPrice = React.useMemo(() => {
-    return selectedCoursesList.reduce((sum, c) => {
+    const coursesPrice = selectedCoursesList.reduce((sum, c) => {
       const p = Number(c.amount || c.pricingPlans?.[0]?.price || 0);
       return sum + p;
     }, 0);
-  }, [selectedCoursesList]);
+    const examsPrice = selectedExamsList.reduce((sum, e) => {
+      const p = Number(e.price || 0);
+      return sum + p;
+    }, 0);
+    return coursesPrice + examsPrice;
+  }, [selectedCoursesList, selectedExamsList]);
 
   const toggleCourseInBundle = (courseId) => {
     setSelectedBundledCourses((prev) =>
       prev.includes(courseId)
         ? prev.filter((id) => id !== courseId)
         : [...prev, courseId]
+    );
+  };
+
+  const toggleExamInBundle = (examId) => {
+    setSelectedBundledExams((prev) =>
+      prev.includes(examId)
+        ? prev.filter((id) => id !== examId)
+        : [...prev, examId]
     );
   };
 
@@ -233,8 +274,9 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
         label: p.label ? p.label.trim() : "",
       }));
 
-    if (isBundleMode && selectedBundledCourses.length < 2) {
-      toast.error("Please select at least 2 courses to create a Combo Pack");
+    const totalSelectedBundleItems = selectedBundledCourses.length + selectedBundledExams.length;
+    if (isBundleMode && totalSelectedBundleItems < 2) {
+      toast.error("Please select at least 2 items (courses and/or mock tests) to create a Combo Pack");
       return;
     }
 
@@ -265,9 +307,11 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
     formData.append("isBundle", isBundleMode ? "true" : "false");
     if (isBundleMode) {
       formData.append("bundledCourses", JSON.stringify(selectedBundledCourses));
+      formData.append("bundledExams", JSON.stringify(selectedBundledExams));
       formData.append("bundleOriginalPrice", totalBundleOriginalPrice);
     } else {
       formData.append("bundledCourses", JSON.stringify([]));
+      formData.append("bundledExams", JSON.stringify([]));
       formData.append("bundleOriginalPrice", "0");
     }
 
@@ -417,9 +461,14 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
             {isBundleMode && (
               <div className="space-y-2.5 pt-2 border-t border-amber-200/70">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-slate-800">
-                    Select Courses ({selectedBundledCourses.length} selected):
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-slate-800">
+                      Combo Content:
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                      {selectedBundledCourses.length} Courses, {selectedBundledExams.length} Mock Tests
+                    </span>
+                  </div>
                   {totalBundleOriginalPrice > 0 && (
                     <span className="text-xs font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full">
                       Combined MRP: ₹{totalBundleOriginalPrice.toLocaleString()}
@@ -427,60 +476,162 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
                   )}
                 </div>
 
-                {availableCoursesForBundle.length > 4 && (
-                  <input
-                    type="text"
-                    value={bundleSearchTerm}
-                    onChange={(e) => setBundleSearchTerm(e.target.value)}
-                    placeholder="Search courses to add..."
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  />
-                )}
-
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {availableCoursesForBundle.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-3 text-center">No other courses available to bundle</p>
-                  ) : (
-                    availableCoursesForBundle
-                      .filter((c) =>
-                        bundleSearchTerm
-                          ? c.title.toLowerCase().includes(bundleSearchTerm.toLowerCase())
-                          : true
-                      )
-                      .map((courseItem) => {
-                        const isSelected = selectedBundledCourses.includes(courseItem._id);
-                        const priceVal = Number(
-                          courseItem.amount || courseItem.pricingPlans?.[0]?.price || 0
-                        );
-                        return (
-                          <div
-                            key={courseItem._id}
-                            onClick={() => toggleCourseInBundle(courseItem._id)}
-                            className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition ${
-                              isSelected
-                                ? "bg-amber-100/70 border-amber-400 text-amber-950 font-semibold"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 truncate mr-2">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => {}}
-                                className="rounded text-amber-600 focus:ring-amber-500 pointer-events-none"
-                              />
-                              <span className="truncate">{courseItem.title}</span>
-                            </div>
-                            <span className="shrink-0 text-slate-500 font-bold">
-                              ₹{priceVal.toLocaleString()}
-                            </span>
-                          </div>
-                        );
-                      })
-                  )}
+                {/* Sub-tabs to choose Courses vs Mock Tests */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-amber-100/60 rounded-xl border border-amber-200">
+                  <button
+                    type="button"
+                    onClick={() => setBundleSubTab("courses")}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                      bundleSubTab === "courses"
+                        ? "bg-white text-amber-950 shadow-xs border border-amber-300"
+                        : "text-amber-800 hover:text-amber-950 hover:bg-amber-100/50"
+                    }`}
+                  >
+                    <Video className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Courses ({selectedBundledCourses.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBundleSubTab("exams")}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                      bundleSubTab === "exams"
+                        ? "bg-white text-amber-950 shadow-xs border border-amber-300"
+                        : "text-amber-800 hover:text-amber-950 hover:bg-amber-100/50"
+                    }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Mock Tests ({selectedBundledExams.length})</span>
+                  </button>
                 </div>
 
-                {selectedBundledCourses.length >= 2 &&
+                {/* Tab 1: Video & PDF Courses */}
+                {bundleSubTab === "courses" && (
+                  <div className="space-y-2">
+                    {availableCoursesForBundle.length > 4 && (
+                      <input
+                        type="text"
+                        value={bundleSearchTerm}
+                        onChange={(e) => setBundleSearchTerm(e.target.value)}
+                        placeholder="Search courses to add..."
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    )}
+
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {availableCoursesForBundle.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-3 text-center">No other courses available to bundle</p>
+                      ) : (
+                        availableCoursesForBundle
+                          .filter((c) =>
+                            bundleSearchTerm
+                              ? c.title.toLowerCase().includes(bundleSearchTerm.toLowerCase())
+                              : true
+                          )
+                          .map((courseItem) => {
+                            const isSelected = selectedBundledCourses.includes(courseItem._id);
+                            const priceVal = Number(
+                              courseItem.amount || courseItem.pricingPlans?.[0]?.price || 0
+                            );
+                            return (
+                              <div
+                                key={courseItem._id}
+                                onClick={() => toggleCourseInBundle(courseItem._id)}
+                                className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition ${
+                                  isSelected
+                                    ? "bg-amber-100/70 border-amber-400 text-amber-950 font-semibold"
+                                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate mr-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}}
+                                    className="rounded text-amber-600 focus:ring-amber-500 pointer-events-none"
+                                  />
+                                  <div className="truncate">
+                                    <span className="truncate block font-semibold">{courseItem.title}</span>
+                                    <span className="text-[10px] text-slate-500">
+                                      {courseItem.courseType === "pdf" ? "PDF Course" : "Video Course"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="shrink-0 text-slate-500 font-bold">
+                                  ₹{priceVal.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Mock Tests */}
+                {bundleSubTab === "exams" && (
+                  <div className="space-y-2">
+                    {availableExamsForBundle.length > 4 && (
+                      <input
+                        type="text"
+                        value={bundleExamSearchTerm}
+                        onChange={(e) => setBundleExamSearchTerm(e.target.value)}
+                        placeholder="Search mock tests to add..."
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    )}
+
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {availableExamsForBundle.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-3 text-center">No mock tests available</p>
+                      ) : (
+                        availableExamsForBundle
+                          .filter((e) =>
+                            bundleExamSearchTerm
+                              ? e.title?.toLowerCase().includes(bundleExamSearchTerm.toLowerCase()) ||
+                                e.category?.toLowerCase().includes(bundleExamSearchTerm.toLowerCase())
+                              : true
+                          )
+                          .map((examItem) => {
+                            const isSelected = selectedBundledExams.includes(examItem._id);
+                            const priceVal = Number(examItem.price || 0);
+                            return (
+                              <div
+                                key={examItem._id}
+                                onClick={() => toggleExamInBundle(examItem._id)}
+                                className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition ${
+                                  isSelected
+                                    ? "bg-amber-100/70 border-amber-400 text-amber-950 font-semibold"
+                                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate mr-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}}
+                                    className="rounded text-amber-600 focus:ring-amber-500 pointer-events-none"
+                                  />
+                                  <div className="truncate">
+                                    <span className="truncate block font-semibold">{examItem.title}</span>
+                                    {examItem.category && (
+                                      <span className="text-[10px] text-amber-800 font-medium">
+                                        {examItem.category}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="shrink-0 text-slate-600 font-bold">
+                                  {priceVal > 0 ? `₹${priceVal.toLocaleString()}` : "Free"}
+                                </span>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(selectedBundledCourses.length + selectedBundledExams.length) >= 2 &&
                   pricingPlans[0]?.price &&
                   totalBundleOriginalPrice > Number(pricingPlans[0].price) && (
                     <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-xs text-emerald-800 font-semibold">
@@ -497,8 +648,7 @@ const CreateCourseDialog = ({ editingCourse, onCloseEdit }) => {
                     </div>
                   )}
               </div>
-            )}
-          </div>
+            )}</div>
 
           {/* Free vs Paid Toggle Mode */}
           <div>

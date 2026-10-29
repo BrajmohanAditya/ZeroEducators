@@ -227,11 +227,17 @@ const DashboardProducts = () => {
                           <div className="font-semibold text-slate-900 line-clamp-1">
                             {item.title}
                           </div>
-                          {item.duration && (
+                          {item.isBundle ? (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                COMBO: {(item.bundledCourses?.length || 0)} Courses + {(item.bundledExams?.length || 0)} Mocks
+                              </span>
+                            </div>
+                          ) : item.duration ? (
                             <div className="text-xs text-slate-500 mt-0.5">
                               Duration: {item.duration}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </td>

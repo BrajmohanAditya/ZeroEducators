@@ -73,6 +73,12 @@ const courseSchema = new mongoose.Schema({
       ref: "Course",
     },
   ],
+  bundledExams: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+    },
+  ],
   bundleOriginalPrice: {
     type: Number,
     default: 0,

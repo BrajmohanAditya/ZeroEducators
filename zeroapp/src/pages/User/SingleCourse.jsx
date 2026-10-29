@@ -532,15 +532,15 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
             </View>
 
             {/* What's Included in this Combo */}
-            {currentCourse?.isBundle && currentCourse?.bundledCourses && currentCourse.bundledCourses.length > 0 && (
+            {currentCourse?.isBundle && ((currentCourse?.bundledCourses && currentCourse.bundledCourses.length > 0) || (currentCourse?.bundledExams && currentCourse.bundledExams.length > 0)) && (
               <View style={styles.comboIncludedContainer}>
                 <View style={styles.comboIncludedHeader}>
                   <Text style={styles.comboIncludedHeaderText}>
-                    WHAT'S INCLUDED ({currentCourse.bundledCourses.length} COURSES)
+                    WHAT'S INCLUDED: {(currentCourse.bundledCourses?.length || 0)} COURSES + {(currentCourse.bundledExams?.length || 0)} MOCK TESTS
                   </Text>
                 </View>
                 <View style={styles.comboIncludedList}>
-                  {currentCourse.bundledCourses.map((bc, idx) => (
+                  {currentCourse.bundledCourses?.map((bc, idx) => (
                     <View key={bc._id || idx} style={styles.comboIncludedItem}>
                       <View style={styles.comboIncludedIndexCircle}>
                         <Text style={styles.comboIncludedIndexText}>{idx + 1}</Text>
@@ -551,6 +551,23 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
                         </Text>
                         <Text style={styles.comboIncludedItemType}>
                           {bc.courseType === 'pdf' ? 'PDF Study Notes' : 'Full Video Lectures'}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                  {currentCourse.bundledExams?.map((be, idx) => (
+                    <View key={be._id || idx} style={styles.comboIncludedItem}>
+                      <View style={[styles.comboIncludedIndexCircle, { backgroundColor: '#f3e8ff' }]}>
+                        <Text style={[styles.comboIncludedIndexText, { color: '#6b21a8' }]}>
+                          {(currentCourse.bundledCourses?.length || 0) + idx + 1}
+                        </Text>
+                      </View>
+                      <View style={styles.flex1}>
+                        <Text style={styles.comboIncludedItemTitle} numberOfLines={1}>
+                          {be.title}
+                        </Text>
+                        <Text style={[styles.comboIncludedItemType, { color: '#7e22ce' }]}>
+                          Mock Test Series Package
                         </Text>
                       </View>
                     </View>

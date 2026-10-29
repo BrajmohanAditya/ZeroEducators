@@ -237,16 +237,19 @@ const SingleCourse = () => {
           </div>
 
           {/* What's Included in this Combo */}
-          {course?.isBundle && course?.bundledCourses && course.bundledCourses.length > 0 && (
+          {course?.isBundle && ((course?.bundledCourses && course.bundledCourses.length > 0) || (course?.bundledExams && course.bundledExams.length > 0)) && (
             <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                   <Package className="w-4 h-4 text-amber-600" />
-                  What's Included ({course.bundledCourses.length} Courses):
+                  What's Included:
+                </span>
+                <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200/60">
+                  {(course.bundledCourses?.length || 0)} Courses + {(course.bundledExams?.length || 0)} Mocks
                 </span>
               </div>
               <div className="space-y-1.5">
-                {course.bundledCourses.map((bc, idx) => (
+                {course.bundledCourses?.map((bc, idx) => (
                   <div
                     key={bc._id || idx}
                     className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200/80 text-xs shadow-2xs"
@@ -259,6 +262,22 @@ const SingleCourse = () => {
                     </div>
                     <span className="shrink-0 text-[11px] font-medium text-slate-500">
                       {bc.courseType === "pdf" ? "PDF Course" : "Full Video Batch"}
+                    </span>
+                  </div>
+                ))}
+                {course.bundledExams?.map((be, idx) => (
+                  <div
+                    key={be._id || idx}
+                    className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200/80 text-xs shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 truncate mr-2">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 flex items-center justify-center text-[10px] font-black shrink-0">
+                        {(course.bundledCourses?.length || 0) + idx + 1}
+                      </span>
+                      <span className="font-bold text-slate-800 truncate">{be.title}</span>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                      Mock Test Series
                     </span>
                   </div>
                 ))}

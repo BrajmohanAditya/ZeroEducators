@@ -142,7 +142,7 @@ export const cleanupVideoStorage = async (video, excludeCourseId = null) => {
 
 export const createCourse = async (req, res, next) => {
   try {
-    const { title, description, amount, duration, isFree, courseType, pricingPlans, isBundle, bundledCourses, bundleOriginalPrice } = req.body;
+    const { title, description, amount, duration, isFree, courseType, pricingPlans, isBundle, bundledCourses, bundleOriginalPrice, bundledExams } = req.body;
     const thumbnail = req.file;
 
     let parsedPricingPlans = [];
@@ -207,6 +207,16 @@ export const createCourse = async (req, res, next) => {
       }
     }
 
+    let parsedBundledExams = [];
+    if (bundledExams) {
+      try {
+        parsedBundledExams = typeof bundledExams === "string" ? JSON.parse(bundledExams) : bundledExams;
+        if (!Array.isArray(parsedBundledExams)) parsedBundledExams = [];
+      } catch (err) {
+        console.warn("Failed to parse bundledExams:", err);
+      }
+    }
+
     const newCourse = new Course({
       userId: req.user._id,
       title,
@@ -220,10 +230,18 @@ export const createCourse = async (req, res, next) => {
       thumbnail_id: imageId,
       isBundle: isBundleCourse,
       bundledCourses: isBundleCourse ? parsedBundledCourses : [],
+      bundledExams: isBundleCourse ? parsedBundledExams : [],
       bundleOriginalPrice: isBundleCourse ? (Number(bundleOriginalPrice) || 0) : 0,
     });
 
     await newCourse.save();
+
+    if (isBundleCourse && parsedBundledExams.length > 0) {
+      await Exam.updateMany(
+        { _id: { $in: parsedBundledExams } },
+        { $addToSet: { linkedCourses: newCourse._id } }
+      );
+    }
     return res.status(201).json({
       success: true,
       message: "Course created successfully",
@@ -248,6 +266,10 @@ export const getCourse = async (req, res) => {
         .populate({
           path: "bundledCourses",
           select: "title thumbnail duration amount pricingPlans courseType",
+        })
+        .populate({
+          path: "bundledExams",
+          select: "title logoUrl category price isLocked",
         })
         .sort({ order: 1, createdAt: -1 })
         .lean();
@@ -300,6 +322,10 @@ export const getSingleCourse = async (req, res) => {
       .populate({
         path: "bundledCourses",
         select: "title thumbnail duration amount pricingPlans subjects topics courseType description modules",
+      })
+      .populate({
+        path: "bundledExams",
+        select: "title description logoUrl category price isLocked",
       });
 
     if (!course) {
@@ -368,6 +394,10 @@ export const getSinglePurchasedCourse = async (req, res) => {
         populate: {
           path: "modules",
         },
+      })
+      .populate({
+        path: "bundledExams",
+        select: "title description logoUrl category price isLocked",
       });
 
     if (!purchasedOrder) {
@@ -384,10 +414,25 @@ export const getSinglePurchasedCourse = async (req, res) => {
       });
     }
 
+    const explicitExamIds = [];
+    if (purchasedOrder.isBundle && Array.isArray(purchasedOrder.bundledExams)) {
+      purchasedOrder.bundledExams.forEach((be) => {
+        const beId = be?._id || be;
+        if (beId) explicitExamIds.push(beId);
+      });
+    }
+
+    const examQueryFilter = {
+      $or: [
+        { linkedCourses: { $in: allCourseIds } },
+      ],
+    };
+    if (explicitExamIds.length > 0) {
+      examQueryFilter.$or.push({ _id: { $in: explicitExamIds } });
+    }
+
     // Fetch linked exams/mocks for this course
-    const linkedExams = await Exam.find({
-      linkedCourses: { $in: allCourseIds },
-    })
+    const linkedExams = await Exam.find(examQueryFilter)
       .select("title description logoUrl category price isLocked")
       .lean();
 
@@ -688,7 +733,7 @@ export const hardDeleteCourse = async (req, res, next) => {
 export const editCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id;
-    const { title, description, amount, duration, isFree, courseType, pricingPlans, isBundle, bundledCourses, bundleOriginalPrice } = req.body;
+    const { title, description, amount, duration, isFree, courseType, pricingPlans, isBundle, bundledCourses, bundleOriginalPrice, bundledExams } = req.body;
     const thumbnail = req.file;
 
     const course = await Course.findById(courseId);
@@ -776,6 +821,22 @@ export const editCourse = async (req, res, next) => {
     }
     if (bundleOriginalPrice !== undefined) {
       course.bundleOriginalPrice = Number(bundleOriginalPrice) || 0;
+    }
+    if (bundledExams !== undefined) {
+      try {
+        const parsed = typeof bundledExams === "string" ? JSON.parse(bundledExams) : bundledExams;
+        if (Array.isArray(parsed)) {
+          course.bundledExams = parsed;
+          if (parsed.length > 0) {
+            await Exam.updateMany(
+              { _id: { $in: parsed } },
+              { $addToSet: { linkedCourses: course._id } }
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to parse bundledExams in editCourse:", err);
+      }
     }
 
     await course.save();

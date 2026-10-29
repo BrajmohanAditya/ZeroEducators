@@ -57,7 +57,7 @@ const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
         {item.isBundle && (
           <View style={styles.comboBadge}>
             <Text style={styles.comboBadgeText}>
-              COMBO • {item.bundledCourses?.length || 2} IN 1
+              COMBO • {((item.bundledCourses?.length || 0) + (item.bundledExams?.length || 0)) || 2} IN 1
             </Text>
           </View>
         )}
@@ -71,7 +71,7 @@ const CourseCard = React.memo(({ item, purchased, onCoursePress }) => {
         {item.isBundle && (
           <View style={styles.comboSubRow}>
             <Text style={styles.comboSubText}>
-              Includes {item.bundledCourses?.length || 0} Full Courses
+              Includes {(item.bundledCourses?.length || 0)} Courses{item.bundledExams?.length ? ` + ${item.bundledExams.length} Mock Tests` : ''}
             </Text>
           </View>
         )}
