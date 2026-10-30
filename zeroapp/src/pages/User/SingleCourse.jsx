@@ -106,6 +106,15 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
     ? currentCourse.duration
     : 'Lifetime Access';
 
+  const formatDurationDisplay = (dur) => {
+    if (!dur) return 'Lifetime Access';
+    const lower = dur.toLowerCase();
+    if (lower.includes('valid') || lower.includes('access') || lower.includes('validity')) {
+      return dur;
+    }
+    return `${dur} Validity`;
+  };
+
   // Calculate Course Content Stats
   const totalPdfs = useMemo(() => {
     const subjectPdfs =
@@ -527,7 +536,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
 
               <View style={styles.metaItem}>
                 <Clock size={15} color="#10b981" />
-                <Text style={styles.metaText}>{activeDuration}</Text>
+                <Text style={styles.metaText}>{formatDurationDisplay(activeDuration)}</Text>
               </View>
             </View>
 
@@ -655,7 +664,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
                                   isSelected && styles.planDurationActive,
                                 ]}
                               >
-                                {plan.duration}
+                                {formatDurationDisplay(plan.duration)}
                               </Text>
                               <View
                                 style={[
@@ -860,7 +869,7 @@ export const SingleCourse = ({ course, user, onBack, onNavigate, onEnroll, onUse
                       {activePlan && (
                         <View style={styles.planDurationBadge}>
                           <Text style={styles.planDurationBadgeText}>
-                            {activePlan.duration}
+                            {formatDurationDisplay(activePlan.duration)}
                           </Text>
                         </View>
                       )}

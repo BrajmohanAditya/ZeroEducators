@@ -48,6 +48,15 @@ const SingleCourse = () => {
     ? course.duration
     : "Lifetime Access";
 
+  const formatDurationDisplay = (dur) => {
+    if (!dur) return "Lifetime Access";
+    const lower = dur.toLowerCase();
+    if (lower.includes("valid") || lower.includes("access") || lower.includes("validity")) {
+      return dur;
+    }
+    return `${dur} Validity`;
+  };
+
   const totalPdfs = React.useMemo(() => {
     const subjectPdfs =
       course?.subjects?.reduce(
@@ -232,7 +241,7 @@ const SingleCourse = () => {
             )}
             <div className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-emerald-500" />
-              {activeDuration}
+              {formatDurationDisplay(activeDuration)}
             </div>
           </div>
 
@@ -311,7 +320,7 @@ const SingleCourse = () => {
                             isSelected ? "text-blue-900" : "text-slate-700"
                           }`}
                         >
-                          {plan.duration}
+                          {formatDurationDisplay(plan.duration)}
                         </span>
                         <span
                           className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
@@ -529,7 +538,7 @@ const SingleCourse = () => {
                   )}
                   {activePlan && (
                     <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                      {activePlan.duration}
+                      {formatDurationDisplay(activePlan.duration)}
                     </span>
                   )}
                 </div>
