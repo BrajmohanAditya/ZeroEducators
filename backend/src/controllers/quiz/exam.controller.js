@@ -322,7 +322,9 @@ export const toggleExamLock = async (req, res, next) => {
 // 7. Get logged-in user's purchased exams (supports guests gracefully)
 export const getMyPurchasedExams = async (req, res, next) => {
   try {
-    const token = req.cookies?.token || req.query?.token;
+    const authHeader = req.headers?.authorization;
+    const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const token = req.cookies?.token || req.query?.token || bearerToken;
     if (!token) {
       return res.status(200).json({
         success: true,

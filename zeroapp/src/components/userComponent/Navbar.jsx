@@ -14,6 +14,7 @@ import {
   Search,
   User,
   BookOpen,
+  GraduationCap,
   LogOut,
   LogIn,
   UserPlus,
@@ -179,6 +180,14 @@ export const Navbar = ({
                     >
                       <BookOpen size={16} color="#64748b" />
                       <Text style={styles.menuItemLabel}>Your Courses</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => handleNav('MockTests')}
+                    >
+                      <GraduationCap size={16} color="#64748b" />
+                      <Text style={styles.menuItemLabel}>Mock Test Series</Text>
                     </TouchableOpacity>
 
                     <View style={styles.menuDivider} />

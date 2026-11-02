@@ -124,7 +124,7 @@ const PurchasedCourseCard = ({ item, onOpenCourse }) => {
 // Dedicated Card component for individual purchased or course-linked exam
 const PurchasedExamCard = ({ item, onOpenExam }) => {
   const [imgError, setImgError] = useState(false);
-  const exam = item || {};
+  const exam = item?.exam || item || {};
 
   return (
     <TouchableOpacity
@@ -413,8 +413,20 @@ export const YourAllPurchasedCourse = ({
 
             {activeTab === 'exams' && purchasedExams.length === 0 && (
               <View style={styles.subEmptyCard}>
-                <GraduationCap size={28} color="#94a3b8" />
-                <Text style={styles.subEmptyText}>No Mock Tests Assigned</Text>
+                <GraduationCap size={36} color="#94a3b8" />
+                <Text style={styles.subEmptyTitle}>No Mock Tests Available</Text>
+                <Text style={styles.subEmptyText}>
+                  You have not been assigned or enrolled in any mock test packages yet.
+                </Text>
+                {onExploreExams && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={onExploreExams}
+                    style={styles.exploreExamsBtn}
+                  >
+                    <Text style={styles.exploreExamsBtnText}>Explore Test Series</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -823,10 +835,18 @@ const styles = StyleSheet.create({
     gap: 8,
     marginVertical: 10,
   },
+  subEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 4,
+  },
   subEmptyText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 8,
   },
 });
 

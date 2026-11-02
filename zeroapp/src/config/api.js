@@ -83,11 +83,13 @@ export const fetchMyPurchasedExamsApi = async (token) => {
     const effectiveToken = token || session?.token;
     if (!effectiveToken) return [];
 
-    const res = await fetch(`${BASE_URL}/exam/my-purchased-exams`, {
+    const url = `${BASE_URL}/exam/my-purchased-exams?token=${encodeURIComponent(effectiveToken)}`;
+    const res = await fetch(url, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
         Authorization: `Bearer ${effectiveToken}`,
+        Cookie: `token=${effectiveToken}`,
       },
     });
     const data = await res.json();

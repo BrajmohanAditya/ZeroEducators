@@ -67,6 +67,12 @@ export function App() {
     setScreenParams(params);
     setCurrentScreen(screenName);
 
+    if (screenName === 'MyCourses') {
+      fetchMyPurchasedExamsApi().then((exams) => {
+        if (exams) setMyPurchasedExams(exams);
+      });
+    }
+
     // Sync tab if matching
     const tabMap = {
       Home: 'Home',
@@ -122,10 +128,12 @@ export function App() {
       }
       if (session?.token) {
         setUserToken(session.token);
-        const freshUser = await refreshUserProfileApi();
-        if (freshUser) {
-          setCurrentUser(freshUser);
-        }
+        refreshUserProfileApi().then((freshUser) => {
+          if (freshUser) setCurrentUser(freshUser);
+        });
+        fetchMyPurchasedExamsApi(session.token).then((exams) => {
+          if (exams) setMyPurchasedExams(exams);
+        });
       }
     }).catch((err) => {
       console.log('Error restoring user session:', err);
@@ -142,6 +150,9 @@ export function App() {
           if (refreshedUser) {
             setCurrentUser(refreshedUser);
           }
+        });
+        fetchMyPurchasedExamsApi().then((exams) => {
+          if (exams) setMyPurchasedExams(exams);
         });
       }
     });
@@ -401,22 +412,25 @@ export function App() {
             purchasedCourses={myPurchasedCourses}
             purchasedExams={myPurchasedExams}
             onOpenCourse={(course) => navigate('CoursePlayer', { course })}
-            onOpenExam={(exam) =>
+            onOpenExam={(exam) => {
+              const examId = exam?._id || exam?.id || (typeof exam === 'string' ? exam : null);
+              const examTitle = exam?.title || exam?.name || 'Mock Test Series';
               navigate('Quizzes', {
                 type: 'Paid',
-                examId: exam._id || exam.id,
-                examTitle: exam.title || exam.name,
-              })
-            }
+                examId,
+                examTitle,
+                fromScreen: 'MyCourses',
+              });
+            }}
             onExploreCourses={() => navigate('Home')}
-            onExploreExams={() => navigate('StudyMaterial')}
+            onExploreExams={() => navigate('MockTests')}
           />
         )}
 
         {currentScreen === 'eBooks' && (
           <AllEbooks
             onSelectEbook={(ebook) => navigate('Courses')}
-            onBack={() => navigate('Home')}
+            onBack={goBack}
           />
         )}
 
@@ -457,7 +471,7 @@ export function App() {
                 passedQuiz: quiz,
               })
             }
-            onBack={() => navigate('Home')}
+            onBack={goBack}
           />
         )}
       </UserLayout>

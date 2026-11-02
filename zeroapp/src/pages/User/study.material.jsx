@@ -17,8 +17,6 @@ import {
   Target,
   Megaphone,
   Crown,
-  PlaySquare,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react-native';
 import Svg, { Rect, Path, Line } from 'react-native-svg';
@@ -403,24 +401,6 @@ const styles = StyleSheet.create({
   },
   orangeText: {
     color: '#c2410c',
-  },
-
-  // Live Red Pulsing Badge
-  livePulseHalo: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  livePulseDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#ef4444',
-    borderWidth: 2,
-    borderColor: '#ffffff',
   },
 
   // 2x2 Grid inside cards
