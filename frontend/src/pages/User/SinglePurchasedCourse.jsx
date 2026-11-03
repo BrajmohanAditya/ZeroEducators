@@ -105,10 +105,27 @@ const SinglePurchasedCourse = () => {
       return;
     }
 
+    // 1. Direct Bunny Stream CDN / HLS URL (ultra-fast, zero buffering, direct adaptive streaming)
+    if (module.Video && typeof module.Video === "string") {
+      const cleanUrl = module.Video.trim();
+      if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+        setVideoStreamUrl(cleanUrl);
+        setIsLoadingStream(false);
+        return;
+      }
+    }
+
+    // 2. Direct Bunny GUID if present
+    if (module.bunnyGuid && typeof module.bunnyGuid === "string" && module.bunnyGuid.trim()) {
+      setVideoStreamUrl(`https://vz-519ac044-098.b-cdn.net/${module.bunnyGuid.trim()}/playlist.m3u8`);
+      setIsLoadingStream(false);
+      return;
+    }
+
     const videoIdentifier =
-      module.moduleId ||
+      module.Video_id ||
       (module._id && String(module._id).length === 24 ? module._id : null) ||
-      module.Video_id;
+      module.moduleId;
 
     if (!videoIdentifier) {
       setVideoStreamUrl(module.Video || null);

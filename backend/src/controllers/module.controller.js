@@ -179,7 +179,7 @@ const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const streamUrlCache = new Map();
 
 /**
- * Resolves video details (module, videoId, courseId) across Modules, Course Subjects, Topics, or direct key
+ * Resolves video details (module, videoId, courseId) across Course Subjects, Topics, Modules, or direct key
  */
 const resolveVideoDetails = async (moduleId) => {
   const isObjectId = mongoose.isValidObjectId(moduleId);
@@ -187,44 +187,44 @@ const resolveVideoDetails = async (moduleId) => {
   let videoId = null;
   let courseId = null;
 
+  // 1. Search in Course subjects -> chapters -> videos first (authoritative course curriculum)
+  const matchConditions = [
+    { "subjects.chapters.videos.Video_id": moduleId },
+    { "subjects.chapters.videos.bunnyGuid": moduleId },
+  ];
   if (isObjectId) {
-    module = await Modules.findById(moduleId);
-    if (module) {
-      videoId = module.Video_id;
-      courseId = module.courseId;
-    }
+    matchConditions.push({ "subjects.chapters.videos._id": moduleId });
+    matchConditions.push({ "subjects.chapters.videos.moduleId": moduleId });
   }
 
-  // 1. Search in Course subjects -> chapters -> videos
-  if (!module) {
-    const matchConditions = [
-      { "subjects.chapters.videos.Video_id": moduleId },
-    ];
-    if (isObjectId) {
-      matchConditions.push({ "subjects.chapters.videos._id": moduleId });
-      matchConditions.push({ "subjects.chapters.videos.moduleId": moduleId });
-    }
+  const courseWithSubjectVideo = await Course.findOne({ $or: matchConditions });
 
-    const courseWithSubjectVideo = await Course.findOne({ $or: matchConditions });
-
-    if (courseWithSubjectVideo) {
-      courseId = courseWithSubjectVideo._id;
-      for (const subject of courseWithSubjectVideo.subjects || []) {
-        for (const chapter of subject.chapters || []) {
-          const v = (chapter.videos || []).find(
-            (vid) =>
-              (isObjectId && vid._id?.toString() === moduleId) ||
-              (isObjectId && vid.moduleId?.toString() === moduleId) ||
-              vid.Video_id === moduleId
-          );
-          if (v) {
-            videoId = v.Video_id;
-            module = { Video_id: v.Video_id, courseId: courseWithSubjectVideo._id, Video: v.Video };
-            break;
-          }
+  if (courseWithSubjectVideo) {
+    courseId = courseWithSubjectVideo._id;
+    for (const subject of courseWithSubjectVideo.subjects || []) {
+      for (const chapter of subject.chapters || []) {
+        const v = (chapter.videos || []).find(
+          (vid) =>
+            (isObjectId && vid._id?.toString() === moduleId) ||
+            (isObjectId && vid.moduleId?.toString() === moduleId) ||
+            vid.Video_id === moduleId ||
+            vid.bunnyGuid === moduleId
+        );
+        if (v) {
+          videoId = v.Video_id || v.bunnyGuid;
+          module = {
+            _id: v._id,
+            title: v.title,
+            Video_id: v.Video_id || v.bunnyGuid,
+            courseId: courseWithSubjectVideo._id,
+            Video: v.Video,
+            bunnyGuid: v.bunnyGuid,
+            originalZataVideo: v.originalZataVideo,
+          };
+          break;
         }
-        if (module) break;
       }
+      if (module) break;
     }
   }
 
@@ -232,6 +232,7 @@ const resolveVideoDetails = async (moduleId) => {
   if (!module) {
     const matchTopicConditions = [
       { "topics.videos.Video_id": moduleId },
+      { "topics.videos.bunnyGuid": moduleId },
     ];
     if (isObjectId) {
       matchTopicConditions.push({ "topics.videos._id": moduleId });
@@ -245,14 +246,33 @@ const resolveVideoDetails = async (moduleId) => {
           (vid) =>
             (isObjectId && vid._id?.toString() === moduleId) ||
             (isObjectId && vid.moduleId?.toString() === moduleId) ||
-            vid.Video_id === moduleId
+            vid.Video_id === moduleId ||
+            vid.bunnyGuid === moduleId
         );
         if (v) {
-          videoId = v.Video_id;
-          module = { Video_id: v.Video_id, courseId: courseWithVideo._id, Video: v.Video };
+          videoId = v.Video_id || v.bunnyGuid;
+          module = {
+            _id: v._id,
+            title: v.title,
+            Video_id: v.Video_id || v.bunnyGuid,
+            courseId: courseWithVideo._id,
+            Video: v.Video,
+            bunnyGuid: v.bunnyGuid,
+            originalZataVideo: v.originalZataVideo,
+          };
           break;
         }
       }
+    }
+  }
+
+  // 3. Fallback: Search in standalone Modules collection
+  if (!module && isObjectId) {
+    const standaloneModule = await Modules.findById(moduleId);
+    if (standaloneModule) {
+      module = standaloneModule;
+      videoId = standaloneModule.Video_id;
+      courseId = standaloneModule.courseId;
     }
   }
 
