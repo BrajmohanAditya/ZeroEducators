@@ -60,13 +60,15 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
   const [activePdf, setActivePdf] = useState(null);
   const [pdfModalVisible, setPdfModalVisible] = useState(false);
 
-  // Load auth token for secure video streaming (with auto-refresh from stream-token endpoint)
+  // Load auth token for secure streaming (with auto-refresh from stream-token endpoint)
   useEffect(() => {
     getUserSession().then(async (session) => {
+      const uId = session?.user?._id || user?._id;
       if (session?.token) {
         setUserToken(session.token);
-      } else if (session?.user?._id || user?._id) {
-        const uId = session?.user?._id || user?._id;
+      }
+      // Always refresh token in background if user is authenticated so it never expires
+      if (uId) {
         try {
           const res = await fetch(`${BASE_URL}/user/stream-token`, {
             method: 'POST',
@@ -225,30 +227,32 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
 
   // Open PDF notes securely through in-app secure viewer
   const handleOpenPdf = async (pdf) => {
-    let currentToken = userToken;
-    if (!currentToken) {
-      try {
-        const session = await getUserSession();
-        currentToken = session?.token;
-        if (currentToken) setUserToken(currentToken);
-      } catch (e) {
-        console.warn('Error reading session token:', e);
-      }
-    }
-    const tokenQuery = currentToken ? `?token=${encodeURIComponent(currentToken)}` : '';
     let url = null;
     const courseId = courseData?._id || course?._id;
 
-    if (courseId && pdf?._id && String(pdf._id).length === 24 && currentToken) {
-      url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}${tokenQuery}`;
-    } else if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string') {
-      url = pdf.pdfUrl;
-    } else if (courseId && pdf?._id) {
-      url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}`;
+    // 1. Direct high-speed CDN URL (Zero 401 token errors, 0 delay, instant rendering)
+    if (pdf?.pdfUrl && typeof pdf.pdfUrl === 'string' && pdf.pdfUrl.trim().startsWith('http')) {
+      url = pdf.pdfUrl.trim();
+    } else {
+      // 2. Fallback to stream-pdf if direct URL is not present
+      let currentToken = userToken;
+      if (!currentToken) {
+        try {
+          const session = await getUserSession();
+          currentToken = session?.token;
+          if (currentToken) setUserToken(currentToken);
+        } catch (e) {
+          console.warn('Error reading session token:', e);
+        }
+      }
+      const tokenQuery = currentToken ? `?token=${encodeURIComponent(currentToken)}` : '';
+      if (courseId && pdf?._id) {
+        url = `${BASE_URL}/course/stream-pdf/${courseId}/${pdf._id}${tokenQuery}`;
+      }
     }
 
     if (url) {
-      setActivePdf({ ...pdf, resolvedUrl: url });
+      setActivePdf({ ...pdf, resolvedUrl: url, directUrl: pdf?.pdfUrl });
       setPdfModalVisible(true);
     } else {
       Alert.alert('Study Notes PDF', 'PDF document is not available for this chapter.');
@@ -807,6 +811,7 @@ export const SinglePurchasedCourse = ({ course, user, onBack, onNavigate }) => {
       <SecurePdfViewer
         visible={pdfModalVisible}
         pdfUrl={activePdf?.resolvedUrl}
+        directUrl={activePdf?.directUrl || activePdf?.pdfUrl}
         title={activePdf?.title || 'Chapter Study Note'}
         user={user}
         onClose={() => {

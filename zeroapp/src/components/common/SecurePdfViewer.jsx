@@ -36,6 +36,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const SecurePdfViewer = ({
   visible,
   pdfUrl,
+  directUrl,
   title = 'Study Note PDF',
   user,
   onClose,
@@ -420,7 +421,7 @@ export const SecurePdfViewer = ({
               ref={webViewRef}
               source={
                 useFallbackViewer
-                  ? { uri: `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(pdfUrl)}` }
+                  ? { uri: `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(directUrl || pdfUrl)}` }
                   : { html: htmlContent, baseUrl: 'https://zeroeducators.com' }
               }
               style={styles.webView}
