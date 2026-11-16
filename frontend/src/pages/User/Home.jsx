@@ -9,6 +9,7 @@ import SuccessBoardDisplay from "./success.board";
 import Footer from "@/components/userComponent/footer";
 import QualifiedMentorsDisplay from "./qualifiedMentors.board";
 import TrendingBar from "@/components/userComponent/TrendingBar";
+import CategoryBifurcationBar from "@/components/userComponent/CategoryBifurcationBar";
 
 const Home = () => {
   const [showPopup, setShowPopup] = useState(false);
@@ -31,6 +32,7 @@ const Home = () => {
 
   return (
     <div className="min-h-[88vh] bg-slate-50">
+      <CategoryBifurcationBar />
       <TrendingBar />
       <HeroSection />
       <StudyMaterial />

@@ -3,6 +3,7 @@ import {
   useGetCourseHook,
   useGetAllPurchasedCourseHook,
 } from "../../hooks/course.hook.js";
+import { useGetActiveCategoryBarsHook } from "../../hooks/categoryBar.hook.js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Clock,
@@ -20,10 +21,24 @@ import {
 const courseSection = () => {
   const { data, error, isLoading } = useGetCourseHook();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: purchasedData } = useGetAllPurchasedCourseHook();
+  const { data: catData } = useGetActiveCategoryBarsHook();
+  const categories = useMemo(() => catData?.categories || [], [catData]);
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  const activeCategoryId = searchParams.get("categoryId");
+  const activeCategoryName = searchParams.get("category");
+
+  const selectedCategory = useMemo(() => {
+    if (!activeCategoryId && !activeCategoryName) return null;
+    return categories.find(
+      (c) =>
+        (activeCategoryId && c._id === activeCategoryId) ||
+        (activeCategoryName && c.title?.toLowerCase() === activeCategoryName?.toLowerCase())
+    );
+  }, [categories, activeCategoryId, activeCategoryName]);
 
   useEffect(() => {
     const urlQuery = searchParams.get("search");
@@ -31,6 +46,13 @@ const courseSection = () => {
       setSearchQuery(urlQuery);
     }
   }, [searchParams]);
+
+  const handleClearCategory = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("category");
+    nextParams.delete("categoryId");
+    setSearchParams(nextParams);
+  };
 
   const navigateSinglecourse = (id) => {
     navigate(`/singleCourse/${id}`);
@@ -42,14 +64,29 @@ const courseSection = () => {
   }, [data?.courses]);
 
   const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return allCourses;
-    const query = searchQuery.toLowerCase().trim();
-    return allCourses.filter(
-      (course) =>
-        course.title?.toLowerCase().includes(query) ||
-        course.description?.toLowerCase().includes(query)
-    );
-  }, [allCourses, searchQuery]);
+    let list = allCourses;
+
+    // Filter by selected category from bifurcation bar if present
+    if (selectedCategory) {
+      const allowedIds = new Set(
+        (selectedCategory.courses || []).map((c) =>
+          typeof c === "object" ? c._id : c
+        )
+      );
+      list = list.filter((c) => allowedIds.has(c._id));
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (course) =>
+          course.title?.toLowerCase().includes(query) ||
+          course.description?.toLowerCase().includes(query)
+      );
+    }
+    return list;
+  }, [allCourses, selectedCategory, searchQuery]);
 
   if (isLoading) {
     return (
@@ -116,6 +153,38 @@ const courseSection = () => {
             </div>
           </div>
         </div>
+
+        {/* Category Filter Active Banner */}
+        {selectedCategory && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-50 via-sky-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/80 border border-blue-200/90 dark:border-slate-700 rounded-2xl p-4 shadow-xs animate-in fade-in-50 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#073b75] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#073b75] dark:text-blue-400">
+                    Category Filter
+                  </span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 px-2.5 py-0.5 rounded-full border border-blue-200/60 dark:border-slate-600 shadow-2xs">
+                    {filteredCourses.length} {filteredCourses.length === 1 ? "Course" : "Courses"} Available
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight mt-0.5">
+                  {selectedCategory.title}
+                </h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClearCategory}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-red-600 dark:hover:text-red-400 bg-white dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/40 border border-slate-200 dark:border-slate-600 hover:border-red-200 rounded-xl transition-all shadow-xs cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              Show All Courses
+            </button>
+          </div>
+        )}
 
         {/* Search filter active badge */}
         {searchQuery.trim() && (

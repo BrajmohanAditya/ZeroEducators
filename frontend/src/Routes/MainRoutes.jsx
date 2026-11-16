@@ -34,6 +34,7 @@ const SuccessBoard = lazy(() => import("@/pages/Admin/Success.board"));
 const EbookCreate = lazy(() => import("@/pages/Admin/ebook"));
 const CouponManagement = lazy(() => import("@/pages/Admin/CouponManagement"));
 const AnalyticsDashboard = lazy(() => import("@/pages/Admin/AnalyticsDashboard"));
+const CategoryBarManager = lazy(() => import("@/pages/Admin/CategoryBarManager"));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center">
@@ -183,6 +184,14 @@ const MainRoutes = () => {
           element={
             <ProtectedRoutes>
               <CouponManagement />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="category-bar"
+          element={
+            <ProtectedRoutes>
+              <CategoryBarManager />
             </ProtectedRoutes>
           }
         />

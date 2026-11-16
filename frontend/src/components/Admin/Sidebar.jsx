@@ -12,6 +12,7 @@ import {
   Presentation,
   Book,
   Ticket,
+  Layers,
 } from "lucide-react";
 
 const DashboardSidebar = () => {
@@ -23,6 +24,11 @@ const DashboardSidebar = () => {
       to: "/admindashboard/dashboardProduct",
       label: "Courses",
       icon: ShoppingBag,
+    },
+    {
+      to: "/admindashboard/category-bar",
+      label: "Category Bar",
+      icon: Layers,
     },
     {
       to: "/admindashboard/coupons",
