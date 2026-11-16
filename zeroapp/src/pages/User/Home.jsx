@@ -5,6 +5,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
+import CategoryBifurcationBar from '../../components/userComponent/CategoryBifurcationBar';
 import TrendingBar from '../../components/userComponent/TrendingBar';
 import HeroSection from '../../components/userComponent/HeroSection/heroSection';
 import StudyMaterial from './study.material';
@@ -15,6 +16,7 @@ import { colors } from '../../theme/colors';
 import {
   fetchLiveCourses,
   fetchLiveHeroSection,
+  fetchActiveCategoryBars,
   refreshUserProfileApi,
 } from '../../config/api';
 
@@ -31,6 +33,8 @@ export const Home = ({
   const [refreshing, setRefreshing] = useState(false);
   const [courses, setCourses] = useState(initialCourses);
   const [heroData, setHeroData] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   // Sync if parent passes or updates initialCourses
   useEffect(() => {
@@ -41,7 +45,7 @@ export const Home = ({
 
   const loadLiveData = async (isManualRefresh = false) => {
     try {
-      const promises = [fetchLiveHeroSection()];
+      const promises = [fetchLiveHeroSection(), fetchActiveCategoryBars()];
       // Only fetch courses if not already provided or if manual pull-to-refresh
       if (isManualRefresh || courses.length === 0) {
         promises.push(fetchLiveCourses());
@@ -52,11 +56,15 @@ export const Home = ({
 
       const results = await Promise.all(promises);
       const liveHero = results[0];
-      const liveCourses = results[1];
-      const freshUser = results[2];
+      const liveCategories = results[1];
+      const liveCourses = results[2];
+      const freshUser = results[3];
 
       if (liveHero) {
         setHeroData(liveHero);
+      }
+      if (liveCategories && liveCategories.length > 0) {
+        setCategories(liveCategories);
       }
       if (liveCourses && liveCourses.length > 0) {
         setCourses(liveCourses);
@@ -96,6 +104,21 @@ export const Home = ({
           />
         }
       >
+        {/* 0. Category Bifurcation Bar */}
+        <CategoryBifurcationBar
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={(cat) => setSelectedCategory(cat)}
+          onClearCategory={() => setSelectedCategory(null)}
+          onCoursePress={(course) => {
+            if (onCoursePress) {
+              onCoursePress(course);
+            } else if (onNavigate) {
+              onNavigate('SingleCourse', { course });
+            }
+          }}
+        />
+
         {/* 1. Trending Bar */}
         <TrendingBar
           onLinkPress={(link) => {
@@ -119,6 +142,8 @@ export const Home = ({
         <CourseSection
           courses={courses}
           user={user}
+          selectedCategory={selectedCategory}
+          onClearCategory={() => setSelectedCategory(null)}
           onCoursePress={(course) => {
             if (onCoursePress) {
               onCoursePress(course);

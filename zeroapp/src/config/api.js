@@ -57,6 +57,22 @@ export const fetchLiveHeroSection = async () => {
   }
 };
 
+export const fetchActiveCategoryBars = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/category-bar`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    const data = await res.json();
+    return data?.categories || [];
+  } catch (err) {
+    console.warn('[Live API] Error fetching category bars:', err?.message || err);
+    return [];
+  }
+};
+
 export const fetchLiveExams = async (params = {}) => {
   try {
     let url = `${BASE_URL}/exam/all`;
@@ -496,6 +512,7 @@ export const fetchFocusStatsApi = async ({ userId, deviceId } = {}) => {
 export default {
   BASE_URL,
   fetchLiveCourses,
+  fetchActiveCategoryBars,
   fetchLiveHeroSection,
   fetchLiveExams,
   fetchMyPurchasedExamsApi,

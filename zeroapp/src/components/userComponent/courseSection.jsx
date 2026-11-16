@@ -19,6 +19,7 @@ import {
   Sparkles,
   BookOpen,
   Play,
+  Layers,
 } from 'lucide-react-native';
 import { colors, shadows } from '../../theme/colors';
 import { fetchLiveCourses } from '../../config/api';
@@ -164,6 +165,8 @@ export const CourseSection = ({
   courses: initialCourses = [],
   onCoursePress,
   user,
+  selectedCategory = null,
+  onClearCategory,
 }) => {
   const [courses, setCourses] = useState(initialCourses);
   const [isLoading, setIsLoading] = useState(false);
@@ -201,19 +204,31 @@ export const CourseSection = ({
   }, [courses]);
 
   const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return allCourses;
+    let list = allCourses;
+
+    // Filter by selected category from bifurcation bar if present
+    if (selectedCategory) {
+      const allowedIds = new Set(
+        (selectedCategory.courses || []).map((c) =>
+          typeof c === 'object' ? String(c._id) : String(c)
+        )
+      );
+      list = list.filter((course) => allowedIds.has(String(course._id)));
+    }
+
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
-    return allCourses.filter(
+    return list.filter(
       (course) =>
         course.title?.toLowerCase().includes(q) ||
         course.description?.toLowerCase().includes(q)
     );
-  }, [allCourses, searchQuery]);
+  }, [allCourses, selectedCategory, searchQuery]);
 
   const displayedCourses = useMemo(() => {
-    if (searchQuery.trim()) return filteredCourses;
+    if (searchQuery.trim() || selectedCategory) return filteredCourses;
     return filteredCourses.slice(0, displayLimit);
-  }, [filteredCourses, searchQuery, displayLimit]);
+  }, [filteredCourses, searchQuery, selectedCategory, displayLimit]);
 
   const isCoursePurchased = useCallback((item) => {
     if (!user || !item?._id) return false;
@@ -284,6 +299,29 @@ export const CourseSection = ({
           )}
         </View>
       </View>
+
+      {/* Category Filter Active Banner */}
+      {selectedCategory && (
+        <View style={styles.categoryFilterBanner}>
+          <View style={styles.categoryBannerLeft}>
+            <View style={styles.categoryBannerIcon}>
+              <Layers size={14} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.categoryBannerSub}>Filtered Category</Text>
+              <Text style={styles.categoryBannerTitle} numberOfLines={1}>
+                {selectedCategory.title} ({filteredCourses.length} Courses)
+              </Text>
+            </View>
+          </View>
+          {onClearCategory && (
+            <TouchableOpacity onPress={onClearCategory} style={styles.clearCategoryBtn}>
+              <X size={13} color="#ef4444" />
+              <Text style={styles.clearCategoryText}>Show All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Active Filter Badge */}
       {searchQuery.trim().length > 0 && (
@@ -474,6 +512,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 14,
+  },
+  categoryFilterBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  categoryBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  categoryBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#073b75',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  categoryBannerSub: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#073b75',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  categoryBannerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 1,
+  },
+  clearCategoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  clearCategoryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#dc2626',
+    marginLeft: 3,
   },
   activeFilterText: {
     fontSize: 12,
