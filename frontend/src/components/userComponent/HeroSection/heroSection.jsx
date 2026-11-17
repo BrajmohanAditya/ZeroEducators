@@ -19,8 +19,8 @@ const HeroSection = () => {
 
   return (
     // Main Container
-    <div className="pt-8 pb-4 px-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="pt-8 pb-4 px-3 sm:px-6">
+      <div className="max-w-screen-2xl mx-auto">
         {/* Flex row banayenge jo badi screen par side-by-side hoga, aur mobile par upar-neeche */}
         <div className="flex flex-col lg:flex-row gap-6">
           {/* ========================================= */}
@@ -69,7 +69,10 @@ const HeroSection = () => {
           {/* ========================================= */}
           {/* RIGHT SIDE: Offer Banner (50% width)      */}
           {/* ========================================= */}
-          <div className=" w-full lg:w-[50%] bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden relative h-[180px] sm:h-[200px] lg:h-[240px] flex items-center justify-center p-3 lg:p-0">
+          <div
+            id="hero-banner"
+            className="w-full lg:w-[50%] bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden relative h-[180px] sm:h-[200px] lg:h-[240px] flex items-center justify-center p-3 lg:p-0"
+          >
             {isLoading ? (
               <h2 className="text-slate-800 text-xl font-bold z-10">
                 Loading banner...

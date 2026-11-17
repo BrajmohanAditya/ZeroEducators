@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../../store/user.store";
 import StudentIcon from "../icons/StudentIcon";
 import SearchBar from "./searchBar";
+import OfferTimerPill from "./OfferTimerPill";
 
 const Navbar = () => {
   const queryClient = useQueryClient();
@@ -39,6 +40,20 @@ const Navbar = () => {
         navigate("/login"); // Optional: send them to the login page
       },
     });
+  };
+
+  const getInitials = (fullName) => {
+    if (!fullName || typeof fullName !== "string") return "Account";
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "Account";
+    if (parts.length === 1) {
+      const single = parts[0];
+      return single.length > 1
+        ? (single[0] + single[single.length - 1]).toUpperCase()
+        : single.toUpperCase();
+    }
+    // First letter of first name + First letter of last name (e.g. Mohan singh -> MS)
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   let navItems = [];
@@ -102,9 +117,9 @@ const Navbar = () => {
           </AvatarFallback>
         </Avatar>
 
-        <div className="hidden lg:block text-left max-w-[100px]">
-          <p className="font-semibold text-xs text-slate-900 leading-tight truncate">
-            {user?.name ? user.name : "Account"}
+        <div className="hidden md:block text-left">
+          <p className="font-bold text-xs sm:text-sm text-slate-800 leading-tight uppercase tracking-wider">
+            {user?.name ? getInitials(user.name) : "Account"}
           </p>
         </div>
 
@@ -158,7 +173,7 @@ const Navbar = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-white w-full shadow-sm border-b-[3px] border-[#d4af37]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 md:py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-2 md:py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6">
         
         {/* Top row: Brand Logo on Left, Profile Avatar on Right on Mobile */}
         <div className="w-full md:w-auto flex items-center justify-between gap-3 shrink-0">
@@ -185,7 +200,8 @@ const Navbar = () => {
           </div>
 
           {/* User Profile Trigger on Mobile (< md) */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
+            <OfferTimerPill />
             {renderUserMenu()}
           </div>
         </div>
@@ -196,7 +212,8 @@ const Navbar = () => {
         </div>
 
         {/* User Profile Trigger on Desktop (>= md) */}
-        <div className="hidden md:flex items-center shrink-0">
+        <div className="hidden md:flex items-center gap-3 shrink-0">
+          <OfferTimerPill />
           {renderUserMenu()}
         </div>
 

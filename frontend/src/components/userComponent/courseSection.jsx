@@ -90,8 +90,8 @@ const courseSection = () => {
 
   if (isLoading) {
     return (
-      <div className="pt-4 pb-12 px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-7xl mx-auto">
+      <div className="pt-4 pb-12 px-3 sm:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-screen-2xl mx-auto">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="bg-slate-200 h-64 rounded-2xl p-6">
@@ -110,8 +110,8 @@ const courseSection = () => {
   }
 
   return (
-    <div id="courses" className="pt-4 pb-12 px-6 bg-slate-50">
-      <div className="max-w-7xl mx-auto">
+    <div id="courses" className="pt-4 pb-12 px-3 sm:px-6 bg-slate-50">
+      <div className="max-w-screen-2xl mx-auto">
         {/* Section Header & Course Search Dropdown */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

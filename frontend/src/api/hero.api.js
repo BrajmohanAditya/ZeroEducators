@@ -25,3 +25,10 @@ export const deleteHeroSectionApi = async (id) => {
     });
     return res.data;
 };
+
+export const updateOfferTimerApi = async (data) => {
+    const res = await axios.put(`${baseUrl}/hero/timer`, data, {
+        withCredentials: true,
+    });
+    return res.data;
+};

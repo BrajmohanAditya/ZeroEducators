@@ -1,5 +1,10 @@
 
-import { createHeroSectionApi, getHeroSectionApi, deleteHeroSectionApi } from "../api/hero.api.js";
+import {
+  createHeroSectionApi,
+  getHeroSectionApi,
+  deleteHeroSectionApi,
+  updateOfferTimerApi,
+} from "../api/hero.api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -41,6 +46,22 @@ export const useDeleteHeroSectionHook = () => {
 
     onError: (err) => {
       const message = err.response?.data?.message;
+      toast.error(message);
+    },
+  });
+};
+
+export const useUpdateOfferTimerHook = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateOfferTimerApi,
+    onSuccess: (data) => {
+      toast.success(data?.message || "Offer timer updated successfully!");
+      queryClient.invalidateQueries(["getHeroSections"]);
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || "Failed to update timer";
       toast.error(message);
     },
   });

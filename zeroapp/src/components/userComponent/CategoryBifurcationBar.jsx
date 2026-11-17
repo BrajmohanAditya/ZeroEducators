@@ -19,6 +19,7 @@ import {
   X,
   ArrowRight,
 } from 'lucide-react-native';
+import OfferTimerPill from './OfferTimerPill';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -28,6 +29,8 @@ export const CategoryBifurcationBar = ({
   onSelectCategory,
   onClearCategory,
   onCoursePress,
+  offerTimer = null,
+  onOfferPress,
 }) => {
   const [modalCategory, setModalCategory] = useState(null);
 
@@ -67,6 +70,19 @@ export const CategoryBifurcationBar = ({
         contentContainerStyle={styles.scrollContent}
         overScrollMode="never"
       >
+        {/* 0. Live Dhamaka Offer Timer Pill (If Active) */}
+        {offerTimer && (
+          <>
+            <OfferTimerPill
+              offerTimer={offerTimer}
+              onPress={onOfferPress}
+            />
+            <View style={styles.pipeSeparator}>
+              <Text style={styles.pipeText}>|</Text>
+            </View>
+          </>
+        )}
+
         {/* 1. "All Courses" Pill */}
         <TouchableOpacity
           activeOpacity={0.8}

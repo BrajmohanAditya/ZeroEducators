@@ -108,6 +108,7 @@ export const Home = ({
         <CategoryBifurcationBar
           categories={categories}
           selectedCategory={selectedCategory}
+          offerTimer={heroData?.offerTimer}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
           onClearCategory={() => setSelectedCategory(null)}
           onCoursePress={(course) => {

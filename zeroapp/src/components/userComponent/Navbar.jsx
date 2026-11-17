@@ -42,6 +42,19 @@ export const Navbar = ({
     }
   };
 
+  const getInitials = (fullName) => {
+    if (!fullName || typeof fullName !== 'string') return '';
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) {
+      const single = parts[0];
+      return single.length > 1
+        ? (single[0] + single[single.length - 1]).toUpperCase()
+        : single.toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   const filteredCourses = searchQuery.trim()
     ? courses.filter(
         (c) =>
@@ -94,7 +107,7 @@ export const Navbar = ({
             <View style={styles.avatarBorder}>
               {user?.name ? (
                 <Text style={styles.avatarInitials}>
-                  {user.name.slice(0, 2).toUpperCase()}
+                  {getInitials(user.name)}
                 </Text>
               ) : (
                 <User size={16} color="#073b75" />

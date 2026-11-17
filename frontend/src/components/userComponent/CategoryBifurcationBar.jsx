@@ -158,7 +158,7 @@ const CategoryBifurcationBar = () => {
       ref={containerRef}
       className="w-full bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shadow-[0_2px_4px_rgba(0,0,0,0.02)] select-none relative z-40 overflow-visible"
     >
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 relative overflow-visible">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 relative overflow-visible">
         {/* Pills Horizontal Scroll Row */}
         <div
           ref={scrollRowRef}
