@@ -13,15 +13,15 @@ const TrendingBar = () => {
 
   return (
     <div className="w-full bg-amber-50/80 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-b border-amber-100/50 dark:border-slate-800 select-none overflow-hidden relative shadow-xs">
-      <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 flex items-center h-10 relative">
+      <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-6 flex items-center h-10 relative min-w-0">
         {/* Label */}
-        <div className="flex items-center gap-1.5 bg-amber-50/95 dark:bg-slate-900 pr-4 z-10 font-extrabold text-xs tracking-wider uppercase shrink-0 border-r border-amber-200/80 dark:border-slate-800 h-full text-red-600 dark:text-red-400">
+        <div className="flex items-center gap-1.5 bg-amber-50/95 dark:bg-slate-900 pr-3 sm:pr-4 z-10 font-extrabold text-[11px] sm:text-xs tracking-wider uppercase shrink-0 border-r border-amber-200/80 dark:border-slate-800 h-full text-red-600 dark:text-red-400">
           <span role="img" aria-label="fire" className="animate-pulse">🔥</span>
           <span className="whitespace-nowrap">Trending Links:</span>
         </div>
 
         {/* Marquee Area */}
-        <div className="flex-1 overflow-hidden relative flex items-center h-full group">
+        <div className="flex-1 min-w-0 overflow-hidden relative flex items-center h-full group">
           <div className="animate-marquee group-hover:[animation-play-state:paused] flex items-center gap-8 pl-4">
             {trendingLinks.map((link, idx) => (
               <React.Fragment key={idx}>

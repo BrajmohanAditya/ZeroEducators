@@ -156,13 +156,13 @@ const CategoryBifurcationBar = () => {
   return (
     <div
       ref={containerRef}
-      className="w-full bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shadow-[0_2px_4px_rgba(0,0,0,0.02)] select-none relative z-40 overflow-visible"
+      className="w-full max-w-full bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shadow-[0_2px_4px_rgba(0,0,0,0.02)] select-none relative z-40 overflow-visible"
     >
-      <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 relative overflow-visible">
+      <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-6 relative overflow-visible">
         {/* Pills Horizontal Scroll Row */}
         <div
           ref={scrollRowRef}
-          className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-2 scroll-smooth"
+          className="w-full max-w-full flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-2 scroll-smooth"
         >
           {/* "All Courses" reset pill */}
           <button

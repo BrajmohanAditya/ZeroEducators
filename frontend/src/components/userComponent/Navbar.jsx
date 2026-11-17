@@ -176,34 +176,38 @@ const Navbar = () => {
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 py-2 md:py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6">
         
         {/* Top row: Brand Logo on Left, Profile Avatar on Right on Mobile */}
-        <div className="w-full md:w-auto flex items-center justify-between gap-3 shrink-0">
+        <div className="w-full md:w-auto flex items-center justify-between gap-2 shrink-0">
           <div
-            className="flex items-center gap-2 cursor-pointer group select-none shrink-0"
+            className="flex items-center gap-2 cursor-pointer group select-none min-w-0"
             onClick={() => navigate("/")}
           >
             <img
               src="/logo3rd.png"
               alt="Zero Educators Logo"
-              className="h-8 sm:h-10 md:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-xs"
+              className="h-8 sm:h-10 md:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-xs shrink-0"
             />
 
             <h1
-              className="text-lg sm:text-xl lg:text-2xl font-black tracking-tight uppercase flex items-center leading-none"
+              className="text-base sm:text-xl lg:text-2xl font-black tracking-tight uppercase flex items-center leading-none"
               style={{
                 fontFamily: "'Outfit', 'Poppins', sans-serif",
               }}
             >
-              <span className="bg-gradient-to-r from-[#073b75] via-[#0b5cb8] to-[#1976d2] bg-clip-text text-transparent font-black drop-shadow-[0_1px_1px_rgba(7,59,117,0.2)]">
+              <span className="bg-gradient-to-r from-[#073b75] via-[#0b5cb8] to-[#1976d2] bg-clip-text text-transparent font-black drop-shadow-[0_1px_1px_rgba(7,59,117,0.2)] truncate">
                 ZEROEDUCATORS
               </span>
             </h1>
           </div>
 
           {/* User Profile Trigger on Mobile (< md) */}
-          <div className="md:hidden flex items-center gap-2">
-            <OfferTimerPill />
+          <div className="md:hidden flex items-center shrink-0">
             {renderUserMenu()}
           </div>
+        </div>
+
+        {/* Mobile-Only Festive Offer Timer Pill Row (Centered below logo, prevents overflow) */}
+        <div className="md:hidden flex justify-center w-full empty:hidden">
+          <OfferTimerPill />
         </div>
 
         {/* Center: Search Bar (Full width row on mobile, centered row on desktop) */}

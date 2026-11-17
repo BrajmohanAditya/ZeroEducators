@@ -132,6 +132,11 @@
   * {
     @apply border-border outline-ring/50;
     }
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100vw;
+    }
   body {
     background-color: var(--bg-fallback);
     color: var(--text-fallback);

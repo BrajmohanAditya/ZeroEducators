@@ -31,7 +31,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-[88vh] bg-slate-50">
+    <div className="min-h-[88vh] bg-slate-50 w-full max-w-full overflow-x-clip">
       <CategoryBifurcationBar />
       <TrendingBar />
       <HeroSection />
